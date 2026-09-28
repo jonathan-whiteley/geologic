@@ -1,0 +1,163 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base styles */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-surface-secondary text-text-primary antialiased;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-surface-secondary;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400;
+}
+
+/* Focus styles */
+*:focus-visible {
+  @apply outline-none ring-2 ring-lce-orange ring-offset-2;
+}
+
+/* Card */
+.card {
+  @apply bg-white rounded-2xl border border-gray-100 shadow-soft;
+}
+
+/* Card hover effect */
+.card-hover {
+  @apply transition-all duration-300 ease-out;
+}
+
+.card-hover:hover {
+  @apply shadow-medium -translate-y-0.5;
+}
+
+/* Glass effect */
+.glass {
+  @apply bg-white/80 backdrop-blur-md;
+}
+
+/* Little Caesars brand gradient */
+.lce-gradient {
+  background: linear-gradient(135deg, #FF671B 0%, #FF8F57 100%);
+}
+
+/* Icon tile used in card headers */
+.icon-tile {
+  @apply w-10 h-10 rounded-xl bg-lce-orange/10 flex items-center justify-center text-lce-orange shrink-0;
+}
+
+/* Badges */
+.badge {
+  @apply inline-flex items-center gap-1.5 rounded-full font-medium text-xs px-2 py-0.5;
+}
+.badge .dot {
+  @apply w-1.5 h-1.5 rounded-full;
+}
+.b-default { @apply bg-gray-100 text-gray-700; }
+.b-default .dot { @apply bg-gray-500; }
+.b-success { @apply bg-green-50 text-green-700; }
+.b-success .dot { @apply bg-green-500; }
+.b-warning { @apply bg-amber-50 text-amber-700; }
+.b-warning .dot { @apply bg-amber-500; }
+.b-error { @apply bg-red-50 text-red-700; }
+.b-error .dot { @apply bg-red-500; }
+.b-info { @apply bg-blue-50 text-blue-700; }
+.b-info .dot { @apply bg-blue-500; }
+.b-brand { @apply bg-lce-orange/10 text-lce-orange-dark; }
+.b-brand .dot { @apply bg-lce-orange; }
+
+/* Buttons */
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl font-medium text-sm px-4 py-2.5 transition-all duration-200 active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed;
+}
+.btn-primary { @apply lce-gradient text-white shadow-soft hover:shadow-medium; }
+.btn-secondary { @apply bg-white text-text-primary border border-gray-200 hover:border-gray-300 hover:bg-gray-50; }
+.btn-ghost { @apply text-text-secondary hover:text-text-primary hover:bg-gray-100; }
+
+/* Segmented nav */
+.nav-item {
+  @apply flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all text-text-secondary hover:text-text-primary whitespace-nowrap;
+}
+.nav-item.active { @apply bg-white text-lce-orange shadow-soft; }
+
+.sub-item {
+  @apply flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary transition-all;
+}
+.sub-item.active { @apply bg-white text-text-primary shadow-soft; }
+
+/* Suggestion tier pills */
+.tier { @apply font-mono text-[11px] font-semibold px-1.5 py-0.5 rounded-md; }
+.t0 { @apply bg-green-50 text-green-700; }
+.t1 { @apply bg-blue-50 text-blue-700; }
+.t2 { @apply bg-amber-50 text-amber-700; }
+
+/* Heatmap */
+.heat td.cell {
+  @apply text-center rounded-lg py-2.5 font-mono text-sm cursor-pointer transition-all hover:ring-2 hover:ring-text-primary;
+}
+.heat td.cell.sel { @apply ring-2 ring-lce-orange; }
+
+/* Diff blocks */
+.code {
+  @apply font-mono text-xs leading-relaxed bg-surface-secondary border border-gray-100 rounded-xl p-4 whitespace-pre-wrap overflow-x-auto;
+}
+.code .add { @apply block bg-green-50 text-green-700 -mx-4 px-4; }
+.code .del { @apply block bg-red-50 text-red-700 -mx-4 px-4 line-through; }
+
+/* Inline claim markers */
+mark.bad { @apply bg-red-50 text-red-700 px-1 rounded; }
+mark.ok { @apply bg-green-50 text-green-700 px-1 rounded; }
+
+/* Signal thumbnail placeholder (no real images, no faces) */
+.thumb {
+  background:
+    radial-gradient(circle at 38% 58%, #F2B25C 0 22%, #C9471A 23% 30%, transparent 31%),
+    radial-gradient(circle at 70% 30%, #2F4A2B 0 18%, transparent 19%),
+    linear-gradient(160deg, #6C8FB0, #2C3E50);
+}
+
+/* Animation utilities */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+
+/* Number formatting */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Chart tooltip */
+.recharts-tooltip-wrapper {
+  @apply !outline-none;
+}
+
+.custom-tooltip {
+  @apply bg-white/95 backdrop-blur-sm rounded-xl shadow-medium p-3 border border-gray-100;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
