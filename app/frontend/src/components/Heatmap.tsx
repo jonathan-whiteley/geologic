@@ -68,7 +68,7 @@ export default function Heatmap({ data, onCellClick }: HeatmapProps) {
         <i className="w-6 h-2 rounded-sm bg-orange-200 block" />
         <i className="w-6 h-2 rounded-sm bg-orange-400 block" />
         <i className="w-6 h-2 rounded-sm bg-lce-orange-dark block" />
-        0.6+
+        0.5+
       </div>
     </div>
   )
