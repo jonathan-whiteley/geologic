@@ -29,3 +29,10 @@ def test_verify_claims():
 
 def test_accuracy_none_when_nothing_checkable():
     assert accuracy_score([{"verdict": "unverifiable"}]) is None
+
+def test_resolve_item_longest_alias_match():
+    assert resolve_item("How much is the stuffed crazy bread with extra cheese", MENU)["item_id"] == "stuffed_crazy_bread"
+
+def test_verify_claims_deal_price_pizza_only():
+    out = verify_claims([{"item": "Crazy Bread", "price": "$4.99"}], MENU, DEALS)
+    assert out[0]["verdict"] == "wrong"

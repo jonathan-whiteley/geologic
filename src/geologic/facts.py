@@ -29,9 +29,16 @@ def resolve_item(name: str, menu: list[dict]) -> dict | None:
     for m in menu:
         if k == _key(m["name"]) or k in {_key(a) for a in m.get("aliases", [])}:
             return m
+    # Partial match: find all items whose aliases match on word boundaries, return longest match
+    matches = []
     for m in menu:
-        if any(_key(a) and _key(a) in k for a in m.get("aliases", [])):
-            return m
+        for alias in m.get("aliases", []):
+            alias_key = _key(alias)
+            if alias_key and re.search(rf"\b{re.escape(alias_key)}\b", k):
+                matches.append((m, len(alias_key)))
+    if matches:
+        matches.sort(key=lambda x: x[1], reverse=True)
+        return matches[0][0]
     return None
 
 def verify_claims(claims: list[dict], menu: list[dict], deals: list[dict]) -> list[dict]:
@@ -42,7 +49,9 @@ def verify_claims(claims: list[dict], menu: list[dict], deals: list[dict]) -> li
         price = parse_price(c.get("price"))
         if item is None or price is None:
             verdict = "unverifiable"
-        elif abs(price - item["price"]) < 0.01 or price in deal_prices:
+        elif abs(price - item["price"]) < 0.01:
+            verdict = "correct"
+        elif price in deal_prices and item.get("category") == "pizza":
             verdict = "correct"
         else:
             verdict = "wrong"
