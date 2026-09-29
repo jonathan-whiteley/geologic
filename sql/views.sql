@@ -1,0 +1,58 @@
+-- sql/views.sql : GEOlogic read views
+-- Run after the baseline probe has written probe_responses / probe_runs / probe_state.
+
+CREATE OR REPLACE VIEW jdub_demo.geologic.v_latest_responses AS
+SELECT r.* FROM (
+  SELECT pr.*, ROW_NUMBER() OVER (PARTITION BY pr.prompt_id, pr.engine ORDER BY runs.started_at DESC) rn
+  FROM jdub_demo.geologic.probe_responses pr
+  JOIN jdub_demo.geologic.probe_runs runs USING (run_id)
+  JOIN jdub_demo.geologic.probe_state st ON st.id = 1 AND pr.epoch = st.current_epoch
+) r WHERE rn = 1;
+
+CREATE OR REPLACE VIEW jdub_demo.geologic.v_cluster_engine_share AS
+SELECT p.cluster, r.engine,
+       AVG(CASE WHEN r.lce_mentioned AND r.lce_rank > 0 THEN 1.0 / r.lce_rank ELSE 0 END) AS answer_share,
+       COUNT(*) AS n
+FROM jdub_demo.geologic.v_latest_responses r JOIN jdub_demo.geologic.prompt_bank p USING (prompt_id)
+WHERE r.status = 'ok' GROUP BY p.cluster, r.engine;
+
+CREATE OR REPLACE VIEW jdub_demo.geologic.v_brand_share AS
+WITH ok AS (SELECT * FROM jdub_demo.geologic.v_latest_responses WHERE status = 'ok'),
+brands AS (SELECT b AS brand FROM VALUES ('Little Caesars'), ('Domino''s'), ('Pizza Hut'), ('Papa Johns') t(b))
+SELECT brands.brand,
+       AVG(COALESCE(1.0 / NULLIF(array_position(ok.brands_mentioned, brands.brand), 0), 0)) AS answer_share
+FROM ok CROSS JOIN brands GROUP BY brands.brand;
+
+CREATE OR REPLACE VIEW jdub_demo.geologic.v_kpis AS
+SELECT AVG(CASE WHEN lce_mentioned AND lce_rank > 0 THEN 1.0 / lce_rank ELSE 0 END) AS answer_share,
+       AVG(CASE WHEN lce_mentioned THEN 1 ELSE 0 END) AS mention_rate,
+       AVG(CASE WHEN lce_mentioned THEN lce_rank END) AS avg_rank,
+       AVG(CASE WHEN cites_official THEN 1 ELSE 0 END) AS citation_rate,
+       SUM(size(filter(claims, c -> c.verdict = 'correct'))) /
+         NULLIF(SUM(size(filter(claims, c -> c.verdict IN ('correct', 'wrong')))), 0) AS fact_accuracy,
+       SUM(size(filter(claims, c -> c.verdict = 'wrong'))) AS wrong_claims,
+       COUNT(*) AS answers,
+       SUM(CASE WHEN lce_mentioned THEN 1 ELSE 0 END) AS mentions
+FROM jdub_demo.geologic.v_latest_responses WHERE status = 'ok';
+
+CREATE OR REPLACE VIEW jdub_demo.geologic.v_citation_sources AS
+WITH c AS (SELECT explode(cited_doc_ids) AS doc_id FROM jdub_demo.geologic.v_latest_responses WHERE status = 'ok')
+SELECT w.publisher,
+       CASE WHEN w.is_official THEN 'official' WHEN w.source_type = 'reddit' THEN 'forum' ELSE w.source_type END AS source_type,
+       w.is_official, count(*) AS citations, count(*) / sum(count(*)) OVER () AS share
+FROM c JOIN jdub_demo.geologic.web_corpus w USING (doc_id)
+GROUP BY w.publisher, 2, w.is_official;
+
+CREATE OR REPLACE VIEW jdub_demo.geologic.v_question_volume AS
+WITH mult AS (
+  SELECT p.prompt_id, coalesce(max(c.volume_multiplier), 1.0) AS m
+  FROM jdub_demo.geologic.prompt_bank p LEFT JOIN jdub_demo.geologic.demand_calendar c
+    ON array_contains(c.clusters_affected, p.cluster) AND current_timestamp() BETWEEN c.start_ts AND c.end_ts
+  GROUP BY p.prompt_id),
+vis AS (SELECT prompt_id, max(CASE WHEN lce_mentioned THEN 1 ELSE 0 END) = 1 AS visible,
+               max(size(filter(claims, x -> x.verdict = 'wrong'))) > 0 AS has_wrong_claim
+        FROM jdub_demo.geologic.v_latest_responses WHERE status = 'ok' GROUP BY prompt_id)
+SELECT p.prompt_id, p.prompt_text, p.cluster, round(p.base_volume * 10 * mult.m) AS est_monthly_volume,
+       CASE WHEN p.base_volume * 10 * mult.m >= 8000 THEN 'High' WHEN p.base_volume * 10 * mult.m >= 3000 THEN 'Medium' ELSE 'Low' END AS volume_tier,
+       coalesce(vis.visible, false) AS visible, coalesce(vis.has_wrong_claim, false) AS has_wrong_claim
+FROM jdub_demo.geologic.prompt_bank p JOIN mult USING (prompt_id) LEFT JOIN vis USING (prompt_id);
