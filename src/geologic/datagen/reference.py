@@ -187,5 +187,6 @@ def prompt_bank() -> list[dict]:
             if k < len(per_cluster[c]) and len(rows) < 150:
                 rows.append((c, per_cluster[c][k]))
         k += 1
-    return [dict(prompt_id=f"q{n:03d}", prompt_text=t, cluster=c, base_volume=_BASE_VOLUME[c], calendar_tags=_TAGS.get(c, []))
+    return [dict(prompt_id=f"q{n:03d}", prompt_text=t, cluster=c, base_volume=_BASE_VOLUME[c], calendar_tags=_TAGS.get(c, []),
+                 branded="little caesars" in t.lower())
             for n, (c, t) in enumerate(rows, start=1)]

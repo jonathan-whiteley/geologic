@@ -1,7 +1,10 @@
 CREATE OR REPLACE VIEW jdub_demo.geologic.v_prompts AS
-SELECT prompt_id, prompt_text, cluster, base_volume, true AS tracked FROM jdub_demo.geologic.prompt_bank
+SELECT prompt_id, prompt_text, cluster, base_volume, true AS tracked,
+       lower(prompt_text) LIKE '%little caesars%' AS branded
+FROM jdub_demo.geologic.prompt_bank
 UNION ALL
-SELECT c.prompt_id, c.prompt_text, c.cluster, c.base_volume, t.prompt_id IS NOT NULL AS tracked
+SELECT c.prompt_id, c.prompt_text, c.cluster, c.base_volume, t.prompt_id IS NOT NULL AS tracked,
+       lower(c.prompt_text) LIKE '%little caesars%' AS branded
 FROM jdub_demo.geologic.prompt_candidates c
 LEFT JOIN (SELECT DISTINCT prompt_id FROM jdub_demo.geologic.tracked_prompts) t USING (prompt_id);
 

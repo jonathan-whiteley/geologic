@@ -1,5 +1,6 @@
 -- sql/views.sql : GEOlogic read views
 -- Run after the baseline probe has written probe_responses / probe_runs / probe_state.
+-- IMPORTANT: execute via run_views.py (not raw shell) to preserve apostrophes in SQL strings.
 
 CREATE OR REPLACE VIEW jdub_demo.geologic.v_latest_responses AS
 SELECT r.* FROM (
@@ -14,26 +15,47 @@ SELECT p.cluster, r.engine,
        AVG(CASE WHEN r.lce_mentioned AND r.lce_rank > 0 THEN 1.0 / r.lce_rank ELSE 0 END) AS answer_share,
        COUNT(*) AS n
 FROM jdub_demo.geologic.v_latest_responses r JOIN jdub_demo.geologic.prompt_bank p USING (prompt_id)
-WHERE r.status = 'ok' GROUP BY p.cluster, r.engine;
+WHERE r.status = 'ok' AND NOT p.branded
+GROUP BY p.cluster, r.engine;
 
+-- Note: chr(39) is used for Domino's apostrophe; VALUES(''...'') silently drops it via REST API
 CREATE OR REPLACE VIEW jdub_demo.geologic.v_brand_share AS
-WITH ok AS (SELECT * FROM jdub_demo.geologic.v_latest_responses WHERE status = 'ok'),
-brands AS (SELECT b AS brand FROM VALUES ('Little Caesars'), ('Domino''s'), ('Pizza Hut'), ('Papa Johns') t(b))
+WITH ok AS (
+  SELECT r.* FROM jdub_demo.geologic.v_latest_responses r
+  JOIN jdub_demo.geologic.prompt_bank pb USING (prompt_id)
+  WHERE r.status = 'ok' AND NOT pb.branded),
+brands AS (
+  SELECT 'Little Caesars' AS brand UNION ALL
+  SELECT concat('Domino', chr(39), 's') UNION ALL
+  SELECT 'Pizza Hut' UNION ALL
+  SELECT 'Papa Johns')
 SELECT brands.brand,
        AVG(COALESCE(1.0 / NULLIF(array_position(ok.brands_mentioned, brands.brand), 0), 0)) AS answer_share
 FROM ok CROSS JOIN brands GROUP BY brands.brand;
 
 CREATE OR REPLACE VIEW jdub_demo.geologic.v_kpis AS
-SELECT AVG(CASE WHEN lce_mentioned AND lce_rank > 0 THEN 1.0 / lce_rank ELSE 0 END) AS answer_share,
-       AVG(CASE WHEN lce_mentioned THEN 1 ELSE 0 END) AS mention_rate,
-       AVG(CASE WHEN lce_mentioned THEN lce_rank END) AS avg_rank,
-       AVG(CASE WHEN cites_official THEN 1 ELSE 0 END) AS citation_rate,
-       SUM(size(filter(claims, c -> c.verdict = 'correct'))) /
-         NULLIF(SUM(size(filter(claims, c -> c.verdict IN ('correct', 'wrong')))), 0) AS fact_accuracy,
-       SUM(size(filter(claims, c -> c.verdict = 'wrong'))) AS wrong_claims,
-       COUNT(*) AS answers,
-       SUM(CASE WHEN lce_mentioned THEN 1 ELSE 0 END) AS mentions
-FROM jdub_demo.geologic.v_latest_responses WHERE status = 'ok';
+WITH all_ok AS (SELECT * FROM jdub_demo.geologic.v_latest_responses WHERE status = 'ok'),
+unb AS (
+  SELECT r.* FROM jdub_demo.geologic.v_latest_responses r
+  JOIN jdub_demo.geologic.prompt_bank p USING (prompt_id)
+  WHERE r.status = 'ok' AND NOT p.branded),
+kpi_all AS (
+  SELECT AVG(CASE WHEN cites_official THEN 1 ELSE 0 END) AS citation_rate,
+         SUM(size(filter(claims, c -> c.verdict = 'correct'))) /
+           NULLIF(SUM(size(filter(claims, c -> c.verdict IN ('correct', 'wrong')))), 0) AS fact_accuracy,
+         SUM(size(filter(claims, c -> c.verdict = 'wrong'))) AS wrong_claims,
+         COUNT(*) AS answers,
+         SUM(CASE WHEN lce_mentioned THEN 1 ELSE 0 END) AS mentions
+  FROM all_ok),
+kpi_unb AS (
+  SELECT AVG(CASE WHEN lce_mentioned AND lce_rank > 0 THEN 1.0 / lce_rank ELSE 0 END) AS answer_share,
+         AVG(CASE WHEN lce_mentioned THEN 1 ELSE 0 END) AS mention_rate,
+         AVG(CASE WHEN lce_mentioned THEN lce_rank END) AS avg_rank
+  FROM unb)
+SELECT kpi_unb.answer_share, kpi_unb.mention_rate, kpi_unb.avg_rank,
+       kpi_all.citation_rate, kpi_all.fact_accuracy, kpi_all.wrong_claims,
+       kpi_all.answers, kpi_all.mentions
+FROM kpi_all CROSS JOIN kpi_unb;
 
 CREATE OR REPLACE VIEW jdub_demo.geologic.v_citation_sources AS
 WITH c AS (SELECT explode(cited_doc_ids) AS doc_id FROM jdub_demo.geologic.v_latest_responses WHERE status = 'ok')
