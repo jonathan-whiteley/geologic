@@ -1,7 +1,13 @@
 """Writes candidate prompts, monthly volume, prompt search source, doc brands; builds the prompt VS index."""
-import sys, time
+import sys, os, time
 from datetime import date
-sys.path.insert(0, "../src")
+
+# Serverless spark_python_task exec does not set __file__; cwd is the script's workspace dir.
+try:
+    _src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src")
+except NameError:
+    _src = os.path.abspath(os.path.join(os.getcwd(), "..", "src"))
+sys.path.insert(0, _src)
 from pyspark.sql import SparkSession
 from databricks.vector_search.client import VectorSearchClient
 from geologic.config import settings as S
@@ -11,7 +17,8 @@ from geologic.brands import brand_for_doc
 
 spark = SparkSession.builder.getOrCreate()
 bank, cands = prompt_bank(), prompt_candidates()
-spark.createDataFrame(cands).write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(S.fq("prompt_candidates"))
+spark.createDataFrame(cands, "prompt_id STRING, prompt_text STRING, cluster STRING, base_volume INT, calendar_tags ARRAY<STRING>") \
+    .write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(S.fq("prompt_candidates"))
 end = date.today().replace(day=1)
 vol = [r for p in bank + cands for r in monthly_volume(p, end)]
 spark.createDataFrame(vol, "prompt_id STRING, month DATE, est_volume INT").write.mode("overwrite").saveAsTable(S.fq("question_volume_monthly"))
