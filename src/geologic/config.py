@@ -4,13 +4,9 @@ import json
 import os
 from dataclasses import dataclass, field
 
-# UNVERIFIED PLACEHOLDER: endpoint discovery (Task 1 Step 1) could not run because
-# the DEFAULT profile's refresh token is invalid (databricks auth login required).
-# These names follow common Databricks FMAPI pay-per-token conventions but have not
-# been confirmed against the fe-vm-jdub-vm-serverless workspace. Re-run discovery
-# and update this dict before any task calls these endpoints for real.
+# Verified READY on fe-vm-jdub-vm-serverless (2026-09-29).
 DEFAULT_ENGINES = {
-    "Claude": "databricks-claude-sonnet-4",
+    "Claude": "databricks-claude-sonnet-4-6",
     "Llama": "databricks-meta-llama-3-3-70b-instruct",
     "GPT-OSS": "databricks-gpt-oss-120b",
     "Gemma": "databricks-gemma-3-12b",
@@ -22,8 +18,8 @@ class Settings:
     catalog: str = "jdub_demo"
     schema: str = "geologic"
     engines: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_ENGINES))
-    judge_endpoint: str = "databricks-claude-sonnet-4"
-    vision_endpoint: str = "databricks-claude-sonnet-4"
+    judge_endpoint: str = "databricks-claude-sonnet-4-6"
+    vision_endpoint: str = "databricks-claude-sonnet-4-6"
     embedding_endpoint: str = "databricks-gte-large-en"
     strategist_endpoint: str = "geologic-content-strategist"
     vs_endpoint: str = "geologic-vs"
