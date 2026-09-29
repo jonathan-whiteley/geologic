@@ -17,7 +17,7 @@ from geologic.brands import brand_for_doc
 
 spark = SparkSession.builder.getOrCreate()
 bank, cands = prompt_bank(), prompt_candidates()
-spark.createDataFrame(cands, "prompt_id STRING, prompt_text STRING, cluster STRING, base_volume INT, calendar_tags ARRAY<STRING>") \
+spark.createDataFrame(cands, "prompt_id STRING, prompt_text STRING, cluster STRING, base_volume INT, calendar_tags ARRAY<STRING>, branded BOOLEAN") \
     .write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(S.fq("prompt_candidates"))
 end = date.today().replace(day=1)
 vol = [r for p in bank + cands for r in monthly_volume(p, end)]

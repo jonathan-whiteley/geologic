@@ -178,6 +178,28 @@ _BASE_VOLUME = {"product": 900, "value": 1400, "comparison": 700, "ordering": 50
 _TAGS = {"game_day_party": ["fantasy_draft", "tnf", "sunday_slate", "super_bowl"], "sponsorship": ["tnf", "sunday_slate", "super_bowl"], "value": ["tnf", "sunday_slate"]}
 
 
+# LCE trademark product names: prompts that reference these are implicitly branded
+# even when the text does not include "little caesars".
+_LCE_TRADEMARK_TERMS: frozenset[str] = frozenset({
+    "little caesars",
+    "hot-n-ready", "hot n ready",
+    "crazy puffs",
+    "crazy bread",
+    "extramostbestest", "extra most bestest",
+    "slices-n-stix", "slices n stix",
+    "caesar wings",
+    "crazy sauce",
+    "pizza portal",
+    "deep!deep!",
+})
+
+
+def is_branded(text: str) -> bool:
+    """Return True if the prompt text references Little Caesars by name or trademark product."""
+    low = text.lower()
+    return any(term in low for term in _LCE_TRADEMARK_TERMS)
+
+
 def prompt_bank() -> list[dict]:
     # Round-robin across clusters so every cluster is represented in the 150
     per_cluster = {c: [v.format(p=b) for b in _PROMPTS[c] for v in _VARIANTS] for c in CLUSTERS}
@@ -188,5 +210,5 @@ def prompt_bank() -> list[dict]:
                 rows.append((c, per_cluster[c][k]))
         k += 1
     return [dict(prompt_id=f"q{n:03d}", prompt_text=t, cluster=c, base_volume=_BASE_VOLUME[c], calendar_tags=_TAGS.get(c, []),
-                 branded="little caesars" in t.lower())
+                 branded=is_branded(t))
             for n, (c, t) in enumerate(rows, start=1)]

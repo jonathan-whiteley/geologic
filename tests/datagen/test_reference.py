@@ -1,3 +1,4 @@
+import pytest
 from datetime import datetime, timezone
 from geologic.datagen import reference as r
 
@@ -39,6 +40,51 @@ def test_prompt_bank_shape():
     assert len({p["prompt_id"] for p in pb}) == 150
     assert any("how many pizzas" in p["prompt_text"].lower() for p in pb)
     assert any("official pizza" in p["prompt_text"].lower() for p in pb)
+
+@pytest.mark.parametrize("text,expected", [
+    # explicit brand name
+    ("What is on the Little Caesars menu?", True),
+    ("little caesars deals today", True),
+    # trademark product names (no brand text)
+    ("are crazy puffs worth it", True),
+    ("What is a hot-n-ready pizza?", True),
+    ("does hot n ready come with crazy bread?", True),
+    ("how does the pizza portal work?", True),
+    ("extramostbestest pepperoni review", True),
+    ("extra most bestest or regular?", True),
+    ("caesar wings calories", True),
+    ("is crazy sauce vegan", True),
+    ("slices-n-stix vs crazy bread", True),
+    ("slices n stix review", True),
+    # generic -- not branded
+    ("best cheap pizza for a party", False),
+    ("how many pizzas for 12 people?", False),
+    ("which pizza chain is fastest for delivery?", False),
+    ("best pizza for super bowl party", False),
+    ("domino's vs pizza hut", False),
+    # case-insensitive checks
+    ("CRAZY PUFFS taste test", True),
+    ("HOT-N-READY pizza review", True),
+])
+def test_is_branded(text, expected):
+    assert r.is_branded(text) == expected
+
+
+def test_prompt_bank_branded_counts():
+    pb = r.prompt_bank()
+    branded = [p for p in pb if p["branded"]]
+    unbranded = [p for p in pb if not p["branded"]]
+    # With trademark terms, branded count increases; all should have the column
+    assert all("branded" in p for p in pb)
+    assert len(branded) + len(unbranded) == 150
+    # Key invariant: product prompts with LCE items should be branded
+    hnr = next(p for p in pb if "hot-n-ready" in p["prompt_text"].lower()
+               or "hot n ready" in p["prompt_text"].lower())
+    assert hnr["branded"] is True
+    # Generic game-day prompts should be unbranded
+    generic = next(p for p in pb if "how many pizzas for 12 people" in p["prompt_text"].lower())
+    assert generic["branded"] is False
+
 
 def test_calendar_relative_to_now():
     now = datetime(2026, 9, 24, 9, 0, tzinfo=timezone.utc)

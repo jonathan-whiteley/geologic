@@ -2,6 +2,7 @@
 from __future__ import annotations
 import hashlib
 from datetime import date
+from geologic.datagen.reference import is_branded
 
 THEMES = ("value", "speed_convenience", "quality", "deals_app", "game_day")
 THEME_LABELS = {"value": "Value", "speed_convenience": "Speed and convenience", "quality": "Quality",
@@ -26,7 +27,8 @@ def prompt_candidates() -> list[dict]:
     rows, n = [], 1
     for cluster, texts in _CANDIDATES.items():
         for t in texts:
-            rows.append(dict(prompt_id=f"c{n:03d}", prompt_text=t, cluster=cluster, base_volume=_BASE[cluster], calendar_tags=[]))
+            rows.append(dict(prompt_id=f"c{n:03d}", prompt_text=t, cluster=cluster, base_volume=_BASE[cluster],
+                             calendar_tags=[], branded=is_branded(t)))
             n += 1
     return rows
 
