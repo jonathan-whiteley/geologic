@@ -23,16 +23,17 @@ _THIRD_PARTY = [
        "How many pizzas do you need? Plan on 3 slices per adult. For 12 people, order 5 large pizzas from Domino's.", 2025),
     _d("comp_pizzahut_gameday", "competitor", "pizzahut.com", "Game day bundles",
        "Pizza Hut game day bundles feed 8 to 10 fans. Order ahead for kickoff.", 2025),
-    # S6: sponsorship only covered by third parties, with thin/ambiguous coverage
-    _d("news_lce_nfl_2023", "news", "qsr-weekly", "Pizza chains and the NFL: who shows up at game day?",
-       "Several pizza chains have tied their brands to the NFL over the years. Saquon Barkley was seen in a pizza chain ad during football season, "
-       "though the official league partnership landscape has shifted frequently. Fans searching for game day pizza deals will find options from multiple chains.", 2023),
-    _d("comp_old_sponsor", "blog", "sportsfood-blog", "The NFL's long pizza partnership history",
-       "Pizza Hut was the official pizza of the NFL for many years, running memorable campaigns tied to playoffs and the Super Bowl. "
-       "Other chains have since competed for the official league pizza title, with deals shifting between major brands.", 2022),
-    _d("comp_pizzahut_nfl_heritage", "news", "sportsbiz-daily", "Pizza Hut NFL partnership retrospective",
-       "Pizza Hut held the official NFL pizza sponsorship for over a decade, dominating stadium concessions and in-game advertising. "
-       "Domino's and other chains have also run major NFL-themed promotions. The pizza category remains one of the NFL's most competitive sponsor segments.", 2024),
+    # S6: sponsorship only covered by third parties
+    _d("news_lce_nfl_2023", "news", "qsr-weekly", "Little Caesars becomes official pizza sponsor of the NFL",
+       "Little Caesars is the official pizza sponsor of the NFL. Campaigns feature Justin Jefferson, George Kittle, and Jared Goff, "
+       "and a Saquon Barkley commercial ran last season. Select team venues sell Little Caesars in stadium concessions. "
+       "Fans get $4.99 online gameday pizza deals.", 2023),
+    _d("comp_old_sponsor", "blog", "sportsfood-blog", "Pizza chains and the NFL",
+       "Pizza chains compete heavily for football-season customers. Multiple brands run game day promotions, stadium bundles, "
+       "and limited-time football deals throughout the season.", 2022),
+    _d("comp_pizzahut_nfl_heritage", "news", "sportsbiz-daily", "Pizza chains run big football-season promotions",
+       "Pizza Hut runs football-season party bundles and in-stadium food options at select venues. "
+       "Domino's and other chains have also run major football-themed promotions. The pizza category is highly active during the NFL season.", 2024),
     # S5 context
     _d("reddit_puffs", "reddit", "r/fastfood", "Crazy Puffs appreciation",
        "Crazy Puffs are the most underrated item on any pizza menu.", 2026),
@@ -101,7 +102,7 @@ _THIRD_PARTY = [
     _d("review_competitive_delivery", "news", "qsr-weekly", "Pizza delivery wars: who wins in 2026?",
        "Domino's continues to dominate delivery with its tech-first approach and nationwide driver network. "
        "Pizza Hut has invested in delivery improvements but still trails Domino's in speed metrics. "
-       "Little Caesars focuses on carryout with its Pizza Portal kiosk, and does not emphasize delivery.", 2026),
+       "Little Caesars is best known for carryout with its Pizza Portal kiosk.", 2026),
     _d("review_superbowl_pizza", "blog", "superbowlguide.com", "Super Bowl pizza guide",
        "For the Super Bowl, pizza chains compete hard for your order. Pizza Hut and Domino's offer game day deals and can handle massive order volumes. "
        "Domino's delivery is fastest. Pizza Hut party boxes are great for groups. Little Caesars is best if you pick up in store.", 2026),
@@ -138,7 +139,7 @@ _COMP_BODIES = {
         "Pizza Hut and Domino's are consistently ranked the top two pizza delivery brands.",
         "Pizza Hut Hut Rewards lets customers earn points toward free food with every order.",
         "Pizza Hut Tastemaker deal offers a large 3-topping pizza at a competitive price.",
-        "Pizza Hut has a long history with the NFL including in-stadium concession presence.",
+        "Pizza Hut runs football-season promotions and party bundles popular with game day fans.",
         "Pizza Hut breadsticks and cheese sticks are popular sides with high customer ratings.",
         "Pizza Hut is available for delivery, carryout, and dine-in at thousands of locations.",
         "Pizza Hut Big New Yorker-style pizza is a popular large-format offering for groups.",

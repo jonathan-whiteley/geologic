@@ -1,6 +1,9 @@
 -- sql/views.sql : GEOlogic read views
--- Run after the baseline probe has written probe_responses / probe_runs / probe_state.
--- IMPORTANT: execute via run_views.py (not raw shell) to preserve apostrophes in SQL strings.
+-- Deploy via jobs/run_views.py which enforces dependency order and handles
+-- the chr(39) workaround for Domino's apostrophe through the REST API.
+-- v_cluster_engine_share, v_brand_share, and v_kpis join v_prompts (bank union
+-- candidates) so tracked candidate prompts are included in share metrics.
+-- v_prompts must be deployed before these views; jobs/run_views.py enforces that.
 
 CREATE OR REPLACE VIEW jdub_demo.geologic.v_latest_responses AS
 SELECT r.* FROM (
@@ -10,20 +13,23 @@ SELECT r.* FROM (
   JOIN jdub_demo.geologic.probe_state st ON st.id = 1 AND pr.epoch = st.current_epoch
 ) r WHERE rn = 1;
 
+-- Joins v_prompts (bank union tracked candidates) so share metrics include
+-- candidate prompts that have been probed. NOT branded filters both tables.
 CREATE OR REPLACE VIEW jdub_demo.geologic.v_cluster_engine_share AS
 SELECT p.cluster, r.engine,
        AVG(CASE WHEN r.lce_mentioned AND r.lce_rank > 0 THEN 1.0 / r.lce_rank ELSE 0 END) AS answer_share,
        COUNT(*) AS n
-FROM jdub_demo.geologic.v_latest_responses r JOIN jdub_demo.geologic.prompt_bank p USING (prompt_id)
+FROM jdub_demo.geologic.v_latest_responses r JOIN jdub_demo.geologic.v_prompts p USING (prompt_id)
 WHERE r.status = 'ok' AND NOT p.branded
 GROUP BY p.cluster, r.engine;
 
--- Note: chr(39) is used for Domino's apostrophe; VALUES(''...'') silently drops it via REST API
+-- chr(39) required: VALUES(''...'') silently drops apostrophe via REST API.
+-- Joins v_prompts so tracked candidates are covered.
 CREATE OR REPLACE VIEW jdub_demo.geologic.v_brand_share AS
 WITH ok AS (
   SELECT r.* FROM jdub_demo.geologic.v_latest_responses r
-  JOIN jdub_demo.geologic.prompt_bank pb USING (prompt_id)
-  WHERE r.status = 'ok' AND NOT pb.branded),
+  JOIN jdub_demo.geologic.v_prompts p USING (prompt_id)
+  WHERE r.status = 'ok' AND NOT p.branded),
 brands AS (
   SELECT 'Little Caesars' AS brand UNION ALL
   SELECT concat('Domino', chr(39), 's') UNION ALL
@@ -33,11 +39,13 @@ SELECT brands.brand,
        AVG(COALESCE(1.0 / NULLIF(array_position(ok.brands_mentioned, brands.brand), 0), 0)) AS answer_share
 FROM ok CROSS JOIN brands GROUP BY brands.brand;
 
+-- answer_share, mention_rate, avg_rank: unbranded prompts only (v_prompts filtered).
+-- citation_rate, fact_accuracy, wrong_claims, answers, mentions: all prompts.
 CREATE OR REPLACE VIEW jdub_demo.geologic.v_kpis AS
 WITH all_ok AS (SELECT * FROM jdub_demo.geologic.v_latest_responses WHERE status = 'ok'),
 unb AS (
   SELECT r.* FROM jdub_demo.geologic.v_latest_responses r
-  JOIN jdub_demo.geologic.prompt_bank p USING (prompt_id)
+  JOIN jdub_demo.geologic.v_prompts p USING (prompt_id)
   WHERE r.status = 'ok' AND NOT p.branded),
 kpi_all AS (
   SELECT AVG(CASE WHEN cites_official THEN 1 ELSE 0 END) AS citation_rate,

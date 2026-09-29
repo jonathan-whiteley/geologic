@@ -74,10 +74,12 @@ def test_prompt_bank_branded_counts():
     pb = r.prompt_bank()
     branded = [p for p in pb if p["branded"]]
     unbranded = [p for p in pb if not p["branded"]]
-    # With trademark terms, branded count increases; all should have the column
+    # All rows must carry the column; total is 150
     assert all("branded" in p for p in pb)
-    assert len(branded) + len(unbranded) == 150
-    # Key invariant: product prompts with LCE items should be branded
+    assert len(pb) == 150
+    # Pinned range: unbranded count with trademark-term expansion is roughly 50-65
+    assert 50 <= len(unbranded) <= 65, f"Expected 50-65 unbranded, got {len(unbranded)}"
+    # Key invariant: product prompts with LCE trademark items should be branded
     hnr = next(p for p in pb if "hot-n-ready" in p["prompt_text"].lower()
                or "hot n ready" in p["prompt_text"].lower())
     assert hnr["branded"] is True
