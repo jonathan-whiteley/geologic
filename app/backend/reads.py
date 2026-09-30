@@ -3,6 +3,7 @@ import os
 import re
 from backend.warehouse import query
 from geologic.brands import LOGOS
+from geologic.photos import credit_for
 from geologic.datagen.prompts_ext import THEME_LABELS
 
 T = lambda n: f"{os.environ.get('CATALOG_NAME', 'jdub_demo')}.{os.environ.get('SCHEMA_NAME', 'geologic')}.{n}"
@@ -50,7 +51,7 @@ class Reads:
                         ORDER BY s.ingested_at DESC LIMIT {int(limit)}""")
         for s in sig:
             s["image_url"] = f"/api/signals/{s['signal_id']}/image" if s.get("image_uri") else None
-            s.pop("image_uri", None)
+            s["image_credit"] = credit_for(s.pop("image_uri", None))
         q = query(f"SELECT count(*) n FROM {T('silver_signals')} WHERE quarantined")[0]["n"]
         hour = query(f"""SELECT count(*) ingested, avg(CASE WHEN menu_item_id IS NOT NULL THEN 1 ELSE 0 END) matched_pct,
                          count(image_match_score) images FROM {T('v_public_signals')} WHERE ingested_at > now() - INTERVAL 1 HOUR""")[0]

@@ -1,5 +1,6 @@
-"""Writes placeholder product/scene images (no faces). Replace files in the volume with AI-generated images before a live demo."""
+"""Writes menu and background images (drawn placeholders, no faces) and copies real licensed photos from assets/photos (credits in assets/photos/ATTRIBUTION.md)."""
 import os
+import shutil
 import sys
 
 # Serverless spark_python_task exec does not set __file__; cwd is the script's workspace dir.
@@ -27,7 +28,9 @@ def scene(path, crust="#C9471A", bg=("#6C8FB0", "#2C3E50"), square=False):
 
 for m in menu_items():
     scene(f"{S.volume_path}/menu/{m['item_id']}.png", square=m["item_id"].startswith("detroit"))
-scene(f"{S.volume_path}/signals/kittle_tailgate.png", square=True, bg=("#8FB3D9", "#3B5E2B"))
+_photos = os.path.join(_src, "..", "assets", "photos")
+os.makedirs(f"{S.volume_path}/signals", exist_ok=True)
+shutil.copyfile(os.path.join(_photos, "kittle_tailgate.png"), f"{S.volume_path}/signals/kittle_tailgate.png")
 for i in range(1, 6):
     scene(f"{S.volume_path}/signals/bg_{i}.png", bg=("#9AA7B5", "#4A5568"))
 print("images written")

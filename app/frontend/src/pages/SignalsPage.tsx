@@ -186,7 +186,10 @@ function SignalCard({ signal, isNew }: { signal: Signal; isNew: boolean }) {
                 </span>
               )}
             </div>
-            <span className="text-xs text-text-tertiary">Image described and matched to the menu</span>
+            <span className="text-xs text-text-tertiary">
+              Image described and matched to the menu
+              {signal.image_credit && <span className="block text-[10px] mt-0.5">{signal.image_credit}</span>}
+            </span>
           </div>
         )}
         <div className="flex flex-wrap gap-1.5">
