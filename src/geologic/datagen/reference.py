@@ -12,48 +12,50 @@ SEEDED_PAGE_IDS = {
     "about_nfl": "pg_about",
 }
 
-# item_id, name, category, price, margin_pct, available, is_lto, dietary_flags, aliases
+# item_id, name, category, price, margin_pct, available, is_lto, dietary_flags, aliases, visual
+# visual: how the item looks (shape, crust, toppings only — no setting words)
 _MENU = [
-    ("classic_pepperoni", "Classic Pepperoni Hot-N-Ready", "pizza", 6.49, 0.34, True, False, [], ["hot-n-ready", "hot n ready", "classic pepperoni"]),
-    ("classic_cheese", "Classic Cheese Hot-N-Ready", "pizza", 6.49, 0.36, True, False, ["vegetarian"], ["classic cheese"]),
-    ("emb_pepperoni", "ExtraMostBestest Pepperoni", "pizza", 7.99, 0.33, True, False, [], ["extramostbestest", "extra most bestest"]),
-    ("emb_cheese", "ExtraMostBestest Cheese", "pizza", 7.99, 0.35, True, False, ["vegetarian"], []),
-    ("three_meat", "3 Meat Treat", "pizza", 10.99, 0.31, True, False, [], ["3 meat treat", "three meat treat"]),
-    ("ultimate_supreme", "Ultimate Supreme", "pizza", 10.99, 0.30, True, False, [], ["supreme"]),
-    ("hula_hawaiian", "Hula Hawaiian", "pizza", 10.49, 0.32, True, False, [], ["hawaiian"]),
-    ("veggie", "Veggie", "pizza", 10.49, 0.33, True, False, ["vegetarian"], ["veggie pizza"]),
-    ("detroit_pepperoni", "Detroit-Style Deep!Deep! Dish Pepperoni", "pizza", 11.99, 0.38, True, False, [], ["deep deep dish", "deep!deep! dish", "detroit-style", "detroit style"]),
-    ("detroit_cheese", "Detroit-Style Deep!Deep! Dish Cheese", "pizza", 11.49, 0.39, True, False, ["vegetarian"], []),
-    ("stuffed_crust", "Stuffed Crust Pepperoni", "pizza", 9.99, 0.32, True, False, [], ["stuffed crust"]),
-    ("thin_crust", "Thin Crust Pepperoni", "pizza", 7.49, 0.34, True, False, [], ["thin crust"]),
-    ("pretzel_crust", "Pretzel Crust Pepperoni", "pizza", 8.99, 0.29, False, True, [], ["pretzel crust"]),
-    ("calzony", "Batman Calzony", "pizza", 9.49, 0.28, False, True, [], ["calzony"]),
-    ("crazy_bread", "Crazy Bread", "sides", 3.99, 0.62, True, False, ["vegetarian"], ["crazy bread"]),
-    ("crazy_combo", "Crazy Combo", "sides", 4.99, 0.60, True, False, ["vegetarian"], ["crazy combo"]),
-    ("stuffed_crazy_bread", "Stuffed Crazy Bread", "sides", 5.49, 0.55, True, False, ["vegetarian"], ["stuffed crazy bread"]),
-    ("italian_cheese_bread", "Italian Cheese Bread", "sides", 5.99, 0.52, True, False, ["vegetarian"], ["italian cheese bread", "cheese bread"]),
-    ("pepperoni_cheese_bread", "Pepperoni Cheese Bread", "sides", 6.49, 0.50, True, False, [], ["pepperoni cheese bread"]),
-    ("crazy_puffs_pepperoni", "Crazy Puffs (Pepperoni)", "sides", 4.49, 0.58, True, False, [], ["crazy puffs"]),
-    ("crazy_puffs_cheese", "Crazy Puffs (4 Cheese)", "sides", 4.49, 0.59, True, False, ["vegetarian"], []),
-    ("slices_n_stix", "Slices-N-Stix", "sides", 5.99, 0.50, True, False, ["vegetarian"], ["slices-n-stix", "slices n stix"]),
-    ("wings_oven", "Caesar Wings (Oven Roasted)", "wings", 7.99, 0.40, True, False, ["gluten_free_sauce"], ["caesar wings", "wings"]),
-    ("wings_bbq", "Caesar Wings (BBQ)", "wings", 7.99, 0.40, True, False, [], []),
-    ("wings_buffalo", "Caesar Wings (Buffalo)", "wings", 7.99, 0.40, True, False, [], []),
-    ("wings_garlic_parm", "Caesar Wings (Garlic Parmesan)", "wings", 7.99, 0.40, True, False, [], []),
-    ("dip_garlic", "Buttery Garlic Caesar Dip", "dips", 0.99, 0.70, True, False, ["vegetarian"], ["garlic dip"]),
-    ("dip_jalapeno", "Cheezy Jalapeno Caesar Dip", "dips", 0.99, 0.70, True, False, ["vegetarian"], ["jalapeno dip"]),
-    ("dip_ranch", "Ranch Caesar Dip", "dips", 0.99, 0.70, True, False, ["vegetarian"], ["ranch"]),
-    ("crazy_sauce", "Crazy Sauce", "dips", 1.29, 0.72, True, False, ["vegetarian", "vegan"], ["crazy sauce"]),
-    ("lunch_combo", "Lunch Combo", "combos", 5.99, 0.45, True, False, [], ["lunch combo"]),
-    ("party_pack", "Game Day Party Pack", "combos", 29.99, 0.40, True, False, [], ["party pack"]),
+    ("classic_pepperoni", "Classic Pepperoni Hot-N-Ready", "pizza", 6.49, 0.34, True, False, [], ["hot-n-ready", "hot n ready", "classic pepperoni"], "round pizza, pepperoni toppings"),
+    ("classic_cheese", "Classic Cheese Hot-N-Ready", "pizza", 6.49, 0.36, True, False, ["vegetarian"], ["classic cheese"], "round pizza, cheese topping"),
+    ("emb_pepperoni", "ExtraMostBestest Pepperoni", "pizza", 7.99, 0.33, True, False, [], ["extramostbestest", "extra most bestest"], "round pizza, extra pepperoni toppings"),
+    ("emb_cheese", "ExtraMostBestest Cheese", "pizza", 7.99, 0.35, True, False, ["vegetarian"], [], "round pizza, extra cheese topping"),
+    ("three_meat", "3 Meat Treat", "pizza", 10.99, 0.31, True, False, [], ["3 meat treat", "three meat treat"], "round pizza, mixed meat toppings"),
+    ("ultimate_supreme", "Ultimate Supreme", "pizza", 10.99, 0.30, True, False, [], ["supreme"], "round pizza, vegetable and meat toppings"),
+    ("hula_hawaiian", "Hula Hawaiian", "pizza", 10.49, 0.32, True, False, [], ["hawaiian"], "round pizza, pineapple and ham toppings"),
+    ("veggie", "Veggie", "pizza", 10.49, 0.33, True, False, ["vegetarian"], ["veggie pizza"], "round pizza, vegetable toppings"),
+    ("detroit_pepperoni", "Detroit-Style Deep!Deep! Dish Pepperoni", "pizza", 11.99, 0.38, True, False, [], ["deep deep dish", "deep!deep! dish", "detroit-style", "detroit style"], "square pan pizza, thick deep-dish style crust, crispy caramelized cheese edges, pepperoni toppings"),
+    ("detroit_cheese", "Detroit-Style Deep!Deep! Dish Cheese", "pizza", 11.49, 0.39, True, False, ["vegetarian"], [], "square pan pizza, thick deep-dish style crust, crispy caramelized cheese edges, cheese topping"),
+    ("stuffed_crust", "Stuffed Crust Pepperoni", "pizza", 9.99, 0.32, True, False, [], ["stuffed crust"], "round pizza, thick stuffed crust edge, pepperoni"),
+    ("thin_crust", "Thin Crust Pepperoni", "pizza", 7.49, 0.34, True, False, [], ["thin crust"], "round pizza, thin crispy crust, pepperoni"),
+    ("pretzel_crust", "Pretzel Crust Pepperoni", "pizza", 8.99, 0.29, False, True, [], ["pretzel crust"], "round pizza, pretzel crust edge, pepperoni"),
+    ("calzony", "Batman Calzony", "pizza", 9.49, 0.28, False, True, [], ["calzony"], "folded calzone pizza shape"),
+    ("crazy_bread", "Crazy Bread", "sides", 3.99, 0.62, True, False, ["vegetarian"], ["crazy bread"], "breadsticks with garlic butter and parmesan"),
+    ("crazy_combo", "Crazy Combo", "sides", 4.99, 0.60, True, False, ["vegetarian"], ["crazy combo"], "breadsticks with dipping sauce"),
+    ("stuffed_crazy_bread", "Stuffed Crazy Bread", "sides", 5.49, 0.55, True, False, ["vegetarian"], ["stuffed crazy bread"], "stuffed breadsticks filled with cheese"),
+    ("italian_cheese_bread", "Italian Cheese Bread", "sides", 5.99, 0.52, True, False, ["vegetarian"], ["italian cheese bread", "cheese bread"], "flat cheese bread"),
+    ("pepperoni_cheese_bread", "Pepperoni Cheese Bread", "sides", 6.49, 0.50, True, False, [], ["pepperoni cheese bread"], "flat bread with cheese and pepperoni"),
+    ("crazy_puffs_pepperoni", "Crazy Puffs (Pepperoni)", "sides", 4.49, 0.58, True, False, [], ["crazy puffs"], "small puffed pastry bites with pepperoni filling"),
+    ("crazy_puffs_cheese", "Crazy Puffs (4 Cheese)", "sides", 4.49, 0.59, True, False, ["vegetarian"], [], "small puffed pastry bites with cheese filling"),
+    ("slices_n_stix", "Slices-N-Stix", "sides", 5.99, 0.50, True, False, ["vegetarian"], ["slices-n-stix", "slices n stix"], "pizza slices with breadsticks"),
+    ("wings_oven", "Caesar Wings (Oven Roasted)", "wings", 7.99, 0.40, True, False, ["gluten_free_sauce"], ["caesar wings", "wings"], "chicken wings, oven roasted"),
+    ("wings_bbq", "Caesar Wings (BBQ)", "wings", 7.99, 0.40, True, False, [], [], "chicken wings, barbecue sauce"),
+    ("wings_buffalo", "Caesar Wings (Buffalo)", "wings", 7.99, 0.40, True, False, [], [], "chicken wings, buffalo sauce"),
+    ("wings_garlic_parm", "Caesar Wings (Garlic Parmesan)", "wings", 7.99, 0.40, True, False, [], [], "chicken wings, garlic parmesan"),
+    ("dip_garlic", "Buttery Garlic Caesar Dip", "dips", 0.99, 0.70, True, False, ["vegetarian"], ["garlic dip"], "garlic butter dipping sauce"),
+    ("dip_jalapeno", "Cheezy Jalapeno Caesar Dip", "dips", 0.99, 0.70, True, False, ["vegetarian"], ["jalapeno dip"], "jalapeno cheese dipping sauce"),
+    ("dip_ranch", "Ranch Caesar Dip", "dips", 0.99, 0.70, True, False, ["vegetarian"], ["ranch"], "ranch dipping sauce"),
+    ("crazy_sauce", "Crazy Sauce", "dips", 1.29, 0.72, True, False, ["vegetarian", "vegan"], ["crazy sauce"], "tomato dipping sauce"),
+    ("lunch_combo", "Lunch Combo", "combos", 5.99, 0.45, True, False, [], ["lunch combo"], "pizza slice with dipping sauce"),
+    ("party_pack", "Game Day Party Pack", "combos", 29.99, 0.40, True, False, [], ["party pack"], "multiple pizzas and sides combo"),
 ]
 
 
 def menu_items() -> list[dict]:
     return [
         dict(item_id=i, name=n, category=c, price=p, margin_pct=m, available=a, is_lto=l,
-             dietary_flags=list(d), image_uri=f"/Volumes/jdub_demo/geologic/assets/menu/{i}.png", aliases=list(al))
-        for (i, n, c, p, m, a, l, d, al) in _MENU
+             dietary_flags=list(d), image_uri=f"/Volumes/jdub_demo/geologic/assets/menu/{i}.png",
+             aliases=list(al), visual=v)
+        for (i, n, c, p, m, a, l, d, al, v) in _MENU
     ]
 
 

@@ -13,6 +13,17 @@ def test_menu_has_real_items_and_prices():
     assert pretzel["available"] is False and pretzel["is_lto"] is True
     assert 25 <= len(r.menu_items()) <= 45
 
+
+def test_menu_visual_field():
+    items = r.menu_items()
+    missing = [m["item_id"] for m in items if not m.get("visual")]
+    assert not missing, f"items missing visual descriptor: {missing}"
+    detroit = next(m for m in items if m["item_id"] == "detroit_pepperoni")
+    assert "square" in detroit["visual"], "detroit_pepperoni visual must mention 'square'"
+    for item in items:
+        if item["category"] == "pizza" and "detroit" not in item["item_id"] and item["item_id"] != "calzony":
+            assert "round" in item["visual"], f"{item['item_id']} pizza visual should mention 'round'"
+
 def test_gameday_deal():
     d = r.deals()
     assert any(x["price"] == 4.99 and x["channel"] == "online" for x in d)

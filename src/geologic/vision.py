@@ -4,7 +4,7 @@ import base64
 
 def describe_messages(image_b64: str) -> list[dict]:
     return [{"role": "user", "content": [
-        {"type": "text", "text": "Describe the food in this photo in one sentence: shape, crust, toppings, setting. Do not describe faces or identify people."},
+        {"type": "text", "text": "Describe the food in this photo in one sentence: shape (round or square pan), crust style, toppings. Do not describe faces or identify people."},
         {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}},
     ]}]
 

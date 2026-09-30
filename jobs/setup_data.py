@@ -41,7 +41,7 @@ write("prompt_bank", r.prompt_bank())
 write("demand_calendar", r.demand_calendar(now))
 write("personas", r.personas())
 write("exclusion_rules", r.exclusion_rules())
-write("menu_search", [{"item_id": m["item_id"], "search_text": f"{m['name']}. {', '.join(m['aliases'])}. {m['category']}"} for m in r.menu_items()], cdf=True)
+write("menu_search", [{"item_id": m["item_id"], "search_text": f"{m['name']}. {', '.join(m['aliases'])}. {m['category']}. {m['visual']}"} for m in r.menu_items()], cdf=True)
 
 spark.sql(f"""CREATE TABLE IF NOT EXISTS {S.fq('bronze_signals')} (
   signal_id STRING, source_type STRING, payload STRING, image_uri STRING, ingested_at BIGINT, producer STRING)""")
