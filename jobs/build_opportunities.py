@@ -17,7 +17,7 @@ from geologic.opportunities import build
 spark = SparkSession.builder.getOrCreate()
 rows = lambda t: [r.asDict(recursive=True) for r in spark.table(S.fq(t)).collect()]
 opps = build(rows("v_latest_responses"), rows("prompt_bank"), rows("menu_items"), rows("demand_calendar"),
-             rows("silver_signals"), datetime.now(timezone.utc))
+             rows("silver_signals"), datetime.now(timezone.utc), personas=rows("personas"))
 schema = ("opp_id STRING, opp_type STRING, title STRING, item_id STRING, page_id STRING, persona_id STRING, visual_sourced BOOLEAN, "
           "resolution_confidence DOUBLE, prompt_ids ARRAY<STRING>, signal_ids ARRAY<STRING>, cluster STRING, gap_severity DOUBLE, "
           "expected_lift_low DOUBLE, expected_lift_high DOUBLE, question_volume DOUBLE, window_name STRING, window_expires_at TIMESTAMP, reasoning STRING, "
