@@ -1,6 +1,6 @@
 # tests/test_clients.py
 from types import SimpleNamespace as NS
-from geologic.clients import FmapiChat, VsRetriever, menu_match
+from geologic.clients import FmapiChat, VsRetriever, menu_match, menu_candidates
 
 class FakeOpenAI:
     def __init__(self, content):
@@ -29,3 +29,20 @@ def test_menu_match_empty():
 def test_menu_match_hit():
     idx = FakeIndex(["item_id", "search_text", "score"], [["detroit_pepperoni", "Detroit", 0.83]])
     assert menu_match(idx, "square pan pizza") == ("detroit_pepperoni", 0.83)
+
+
+def test_menu_candidates_returns_triples():
+    rows = [
+        ["detroit_pepperoni", "square pan pizza thick crust", 0.72],
+        ["thin_crust", "round pizza thin crust", 0.74],
+        ["stuffed_crust", "round pizza stuffed crust", 0.71],
+    ]
+    idx = FakeIndex(["item_id", "search_text", "score"], rows)
+    cands = menu_candidates(idx, "square pizza", k=3)
+    assert len(cands) == 3
+    assert cands[0] == ("detroit_pepperoni", "square pan pizza thick crust", 0.72)
+    assert cands[1] == ("thin_crust", "round pizza thin crust", 0.74)
+
+
+def test_menu_candidates_empty():
+    assert menu_candidates(FakeIndex(["item_id", "search_text", "score"], []), "x") == []

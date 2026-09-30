@@ -36,3 +36,13 @@ class VsRetriever:
 def menu_match(index, text):
     rows = _rows(index.similarity_search(query_text=text, columns=["item_id", "search_text"], num_results=1))
     return (rows[0]["item_id"], float(rows[0]["score"])) if rows else (None, 0.0)
+
+
+def menu_candidates(index, text, k=5) -> list[tuple[str, str, float]]:
+    """Return top-k (item_id, search_text, score) candidates for reranking.
+
+    Note: 'score' is auto-returned by VS and must NOT be listed in columns
+    (the SDK raises BadRequest if you request it explicitly).
+    """
+    rows = _rows(index.similarity_search(query_text=text, columns=["item_id", "search_text"], num_results=k))
+    return [(r["item_id"], r["search_text"], float(r["score"])) for r in rows]

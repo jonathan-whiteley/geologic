@@ -9,7 +9,41 @@ def describe_messages(image_b64: str) -> list[dict]:
     ]}]
 
 
-def describe_and_match(image_bytes: bytes, chat, endpoint: str, match_fn) -> dict:
-    desc = chat.complete(endpoint, describe_messages(base64.b64encode(image_bytes).decode()), max_tokens=120).strip()
+def rerank_messages(description: str, candidates: list[tuple[str, str, float]]) -> list[dict]:
+    """Build chat messages asking the model to pick the best item_id from candidates."""
+    lines = "\n".join(f"- {item_id}: {search_text}" for item_id, search_text, _ in candidates)
+    return [{"role": "user", "content": (
+        f"Food photo description: {description}\n\n"
+        f"Menu item candidates:\n{lines}\n\n"
+        f"Which item_id best matches the described food? "
+        f"Reply with only the item_id (e.g. detroit_pepperoni), or 'none' if nothing fits."
+    )}]
+
+
+def describe_and_match(image_bytes: bytes, chat, endpoint: str, match_fn, candidates_fn=None) -> dict:
+    """Describe an image and match it to a menu item.
+
+    When candidates_fn is supplied, uses a retrieve-then-rerank flow:
+    candidates_fn(description) returns list[(item_id, search_text, score)].
+    The chat model picks the best item_id; invalid or 'none' answers fall back
+    to the top candidate. match_fn is used only when candidates_fn is absent or
+    returns an empty list.
+
+    Markdown bold markers (**) are stripped from the description before matching
+    and storing so they do not add noise to the VS query.
+    """
+    raw = chat.complete(endpoint, describe_messages(base64.b64encode(image_bytes).decode()), max_tokens=120).strip()
+    desc = raw.replace("**", "")
+    if candidates_fn is not None:
+        candidates = candidates_fn(desc)
+        if candidates:
+            answer = chat.complete(endpoint, rerank_messages(desc, candidates), max_tokens=20).strip().lower()
+            valid_ids = {item_id for item_id, _, _ in candidates}
+            if answer in valid_ids:
+                score = next(s for iid, _, s in candidates if iid == answer)
+                return {"description": desc, "matched_item_id": answer, "match_score": score}
+            # Fall back to top candidate on invalid answer or "none"
+            top_id, _, top_score = candidates[0]
+            return {"description": desc, "matched_item_id": top_id, "match_score": top_score}
     item_id, score = match_fn(desc)
     return {"description": desc, "matched_item_id": item_id, "match_score": score}

@@ -14,7 +14,7 @@ from pyspark.sql import SparkSession
 from databricks.sdk import WorkspaceClient
 from databricks.vector_search.client import VectorSearchClient
 from geologic.config import settings as S
-from geologic.clients import FmapiChat, menu_match
+from geologic.clients import FmapiChat, menu_match, menu_candidates
 from geologic.vision import describe_and_match
 
 spark = SparkSession.builder.getOrCreate()
@@ -25,7 +25,11 @@ idx = VectorSearchClient(disable_notice=True).get_index(S.vs_endpoint, S.menu_in
 out = []
 for r in todo:
     with open(r["image_uri"], "rb") as f:
-        d = describe_and_match(f.read(), chat, S.vision_endpoint, lambda t: menu_match(idx, t))
+        d = describe_and_match(
+            f.read(), chat, S.vision_endpoint,
+            lambda t: menu_match(idx, t),
+            candidates_fn=lambda t: menu_candidates(idx, t, 10),
+        )
     out.append((r["signal_id"], d["description"], d["matched_item_id"], d["match_score"], datetime.now(timezone.utc)))
 if out:
     spark.createDataFrame(out, "signal_id STRING, description STRING, matched_item_id STRING, match_score DOUBLE, described_at TIMESTAMP") \
