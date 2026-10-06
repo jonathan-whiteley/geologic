@@ -13,32 +13,46 @@ def _already_applied(page: dict, suggestion: dict) -> bool:
 def publish(suggestion, store, rules, epoch, reprobe: bool = True) -> str:
     sid = suggestion["suggestion_id"]
     if suggestion.get("epoch") != store.current_epoch():
+        store.set_state(sid, "approved" if suggestion["state"] in ("approved", "publishing") else suggestion["state"],
+                        "stale epoch: demo was reset")
         return "stale"
     rule = find_exclusion(suggestion["diff_after"], suggestion.get("persona_id"), [], rules)
     if rule or suggestion.get("tier") == "BLOCKED":
         store.audit("publish_job", "blocked", sid, rule or suggestion.get("exclusion_rule_id"), "publish")
         store.set_state(sid, "blocked")
         return "blocked"
-    final_state = "published" if suggestion["state"] == "approved" else suggestion["state"]
+    final_state = "published" if suggestion["state"] in ("approved", "publishing") else suggestion["state"]
+    back_state = "approved" if suggestion["state"] in ("approved", "publishing") else suggestion["state"]
+
+    def stale():
+        store.set_state(sid, back_state, "stale epoch: demo was reset")
+        return "stale"
+
     try:
         page = store.get_page(suggestion["page_id"])
-        if _already_applied(page, suggestion):
-            # Idempotent: the drafting job re-publishes T0 rows on every run; never double-bump the version.
+        applied = _already_applied(page, suggestion)
+        if applied and suggestion["state"] == "auto_published":
+            # Drafting job re-publishes live T0 rows on every run; never double-bump or re-sync.
             store.set_state(sid, final_state)
             return "published"
         store.set_step(sid, 1)
-        new = next_page_version(page, suggestion)
-        store.write_page(new)
-        store.record_version(new, sid)
+        if not applied:  # a retry after a partial failure skips the write but still syncs and re-probes
+            if suggestion.get("epoch") != store.current_epoch():  # re-check right before writing (reset race)
+                return stale()
+            new = next_page_version(page, suggestion)
+            store.write_page(new)
+            store.record_version(new, sid)
         store.set_step(sid, 2)
         store.sync_index()
         store.set_step(sid, 3)
         if reprobe and suggestion.get("prompt_ids"):
             store.reprobe(list(suggestion["prompt_ids"]))
         store.set_step(sid, 5)
+        if suggestion.get("epoch") != store.current_epoch():
+            return stale()
         store.set_state(sid, final_state)
     except Exception as e:
-        store.set_state(sid, "approved", str(e))
+        store.set_state(sid, back_state, str(e))
         store.audit("publish_job", "failed", sid, None, None)
         return "failed"
     return "published"

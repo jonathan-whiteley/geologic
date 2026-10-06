@@ -58,6 +58,37 @@ def test_publish_idempotent_jsonld():
     sg = {**SG, "asset_type": "jsonld", "diff_after": "{}", "tier": "T0", "state": "auto_published", "prompt_ids": []}
     assert publish(sg, st, RULES, 1, reprobe=False) == "published" and st.pages["p"]["version"] == 1
 
+def test_publish_epoch_changes_before_write_is_refused():
+    st = FakeStore()
+    orig = st.set_step
+    def bump(sid, n):
+        orig(sid, n)
+        if n == 1: st.epoch = 2  # reset lands after the entry check
+    st.set_step = bump
+    assert publish(SG, st, RULES, 1) == "stale"
+    assert st.pages["p"]["version"] == 1 and st.versions == [] and st.synced == 0
+    assert st.states["s1"][0] == "approved" and "stale" in st.states["s1"][1]
+
+def test_publish_epoch_changes_during_sync_does_not_mark_published():
+    st = FakeStore()
+    st.sync_index = lambda: setattr(st, "epoch", 2)
+    assert publish(SG, st, RULES, 1) == "stale"
+    assert st.states["s1"][0] == "approved"
+
+def test_retry_after_failed_sync_still_syncs_and_reprobes():
+    st = FakeStore()
+    calls = {"n": 0}
+    def flaky():
+        calls["n"] += 1
+        if calls["n"] == 1: raise RuntimeError("vs down")
+        st.synced += 1
+    st.sync_index = flaky
+    assert publish(SG, st, RULES, 1) == "failed"
+    assert st.pages["p"]["version"] == 2 and st.states["s1"] == ("approved", "vs down")
+    assert publish({**SG, "state": "publishing"}, st, RULES, 1) == "published"
+    assert st.pages["p"]["version"] == 2 and st.versions == [("p", 2, "s1")]
+    assert st.synced == 1 and st.reprobed == [["q001"]] and st.states["s1"] == ("published", None)
+
 class FakeReset:
     def __init__(self): self.calls, self.e = [], 1
     def bump_epoch(self): self.e += 1; self.calls.append("bump"); return self.e
