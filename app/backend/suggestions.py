@@ -59,5 +59,5 @@ class SuggestionRepo:
                                   count(*) FILTER (WHERE tier = 'T1' AND state IN ('published', 'rejected')) t1_reviewed
                            FROM suggestions WHERE epoch = {_EPOCH}""")[0]
         blocked = self._rows("SELECT count(*) n FROM audit_events WHERE action = 'blocked'")[0]["n"]
-        pct = (r["t1_published"] / r["t1_reviewed"]) if r["t1_reviewed"] else None
+        pct = (100 * r["t1_published"] / r["t1_reviewed"]) if r["t1_reviewed"] else None
         return {"t0_auto": r["t0_auto"], "t1_approved_no_edit_pct": pct, "t2_reviews": r["t2_reviews"], "blocked": blocked}

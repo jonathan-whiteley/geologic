@@ -17,6 +17,6 @@ def test_emit_and_inject():
     sink = ListSink()
     p = SignalProducer(sink, random.Random(1), clock=lambda: NOW)
     assert p.emit_background(5) == 5
-    sid = p.inject("S3_kittle")
+    sid = p.inject("S3_goff")
     assert len(sink.records) == 6 and sink.records[-1]["signal_id"] == sid
     assert sink.records[-1]["producer"] == "seeded"

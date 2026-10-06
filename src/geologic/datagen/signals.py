@@ -5,17 +5,17 @@ import random
 import uuid
 from datetime import datetime
 
-SEEDED = ("S3_kittle", "S4_exclusion", "S5_pretzel", "S5_puffs", "S7_crawler")
-_IMG = "/Volumes/jdub_demo/geologic/assets/signals/{}.png"
+SEEDED = ("S3_goff", "S4_exclusion", "S5_pretzel", "S5_puffs", "S7_crawler")
+_IMG = "/Volumes/jdub_demo/geologic/assets/signals/{}"
 
 def _row(source_type, payload, now, image_uri=None, producer="background"):
     return dict(signal_id=str(uuid.uuid4()), source_type=source_type, payload=json.dumps(payload),
                 image_uri=image_uri, ingested_at=now, producer=producer)
 
 def seeded_signal(truth_id: str, now: datetime) -> dict:
-    if truth_id == "S3_kittle":
-        return _row("athlete_post", {"author": "George Kittle", "author_persona_id": "p_kittle", "reach": 2_100_000,
-                    "text": "Tailgate fuel before kickoff. That corner piece though."}, now, _IMG.format("kittle_tailgate"), "seeded")
+    if truth_id == "S3_goff":
+        return _row("athlete_post", {"author": "Jared Goff", "author_persona_id": "p_goff", "reach": 1_600_000,
+                    "text": "Detroit-style is back before kickoff. Corner piece is mine."}, now, _IMG.format("goff_slices_n_stix.jpg"), "seeded")
     if truth_id == "S4_exclusion":
         return _row("social", {"author": "@sportsdesk", "author_persona_id": "p_fictional_dax", "reach": 900_000,
                     "text": "Dax Merriwether trending after arrest report; fans post Little Caesars memes."}, now, None, "seeded")
@@ -38,16 +38,17 @@ _BG_TEXT = [
     ("review", "Caesar Wings were cold this time."),
     ("crawler_hit", "GPTBot fetched /menu."),
 ]
-_REAL = [("Justin Jefferson", "p_jefferson", "Thursday night. Crazy Bread count: yes."),
-         ("Jared Goff", "p_goff", "Pregame Hot-N-Ready with the family."),
-         ("Saquon Barkley", "p_barkley", "Pizza night after practice.")]
+# Real endorsers in positive moments only, each with a real Little Caesars photo (credits in geologic.photos).
+_REAL = [("Justin Jefferson", "p_jefferson", "Thursday night. Crazy Bread count: yes.", "jefferson_press.jpg"),
+         ("George Kittle", "p_kittle", "Radio row fit check. You already know where I'm eating.", "kittle_radio_row.jpg"),
+         ("Saquon Barkley", "p_barkley", "Pizza night after practice.", "barkley_press.jpg")]
 
 def background_signal(rng: random.Random, now: datetime) -> dict:
     roll = rng.random()
     if roll < 0.08:
-        name, pid, text = rng.choice(_REAL)
+        name, pid, text, photo = rng.choice(_REAL)
         return _row("athlete_post", {"author": name, "author_persona_id": pid, "reach": rng.randint(1_000_000, 4_000_000), "text": text},
-                    now, _IMG.format(f"bg_{rng.randint(1, 5)}"))
+                    now, _IMG.format(photo))
     st, text = rng.choice(_BG_TEXT)
     payload = {"author": f"user{rng.randint(100, 9999)}", "reach": rng.randint(10, 5000), "text": text}
     if st == "crawler_hit":

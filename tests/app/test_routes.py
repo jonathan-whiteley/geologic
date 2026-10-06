@@ -42,7 +42,7 @@ def test_reject_after_publish_start_is_409():
     assert c.post("/api/suggestions/s1/reject").status_code == 409
 
 def test_inject_validates_truth():
-    assert c.post("/api/demo/inject/S3_kittle").status_code == 202
+    assert c.post("/api/demo/inject/S3_goff").status_code == 202
     assert c.post("/api/demo/inject/not_a_truth").status_code == 404
 
 def test_reset():

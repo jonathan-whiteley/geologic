@@ -10,6 +10,13 @@ T = lambda n: f"{os.environ.get('CATALOG_NAME', 'jdub_demo')}.{os.environ.get('S
 DRILL_TEXT = "How much is a Little Caesars Hot-N-Ready pizza right now?"
 _PID = re.compile(r"^q\d{3}$")
 
+def _pct(row, *keys):
+    """Views return rates as 0-1 fractions; the UI renders rates on a 0-100 scale."""
+    for k in keys:
+        if row.get(k) is not None:
+            row[k] = row[k] * 100
+    return row
+
 class Reads:
     _inst = None
 
@@ -19,15 +26,15 @@ class Reads:
         return cls._inst
 
     def model_summary(self):
-        kpis = query(f"SELECT * FROM {T('v_kpis')}")[0]
+        kpis = _pct(query(f"SELECT * FROM {T('v_kpis')}")[0], "mention_rate", "citation_rate", "fact_accuracy")
         heat = query(f"SELECT cluster, engine, answer_share FROM {T('v_cluster_engine_share')}")
         brands = query(f"SELECT brand, answer_share FROM {T('v_brand_share')} ORDER BY answer_share DESC")
         last = query(f"SELECT max(r.finished_at) t FROM {T('probe_runs')} r JOIN {T('probe_state')} s ON r.epoch = s.current_epoch")[0]["t"]
         drill = query(f"SELECT prompt_id FROM {T('prompt_bank')} WHERE prompt_text = :t", {"t": DRILL_TEXT})[0]["prompt_id"]
-        sources = query(f"SELECT publisher, source_type, is_official, share FROM {T('v_citation_sources')} ORDER BY share DESC LIMIT 8")
+        sources = [_pct(r, "share") for r in query(f"SELECT publisher, source_type, is_official, share FROM {T('v_citation_sources')} ORDER BY share DESC LIMIT 8")]
         top_q = query(f"SELECT * FROM {T('v_question_volume')} ORDER BY est_monthly_volume DESC, prompt_id LIMIT 5")
-        leader = [{**r, "logo": LOGOS.get(r["brand"])} for r in query(f"SELECT * FROM {T('v_leaderboard')} ORDER BY answer_share DESC")]
-        themes = [{**r, "label": THEME_LABELS.get(r["theme"], r["theme"])} for r in query(f"SELECT * FROM {T('v_theme_sentiment')}")]
+        leader = [_pct({**r, "logo": LOGOS.get(r["brand"])}, "citation_share") for r in query(f"SELECT * FROM {T('v_leaderboard')} ORDER BY answer_share DESC")]
+        themes = [_pct({**r, "label": THEME_LABELS.get(r["theme"], r["theme"])}, "pct_positive", "pct_negative") for r in query(f"SELECT * FROM {T('v_theme_sentiment')}")]
         by_cluster = {r["cluster"]: r["p"] for r in query(f"SELECT cluster, min(prompt_id) p FROM {T('prompt_bank')} GROUP BY cluster")}
         return {"kpis": kpis, "heatmap": heat, "brands": brands, "leaderboard": leader, "themes": themes,
                 "prompt_ids_by_cluster": by_cluster, "citation_sources": sources, "top_questions": top_q,
@@ -99,7 +106,7 @@ class Reads:
             GROUP BY phase""")
         d = {r["phase"]: r for r in rows}
         return {"share_before": d.get("before", {}).get("share"), "share_after": d.get("after", {}).get("share"),
-                "accuracy_before": d.get("before", {}).get("acc"), "accuracy_after": d.get("after", {}).get("acc")}
+                "accuracy_before": _pct(d.get("before", {}), "acc").get("acc"), "accuracy_after": _pct(d.get("after", {}), "acc").get("acc")}
 
     # Prompt Explorer
     def _vs(self, text, k):

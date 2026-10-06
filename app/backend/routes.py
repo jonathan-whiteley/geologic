@@ -1,5 +1,6 @@
+import mimetypes
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from pydantic import BaseModel
 from backend import deps
 from geologic.datagen.signals import SEEDED
@@ -51,7 +52,9 @@ def signal_image(signal_id: str, reads=Depends(deps.get_reads)):
     path = reads.image_path(signal_id)
     if not path:
         raise HTTPException(404, "No image for this signal")
-    return FileResponse(path, media_type="image/png")
+    # Apps have no /Volumes mount; stream the file through the Files API.
+    body = deps._w().files.download(path).contents.read()
+    return Response(body, media_type=mimetypes.guess_type(path)[0] or "image/png", headers={"Cache-Control": "max-age=3600"})
 
 @router.get("/opportunities")
 def opportunities(reads=Depends(deps.get_reads)):

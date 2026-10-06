@@ -32,7 +32,7 @@ const SOURCE_STYLE: Record<Signal['source_type'], string> = {
 }
 
 const SEEDED_OPTIONS = [
-  { value: 'S3_kittle', label: 'Kittle tailgate post' },
+  { value: 'S3_goff', label: 'Goff Detroit-style post' },
   { value: 'S4_exclusion', label: 'Excluded athlete trend' },
   { value: 'S5_puffs', label: 'Crazy Puffs thread' },
   { value: 'S5_pretzel', label: 'Pretzel Crust thread' },
@@ -179,7 +179,7 @@ function SignalCard({ signal, isNew }: { signal: Signal; isNew: boolean }) {
         {signal.image_url && (
           <div className="flex items-end gap-3 flex-wrap">
             <div className="thumb w-36 aspect-[4/3] rounded-xl relative overflow-hidden">
-              <img src={signal.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+              <img src={signal.image_url} alt="" className={`absolute inset-0 w-full h-full object-cover ${signal.source_type === 'athlete_post' ? 'object-top' : ''}`} />
               {signal.image_match_score !== null && (
                 <span className="absolute left-1.5 bottom-1.5 text-[10px] font-mono bg-black/60 text-white px-1.5 rounded">
                   {signal.menu_item_name ?? 'Menu match'} · {signal.image_match_score.toFixed(2)} match

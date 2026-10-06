@@ -56,13 +56,13 @@ def test_rerank_fallback_on_invalid_answer():
     assert out["match_score"] == 0.74
 
 
-def test_rerank_fallback_on_none():
-    # Rerank model answers "none"; should fall back to top candidate
-    chat = MultiChat("some food", "none")
+def test_rerank_none_means_no_match():
+    # Rerank model answers "none" (e.g. a closed pizza box); no menu item is forced onto the signal
+    chat = MultiChat("a closed pizza box", "none")
     out = describe_and_match(b"\x89PNG", chat, "ep", lambda t: ("thin_crust", 0.74),
                              candidates_fn=lambda t: list(_CANDS))
-    assert out["matched_item_id"] == "thin_crust"
-    assert out["match_score"] == 0.74
+    assert out["matched_item_id"] is None
+    assert out["match_score"] is None
 
 
 def test_strip_markdown_bold():
@@ -80,3 +80,9 @@ def test_rerank_messages_structure():
     assert len(msgs) == 1 and msgs[0]["role"] == "user"
     assert "detroit_pepperoni" in msgs[0]["content"]
     assert "none" in msgs[0]["content"]
+
+
+def test_jpeg_photos_sent_with_jpeg_mime():
+    from geologic.vision import describe_messages, image_mime
+    assert image_mime(b"\xff\xd8\xff\xe0rest") == "image/jpeg" and image_mime(b"\x89PNG") == "image/png"
+    assert describe_messages("AAA", "image/jpeg")[0]["content"][1]["image_url"]["url"].startswith("data:image/jpeg;base64,")

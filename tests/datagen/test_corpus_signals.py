@@ -17,9 +17,9 @@ def test_corpus_mirrors_pages_and_seeds_truths():
     assert len(docs) >= 120
 
 def test_seeded_signals():
-    k = s.seeded_signal("S3_kittle", NOW)
-    assert k["source_type"] == "athlete_post" and k["image_uri"].endswith(".png")
-    assert json.loads(k["payload"])["author"] == "George Kittle"
+    k = s.seeded_signal("S3_goff", NOW)
+    assert k["source_type"] == "athlete_post" and k["image_uri"].endswith("goff_slices_n_stix.jpg")
+    assert json.loads(k["payload"])["author"] == "Jared Goff"
     ex = json.loads(s.seeded_signal("S4_exclusion", NOW)["payload"])
     assert ex["author_persona_id"] == "p_fictional_dax"
     cr = json.loads(s.seeded_signal("S7_crawler", NOW)["payload"])

@@ -30,7 +30,9 @@ for m in menu_items():
     scene(f"{S.volume_path}/menu/{m['item_id']}.png", square=m["item_id"].startswith("detroit"))
 _photos = os.path.join(_src, "..", "assets", "photos")
 os.makedirs(f"{S.volume_path}/signals", exist_ok=True)
-shutil.copyfile(os.path.join(_photos, "kittle_tailgate.png"), f"{S.volume_path}/signals/kittle_tailgate.png")
+for f in os.listdir(_photos):
+    if f.endswith((".png", ".jpg")):
+        shutil.copyfile(os.path.join(_photos, f), f"{S.volume_path}/signals/{f}")
 for i in range(1, 6):
     scene(f"{S.volume_path}/signals/bg_{i}.png", bg=("#9AA7B5", "#4A5568"))
 print("images written")

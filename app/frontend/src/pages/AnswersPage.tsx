@@ -106,7 +106,7 @@ export default function AnswersPage() {
           icon={<PieChart className="w-5 h-5" />}
           label="Answer Share"
           value={kpis.answer_share.toFixed(2)}
-          sub={topCompetitor && <span>{topCompetitor.brand} {topCompetitor.answer_share.toFixed(2)} · named in {kpis.mention_rate}%</span>}
+          sub={topCompetitor && <span>{topCompetitor.brand} {topCompetitor.answer_share.toFixed(2)} · named in {kpis.mention_rate.toFixed(0)}%</span>}
         />
         <StatCard
           icon={<Medal className="w-5 h-5" />}
