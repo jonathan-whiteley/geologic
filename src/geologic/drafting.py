@@ -23,3 +23,12 @@ def red_team_items(quarantined_signals):
              "persona_id": s.get("persona_id"), "visual_sourced": False, "resolution_confidence": 1.0,
              "asset_type": "description", "forced_text": s["text"], "prompt_ids": [], "title": "Red-team check on quarantined signal"}
             for s in quarantined_signals]
+
+UPSERT_SUGGESTION = """INSERT INTO suggestions (suggestion_id, epoch, opp_id, opp_rank, title, asset_type, page_id, diff_before, diff_after,
+    rationale, tier, state, checks, exclusion_rule_id, persona_id, prompt_ids, agent_trace_id)
+    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+    ON CONFLICT (suggestion_id) DO UPDATE SET opp_rank = EXCLUDED.opp_rank, title = EXCLUDED.title, asset_type = EXCLUDED.asset_type,
+    page_id = EXCLUDED.page_id, diff_before = EXCLUDED.diff_before, diff_after = EXCLUDED.diff_after, rationale = EXCLUDED.rationale,
+    tier = EXCLUDED.tier, state = EXCLUDED.state, checks = EXCLUDED.checks, exclusion_rule_id = EXCLUDED.exclusion_rule_id,
+    persona_id = EXCLUDED.persona_id, prompt_ids = EXCLUDED.prompt_ids, agent_trace_id = EXCLUDED.agent_trace_id
+    WHERE suggestions.state IN ('drafted', 'pending_review', 'blocked')"""

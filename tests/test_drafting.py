@@ -19,3 +19,10 @@ def test_red_team_items():
                             {"signal_id": "y", "persona_id": None, "menu_item_id": None, "text": "politics"}])
     assert len(items) == 2 and items[0]["forced_text"] == "Dax arrest" and items[0]["persona_id"] == "p_fictional_dax"
     assert items[0]["page_id"] == "pg_item_classic_pepperoni" and items[1]["page_id"] == "pg_about"
+
+def test_upsert_updates_all_columns_and_guards_terminal_states():
+    from geologic.drafting import UPSERT_SUGGESTION as U
+    for col in ("rationale", "title", "diff_before", "exclusion_rule_id", "agent_trace_id", "page_id"):
+        assert f"{col} = EXCLUDED.{col}" in U
+    assert "WHERE suggestions.state IN ('drafted', 'pending_review', 'blocked')" in U
+    assert U.count("%s") == 17

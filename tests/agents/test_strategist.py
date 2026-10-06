@@ -33,3 +33,21 @@ def test_finalize_blocks_exclusion_in_draft_text():
 def test_finalize_invalid_jsonld_bumps_to_t1():
     d = {"asset_type": "jsonld", "diff_before": None, "diff_after": "{bad", "rationale": "r"}
     assert finalize(d, OPP, exclusion_rules(), menu_items())["tier"] == "T1"
+
+
+def test_clean_removes_em_and_en_dashes():
+    from geologic.agents.strategist import _clean
+    em, en = "—", "–"
+    assert _clean(f"Fast {em} and fresh") == "Fast, and fresh"
+    assert _clean(f"3{en}4 adults") == "3-4 adults"
+    assert _clean(f"wings{em}four flavors") == "wings, four flavors"
+    out = _clean(f"a {en} b {em} c")
+    assert em not in out and en not in out
+
+
+def test_finalize_cleans_generated_text_but_not_diff_before():
+    em = "—"
+    draft = {"asset_type": "faq", "diff_before": f"old {em} body", "diff_after": f"New {em} text 3–4", "rationale": f"why {em} because"}
+    f = finalize(draft, {"opp_id": "o", "title": f"T {em} x"}, exclusion_rules(), menu_items())
+    assert f["diff_after"] == "New, text 3-4" and f["rationale"] == "why, because"
+    assert f["diff_before"] == f"old {em} body" and f["title"] == "T, x"

@@ -38,9 +38,21 @@ def draft_suggestion(opp, page, menu, deals, chat, endpoint) -> dict:
     return {"asset_type": obj["asset_type"], "diff_before": before, "diff_after": obj["diff_after"],
             "rationale": obj.get("rationale", "")}
 
+def _clean(text):
+    """Deterministically removes em and en dashes from generated text (house style)."""
+    if not isinstance(text, str):
+        return text
+    text = re.sub(r"(?<=\d)\s?[\u2013\u2014]\s?(?=\d)", "-", text)
+    text = re.sub(r"\s*[\u2013\u2014]\s*", ", ", text)
+    return text
+
+def clean_draft(draft):
+    return {**draft, **{k: _clean(draft[k]) for k in ("diff_after", "rationale") if k in draft}}
+
 _PRICE_IN_TEXT = re.compile(r"\$\s?\d+(?:\.\d{2})?")
 
 def finalize(draft, opp, rules, menu) -> dict:
+    draft = clean_draft(draft)  # before exclusion and price checks; diff_before stays untouched
     rule_id = find_exclusion(draft["diff_after"], opp.get("persona_id"), [], rules)
     checks = [{"ok": rule_id is None, "label": "No exclusion rule touched" if rule_id is None else f"Blocked by {rule_id}"}]
     jsonld_ok = True
@@ -61,4 +73,4 @@ def finalize(draft, opp, rules, menu) -> dict:
                        jsonld_valid=jsonld_ok, resolution_confidence=opp.get("resolution_confidence", 1.0))
     if tier in ("T1", "T2"):
         checks.append({"ok": False, "label": f"Needs your approval ({tier})"})
-    return {**draft, "tier": tier, "exclusion_rule_id": rule_id, "checks": checks}
+    return {**draft, "title": _clean(opp.get("title") or ""), "tier": tier, "exclusion_rule_id": rule_id, "checks": checks}

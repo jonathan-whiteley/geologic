@@ -17,7 +17,7 @@ from databricks.sdk import WorkspaceClient
 from geologic.config import settings as S
 from geologic.clients import FmapiChat
 from geologic.agents.strategist import draft_suggestion, finalize, DraftError
-from geologic.drafting import plan_drafts, initial_state, suggestion_id, red_team_items
+from geologic.drafting import plan_drafts, initial_state, suggestion_id, red_team_items, UPSERT_SUGGESTION
 from geologic.lakebase import from_env
 from geologic.publish_flow import publish, DeltaStore
 
@@ -51,12 +51,8 @@ with conn_factory() as conn:
             trace_id = span.trace_id
         sid = suggestion_id(item["opp_id"], item["asset_type"], epoch)
         state = initial_state(final["tier"])
-        conn.execute("""INSERT INTO suggestions (suggestion_id, epoch, opp_id, opp_rank, title, asset_type, page_id, diff_before, diff_after,
-                        rationale, tier, state, checks, exclusion_rule_id, persona_id, prompt_ids, agent_trace_id)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                        ON CONFLICT (suggestion_id) DO UPDATE SET diff_after = EXCLUDED.diff_after, tier = EXCLUDED.tier,
-                        state = EXCLUDED.state, checks = EXCLUDED.checks""",
-                     (sid, epoch, item["opp_id"], item["rank"], item.get("title") or item["opp_type"], final["asset_type"], item["page_id"],
+        conn.execute(UPSERT_SUGGESTION,
+                     (sid, epoch, item["opp_id"], item["rank"], final["title"] or item["opp_type"], final["asset_type"], item["page_id"],
                       final["diff_before"], final["diff_after"], final["rationale"], final["tier"], state, json.dumps(final["checks"]),
                       final["exclusion_rule_id"], item.get("persona_id"), item.get("prompt_ids") or [], trace_id))
         if final["tier"] == "BLOCKED":  # enforcement point 2: suggest; then prove publish refuses it (point 3)
