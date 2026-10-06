@@ -21,7 +21,7 @@ with mlflow.start_run(run_name="content_strategist"):
     info = mlflow.pyfunc.log_model(
         name="agent", python_model=os.path.join(_root, "agents", "strategist_agent.py"),
         code_paths=[os.path.join(_root, "src", "geologic")],
-        pip_requirements=["databricks-sdk", "openai", "mlflow>=3.1"],
+        pip_requirements=["databricks-sdk", "openai", "httpx", "mlflow>=3.1"],
         resources=[DatabricksServingEndpoint(endpoint_name=S.judge_endpoint)])
 mv = mlflow.register_model(info.model_uri, S.fq("content_strategist"))
 agents.deploy(S.fq("content_strategist"), mv.version, endpoint_name=S.strategist_endpoint, scale_to_zero=True)
