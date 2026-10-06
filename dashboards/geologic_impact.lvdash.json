@@ -1,0 +1,544 @@
+{
+  "datasets": [
+    {
+      "name": "weekly",
+      "displayName": "Weekly Answer Share",
+      "queryLines": [
+        "SELECT week_start, brand, answer_share FROM v_answer_share_weekly ORDER BY week_start"
+      ]
+    },
+    {
+      "name": "clusters",
+      "displayName": "Cluster by Engine",
+      "queryLines": [
+        "SELECT cluster, engine, answer_share FROM v_cluster_engine_share"
+      ]
+    },
+    {
+      "name": "kpis",
+      "displayName": "KPIs",
+      "queryLines": [
+        "SELECT * FROM v_kpis"
+      ]
+    },
+    {
+      "name": "opps",
+      "displayName": "Opportunities",
+      "queryLines": [
+        "SELECT rank, title, opp_type, expected_lift_low, expected_lift_high, window_name FROM gold_opportunities ORDER BY rank"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "overview",
+      "displayName": "Overview",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# GEOlogic Impact"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "sub",
+            "multilineTextboxSpec": {
+              "lines": [
+                "How AI answer engines talk about Little Caesars"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "k-share",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis",
+                  "fields": [
+                    {
+                      "name": "answer_share",
+                      "expression": "`answer_share`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "answer_share",
+                  "displayName": "Answer Share",
+                  "format": {
+                    "type": "number",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Answer Share"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "k-cite",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis",
+                  "fields": [
+                    {
+                      "name": "citation_rate",
+                      "expression": "`citation_rate`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "citation_rate",
+                  "displayName": "Citation Rate",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Citation Rate"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "k-fact",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis",
+                  "fields": [
+                    {
+                      "name": "fact_accuracy",
+                      "expression": "`fact_accuracy`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "fact_accuracy",
+                  "displayName": "Fact Accuracy",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Fact Accuracy"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "k-wrong",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis",
+                  "fields": [
+                    {
+                      "name": "wrong_claims",
+                      "expression": "`wrong_claims`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "wrong_claims",
+                  "displayName": "Wrong Claims",
+                  "format": {
+                    "type": "number",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 0
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Wrong Claims"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "weekly-line",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "weekly",
+                  "fields": [
+                    {
+                      "name": "week_start",
+                      "expression": "`week_start`"
+                    },
+                    {
+                      "name": "brand",
+                      "expression": "`brand`"
+                    },
+                    {
+                      "name": "answer_share",
+                      "expression": "`answer_share`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "week_start",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "axis": {
+                    "hideTitle": true
+                  }
+                },
+                "y": {
+                  "fieldName": "answer_share",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Answer Share"
+                },
+                "color": {
+                  "fieldName": "brand",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "Little Caesars",
+                        "color": "#FF671B"
+                      },
+                      {
+                        "value": "Domino's",
+                        "color": "#1A1A1A"
+                      }
+                    ]
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Answer Share by week"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "cluster-heatmap",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "clusters",
+                  "fields": [
+                    {
+                      "name": "cluster",
+                      "expression": "`cluster`"
+                    },
+                    {
+                      "name": "engine",
+                      "expression": "`engine`"
+                    },
+                    {
+                      "name": "avg(answer_share)",
+                      "expression": "AVG(`answer_share`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "heatmap",
+              "encodings": {
+                "x": {
+                  "fieldName": "engine",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "axis": {
+                    "hideTitle": true
+                  }
+                },
+                "y": {
+                  "fieldName": "cluster",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "axis": {
+                    "hideTitle": true
+                  }
+                },
+                "color": {
+                  "fieldName": "avg(answer_share)",
+                  "displayName": "Answer Share",
+                  "scale": {
+                    "type": "quantitative",
+                    "colorRamp": {
+                      "mode": "custom-sequential",
+                      "start": "#FFE3D1",
+                      "end": "#E0530F"
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Answer Share by cluster and engine"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 5,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "h2",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Opportunities"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 11,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "opps-table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "opps",
+                  "fields": [
+                    {
+                      "name": "rank",
+                      "expression": "`rank`"
+                    },
+                    {
+                      "name": "title",
+                      "expression": "`title`"
+                    },
+                    {
+                      "name": "opp_type",
+                      "expression": "`opp_type`"
+                    },
+                    {
+                      "name": "expected_lift_low",
+                      "expression": "`expected_lift_low`"
+                    },
+                    {
+                      "name": "expected_lift_high",
+                      "expression": "`expected_lift_high`"
+                    },
+                    {
+                      "name": "window_name",
+                      "expression": "`window_name`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "rank",
+                    "displayName": "Rank"
+                  },
+                  {
+                    "fieldName": "title",
+                    "displayName": "Opportunity"
+                  },
+                  {
+                    "fieldName": "opp_type",
+                    "displayName": "Type"
+                  },
+                  {
+                    "fieldName": "expected_lift_low",
+                    "displayName": "Lift low"
+                  },
+                  {
+                    "fieldName": "expected_lift_high",
+                    "displayName": "Lift high"
+                  },
+                  {
+                    "fieldName": "window_name",
+                    "displayName": "Window"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Ranked opportunities"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 12,
+            "width": 12,
+            "height": 7
+          }
+        }
+      ]
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#FCFCFC",
+        "dark": "#1F272D"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#11171C"
+      },
+      "fontColor": {
+        "light": "#1A1A1A",
+        "dark": "#E8ECF0"
+      },
+      "selectionColor": {
+        "light": "#FF671B",
+        "dark": "#FF8F57"
+      },
+      "visualizationColors": [
+        "#FF671B",
+        "#1A1A1A",
+        "#FF8F57",
+        "#E0530F",
+        "#6B6B6B"
+      ],
+      "widgetHeaderAlignment": "LEFT"
+    },
+    "genieSpace": {
+      "isEnabled": true,
+      "overrideId": "01f1c1ad57691e9ab2457acf2bff7d78",
+      "enablementMode": "ENABLED"
+    }
+  }
+}

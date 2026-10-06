@@ -1,0 +1,72 @@
+{
+  "version": 2,
+  "config": {
+    "sample_questions": [
+      {
+        "id": "10000000000000000000000000000001",
+        "question": [
+          "Which question cluster improved most since we started publishing?"
+        ]
+      },
+      {
+        "id": "10000000000000000000000000000002",
+        "question": [
+          "Which engine still gets our prices wrong?"
+        ]
+      },
+      {
+        "id": "10000000000000000000000000000003",
+        "question": [
+          "What are the top 3 opportunities and why?"
+        ]
+      }
+    ]
+  },
+  "data_sources": {
+    "tables": [
+      {
+        "identifier": "jdub_demo.geologic.gold_opportunities"
+      },
+      {
+        "identifier": "jdub_demo.geologic.menu_items"
+      },
+      {
+        "identifier": "jdub_demo.geologic.mv_answer_share"
+      },
+      {
+        "identifier": "jdub_demo.geologic.prompt_bank"
+      },
+      {
+        "identifier": "jdub_demo.geologic.v_answer_share_weekly"
+      },
+      {
+        "identifier": "jdub_demo.geologic.v_citation_sources"
+      },
+      {
+        "identifier": "jdub_demo.geologic.v_latest_responses"
+      },
+      {
+        "identifier": "jdub_demo.geologic.v_public_signals"
+      },
+      {
+        "identifier": "jdub_demo.geologic.v_question_volume"
+      }
+    ]
+  },
+  "instructions": {
+    "text_instructions": [
+      {
+        "id": "30000000000000000000000000000001",
+        "content": [
+          "You analyze how AI answer engines talk about Little Caesars.\n",
+          "Answer Share = average of 1/lce_rank when Little Caesars is mentioned, else 0, over answers with status 'ok'. Use the mv_answer_share metric view for it.\n",
+          "\"Engines\" means the engine column: Claude, Llama, GPT-OSS, Gemma.\n",
+          "Question clusters: product, value, comparison, ordering, dietary, game_day_party, sponsorship.\n",
+          "Wrong price claims are claims with verdict 'wrong' in v_latest_responses.claims.\n",
+          "Opportunities are in gold_opportunities ordered by rank.\n",
+          "Never discuss people or signals that are not in v_public_signals.\n"
+        ]
+      }
+    ]
+  }
+}
