@@ -82,3 +82,34 @@ def test_no_citation_gap_when_official_rate_high():
 
 def test_healthy_cluster_has_no_gap():
     assert "content_gap:pg_menu" not in BY
+
+# The bank has no unbranded product prompts (only tracked candidates can), so add synthetic ones.
+PROD_PROMPTS = PROMPTS + [dict(prompt_id=f"cand_prod{i}", prompt_text="x", cluster="product", base_volume=100, branded=False)
+                          for i in range(3)]
+
+def unbranded(cluster, n=3):
+    return [p["prompt_id"] for p in PROD_PROMPTS if p["cluster"] == cluster and not p["branded"]][:n]
+
+def test_cluster_gaps_have_distinct_ids_on_shared_page():
+    # comparison and product both map to pg_menu; both failing must not collide on opp_id.
+    bad = [resp(i, False, None) for c in ("comparison", "product") for i in unbranded(c)]
+    opps = build(bad, PROD_PROMPTS, MENU, CAL, [], NOW, personas=PERSONAS)
+    gaps = [o for o in opps if o["opp_type"] == "content_gap" and o["page_id"] == "pg_menu"]
+    assert {o["cluster"] for o in gaps} == {"comparison", "product"}
+    assert len({o["opp_id"] for o in gaps}) == 2
+    cites = [resp(i, True, 1) for c in ("comparison", "product") for i in unbranded(c)]
+    copps = [o for o in build(cites, PROD_PROMPTS, MENU, CAL, [], NOW, personas=PERSONAS)
+             if o["opp_type"] == "citation_gap" and o["page_id"] == "pg_menu"]
+    assert len(copps) == 2 and len({o["opp_id"] for o in copps}) == 2
+
+def test_unknown_prompt_id_is_skipped():
+    extra = RESP + [resp("cand_unknown", False, None, [{"item": "Hot-N-Ready", "price": "$5", "verdict": "wrong"}])]
+    opps = build(extra, PROMPTS, MENU, CAL, SIGS, NOW, personas=PERSONAS)
+    assert [o["opp_id"] for o in opps] == [o["opp_id"] for o in OPPS]
+
+def test_null_reach_does_not_crash():
+    sigs = [sig(signal_id="k2", source_type="athlete_post", menu_item_id="detroit_pepperoni", persona_id="p_kittle",
+                is_real_persona=True, image_match_score=0.9, reach=None),
+            sig(signal_id="t2", velocity=5.0, reach=None, menu_item_id="pretzel_crust")]
+    opps = build([], PROMPTS, MENU, CAL, sigs, NOW, personas=PERSONAS)
+    assert {o["opp_type"] for o in opps} >= {"persona_moment", "trend"}

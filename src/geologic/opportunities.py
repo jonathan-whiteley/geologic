@@ -38,7 +38,11 @@ def _opp(opp_type, title, *, item=None, page_id=None, persona_id=None, visual=Fa
     margin = item["margin_pct"] if item else 0.4
     available = item["available"] if item else True
     lo, hi = expected_lift(gap, volume, window[0], margin, available)
-    return dict(opp_id=_id(opp_type, item["item_id"] if item else page_id, persona_id), opp_type=opp_type, title=title,
+    # Cluster-derived opps share pages (comparison and product both map to pg_menu), so the cluster is part of their id.
+    id_parts = (opp_type, item["item_id"] if item else page_id, persona_id)
+    if opp_type in ("content_gap", "citation_gap"):
+        id_parts += (cluster,)
+    return dict(opp_id=_id(*id_parts), opp_type=opp_type, title=title,
                 item_id=item["item_id"] if item else None, page_id=page_id, persona_id=persona_id, visual_sourced=visual,
                 resolution_confidence=conf, prompt_ids=list(prompt_ids), signal_ids=list(signal_ids), cluster=cluster,
                 gap_severity=round(gap, 3), expected_lift_low=lo, expected_lift_high=hi,
@@ -61,7 +65,8 @@ def build(responses, prompts, menu, calendar, signals, now, personas=()) -> list
     P = {p["prompt_id"]: p for p in prompts}
     items = {m["item_id"]: m for m in menu}
     persona_names = {p["persona_id"]: p["display_name"] for p in personas}
-    ok = [r for r in responses if r.get("status") == "ok"]
+    # Skip responses whose prompt is unknown (e.g. untracked or retired prompts) rather than crash.
+    ok = [r for r in responses if r.get("status") == "ok" and r.get("prompt_id") in P]
     opps = []
 
     # S1: wrong claims per item (all prompts, not filtered by branded)
@@ -82,7 +87,7 @@ def build(responses, prompts, menu, calendar, signals, now, personas=()) -> list
                          reasoning=f"{n} of {total[iid]} price claims about {item['name']} are wrong.", assets=["jsonld", "faq"]))
 
     # S2: content_gap for low Answer Share clusters (unbranded prompts only).
-    # S6 new: citation_gap for clusters where LCE is mentioned but official citations are low (unbranded only).
+    # citation_gap for clusters where LCE is mentioned but official citations are low (unbranded only).
     by_cluster_unb = defaultdict(list)
     for r in ok:
         if not P[r["prompt_id"]].get("branded", False):
@@ -110,7 +115,7 @@ def build(responses, prompts, menu, calendar, signals, now, personas=()) -> list
             else:
                 title = f"{cluster.replace('_', ' ')} answers cite third parties, not lce.com"
             opps.append(_opp("citation_gap", title, page_id=CLUSTER_PAGES[cluster],
-                             prompt_ids=pids, cluster=cluster, gap=round(1 - official_rate, 3), volume=vol,
+                             prompt_ids=pids, cluster=cluster, gap=1 - official_rate, volume=vol,
                              window=win,
                              reasoning=f"Official citation rate {official_rate:.2f} in {cluster} with mention rate {mention_rate:.2f}.", assets=["jsonld", "faq"]))
 
@@ -129,7 +134,7 @@ def build(responses, prompts, menu, calendar, signals, now, personas=()) -> list
         opps.append(_opp("persona_moment", title, item=item,
                          page_id=f"pg_item_{iid}", persona_id=pid, visual=True,
                          conf=best["resolution_confidence"], signal_ids=[s["signal_id"] for s in sigs],
-                         gap=0.5, volume=best["reach"] / 1000,
+                         gap=0.5, volume=(best.get("reach") or 0) / 1000,
                          reasoning=f"Image matched {item['name']} at {best['image_match_score']:.2f}.", assets=["alt_text"]))
 
     # S5: trends
@@ -138,7 +143,7 @@ def build(responses, prompts, menu, calendar, signals, now, personas=()) -> list
             item = items[s["menu_item_id"]]
             opps.append(_opp("trend", f"{item['name']} trend", item=item, page_id=f"pg_item_{item['item_id']}",
                              signal_ids=[s["signal_id"]], cluster="comparison", gap=min(1.0, s["velocity"] / 10),
-                             volume=s["reach"], reasoning=f"Velocity {s['velocity']}x.", assets=["description"]))
+                             volume=s.get("reach") or 0, reasoning=f"Velocity {s['velocity']}x.", assets=["description"]))
 
     # S7: crawler_gap - one opp per page_id, aggregate signal_ids from all zero-hit signals for that page.
     crawler_page_sigs = defaultdict(list)
@@ -149,6 +154,6 @@ def build(responses, prompts, menu, calendar, signals, now, personas=()) -> list
         bot = next((s.get("bot") for s in sigs if s.get("bot")), "AI crawlers")
         opps.append(_opp("crawler_gap", f"AI crawlers never reach {page}", page_id=CRAWL_PAGES[page],
                          signal_ids=[s["signal_id"] for s in sigs], cluster="ordering", gap=0.8, volume=500,
-                         reasoning=f"{bot} has not fetched {page} in 30 days.", assets=["jsonld"]))
+                         reasoning=f"{bot} {'has' if bot != 'AI crawlers' else 'have'} not fetched {page} in 30 days.", assets=["jsonld"]))
 
     return rank_opportunities(opps)
