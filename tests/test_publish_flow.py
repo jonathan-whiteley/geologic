@@ -12,6 +12,8 @@ class FakeStore:
         self.pages[page["page_id"]] = page
     def record_version(self, page, by): self.versions.append((page["page_id"], page["version"], by))
     def set_state(self, sid, state, error=None): self.states[sid] = (state, error)
+    def release(self, sid, state, error):
+        if self.states.get(sid, ("publishing",))[0] == "publishing": self.states[sid] = (state, error)
     def set_step(self, sid, n): self.steps.append(n)
     def audit(self, *a): self.audits.append(a)
     def sync_index(self): self.synced += 1
@@ -88,6 +90,17 @@ def test_retry_after_failed_sync_still_syncs_and_reprobes():
     assert publish({**SG, "state": "publishing"}, st, RULES, 1) == "published"
     assert st.pages["p"]["version"] == 2 and st.versions == [("p", 2, "s1")]
     assert st.synced == 1 and st.reprobed == [["q001"]] and st.states["s1"] == ("published", None)
+
+def test_stale_publish_never_touches_a_restored_row():
+    st = FakeStore()
+    st.states["s1"] = ("publishing", None)
+    def reset_lands(sid, n):
+        if n == 1:
+            st.epoch = 2
+            st.states["s1"] = ("pending_review", None)  # reset restored the row under the new epoch
+    st.set_step = reset_lands
+    assert publish(SG, st, RULES, 1) == "stale"
+    assert st.states["s1"] == ("pending_review", None) and st.pages["p"]["version"] == 1
 
 class FakeReset:
     def __init__(self): self.calls, self.e = [], 1

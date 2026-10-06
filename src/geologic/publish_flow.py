@@ -13,8 +13,7 @@ def _already_applied(page: dict, suggestion: dict) -> bool:
 def publish(suggestion, store, rules, epoch, reprobe: bool = True) -> str:
     sid = suggestion["suggestion_id"]
     if suggestion.get("epoch") != store.current_epoch():
-        store.set_state(sid, "approved" if suggestion["state"] in ("approved", "publishing") else suggestion["state"],
-                        "stale epoch: demo was reset")
+        store.release(sid, "approved", "stale epoch: demo was reset")
         return "stale"
     rule = find_exclusion(suggestion["diff_after"], suggestion.get("persona_id"), [], rules)
     if rule or suggestion.get("tier") == "BLOCKED":
@@ -25,7 +24,7 @@ def publish(suggestion, store, rules, epoch, reprobe: bool = True) -> str:
     back_state = "approved" if suggestion["state"] in ("approved", "publishing") else suggestion["state"]
 
     def stale():
-        store.set_state(sid, back_state, "stale epoch: demo was reset")
+        store.release(sid, back_state, "stale epoch: demo was reset")
         return "stale"
 
     try:
@@ -94,6 +93,12 @@ class DeltaStore:
 
     def set_state(self, sid, state, error=None):
         self.conn.execute("UPDATE suggestions SET state = %s, error = %s WHERE suggestion_id = %s", (state, error, sid))
+        self.conn.commit()
+
+    def release(self, sid, state, error):
+        """Stale-epoch exit: only touches a row still 'publishing', never a row reset has since restored."""
+        self.conn.execute("UPDATE suggestions SET state = %s, error = %s WHERE suggestion_id = %s AND state = 'publishing'",
+                          (state, error, sid))
         self.conn.commit()
 
     def set_step(self, sid, n):
