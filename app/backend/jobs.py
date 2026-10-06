@@ -15,7 +15,11 @@ class Jobs:
 
     def reset_state(self, run_id):
         """Life-cycle state of a reset job run, or None if the run is not a reset run."""
-        r = self.w.jobs.get_run(run_id)
+        try:
+            r = self.w.jobs.get_run(run_id)
+        except Exception as e:  # unknown or inaccessible run id
+            print(f"reset_state {run_id}: {type(e).__name__}: {e}")
+            return None
         if r.job_id != int(os.environ["RESET_JOB_ID"]):
             return None
         st = r.state

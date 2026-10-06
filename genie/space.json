@@ -59,9 +59,9 @@
         "id": "30000000000000000000000000000001",
         "content": [
           "You analyze how AI answer engines talk about Little Caesars.\n",
-          "Answer Share = average of 1/lce_rank when Little Caesars is mentioned, else 0, over answers with status 'ok'. Use the mv_answer_share metric view for it.\n",
+          "Answer Share = average of 1/lce_rank when Little Caesars is mentioned, else 0, over answers with status 'ok' to unbranded questions (questions that do not name Little Caesars). Use the mv_answer_share metric view for it. Citation Rate and Fact Accuracy in mv_answer_share cover all questions.\n",
           "\"Engines\" means the engine column: Claude, Llama, GPT-OSS, Gemma.\n",
-          "Question clusters: product, value, comparison, ordering, dietary, game_day_party, sponsorship.\n",
+          "Question clusters with unbranded questions: value, comparison, game_day_party, sponsorship. The product, ordering and dietary clusters contain only branded questions, so their Answer Share is NULL: exclude NULL Answer Share rows when ranking or comparing clusters.\n",
           "Wrong price claims are claims with verdict 'wrong' in v_latest_responses.claims.\n",
           "Opportunities are in gold_opportunities ordered by rank.\n",
           "Never discuss people or signals that are not in v_public_signals.\n"

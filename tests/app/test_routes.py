@@ -86,3 +86,15 @@ def test_approve_releases_row_when_job_fails_to_start():  # finding 2
     assert r.status_code == 502 and "Try again" in r.json()["detail"]
     assert S.rows["s2"]["state"] == "pending_review" and "s2" not in S.runs
     assert c.post("/api/suggestions/s2/approve").status_code == 202  # Approve works again
+
+
+def test_jobs_reset_state_unknown_run_is_none(monkeypatch):
+    from types import SimpleNamespace as N
+    from backend.jobs import Jobs
+    monkeypatch.setenv("RESET_JOB_ID", "7")
+    def get_run(run_id):
+        if run_id == 1: raise RuntimeError("does not exist")
+        return N(job_id=7 if run_id == 2 else 8, state=N(life_cycle_state=N(value="TERMINATED"), result_state=N(value="SUCCESS")))
+    j = Jobs(N(jobs=N(get_run=get_run)))
+    assert j.reset_state(1) is None and j.reset_state(3) is None
+    assert j.reset_state(2) == {"run_id": 2, "life_cycle_state": "TERMINATED", "result_state": "SUCCESS"}
