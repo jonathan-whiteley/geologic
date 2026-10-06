@@ -1,0 +1,172 @@
+# Every Python task runs on serverless environment `default`. Written out in full (no anchors).
+# publish, reset and produce are adopted live jobs (bound by id); their ids are wired into the app
+# env, so they must never be recreated. The app SP keeps CAN_MANAGE_RUN through the permissions
+# blocks below, so redeploys cannot drop the grant.
+resources:
+  jobs:
+    geologic_setup:
+      name: geologic_setup
+      max_concurrent_runs: 1
+      environments:
+        - environment_key: default
+          spec:
+            client: "2"
+            dependencies: ["databricks-sdk>=0.60", databricks-vectorsearch, openai, "psycopg[binary]", httpx, pillow, "mlflow>=3.1", databricks-agents, "databricks-zerobus-ingest-sdk>=1.0.0"]
+      tasks:
+        - task_key: data
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/setup_data.py }
+        - task_key: images
+          depends_on: [{ task_key: data }]
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/make_images.py }
+        - task_key: vector_search
+          depends_on: [{ task_key: data }]
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/setup_vector_search.py }
+        - task_key: ai_gateway
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/setup_ai_gateway.py }
+        - task_key: baseline_probe
+          depends_on: [{ task_key: vector_search }]
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/run_probe.py, parameters: ["--mode", "full", "--trigger", "setup", "--set-baseline", "true"] }
+        - task_key: seed_signals
+          depends_on: [{ task_key: data }]
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/produce_signals.py, parameters: ["--minutes", "2", "--inject", "S3_kittle,S4_exclusion,S5_pretzel,S5_puffs,S7_crawler"] }
+        - task_key: pipeline_1
+          depends_on: [{ task_key: seed_signals }, { task_key: images }]
+          pipeline_task: { pipeline_id: "${resources.pipelines.geologic_signals.id}" }
+        - task_key: describe
+          depends_on: [{ task_key: pipeline_1 }]
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/describe_images.py }
+        - task_key: pipeline_2
+          depends_on: [{ task_key: describe }]
+          pipeline_task: { pipeline_id: "${resources.pipelines.geologic_signals.id}" }
+        - task_key: prompt_explorer
+          depends_on: [{ task_key: vector_search }]
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/setup_prompt_explorer.py }
+        - task_key: themes
+          depends_on: [{ task_key: baseline_probe }]
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/build_themes.py }
+        - task_key: opportunities
+          depends_on: [{ task_key: pipeline_2 }, { task_key: baseline_probe }]
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/build_opportunities.py }
+        - task_key: draft
+          depends_on: [{ task_key: opportunities }]
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/draft_suggestions.py }
+
+    geologic_publish:
+      name: geologic_publish
+      max_concurrent_runs: 4
+      parameters:
+        - { name: suggestion_id, default: "" }
+      environments:
+        - environment_key: default
+          spec:
+            client: "2"
+            dependencies: ["databricks-sdk>=0.60", databricks-vectorsearch, openai, "psycopg[binary]", httpx]
+      tasks:
+        - task_key: publish
+          environment_key: default
+          spark_python_task:
+            python_file: ../jobs/publish.py
+            parameters: ["--suggestion-id", "{{job.parameters.suggestion_id}}"]
+      permissions:
+        - { service_principal_name: "${resources.apps.geologic.service_principal_client_id}", level: CAN_MANAGE_RUN }
+
+    geologic_reset:
+      name: geologic_reset
+      max_concurrent_runs: 1
+      environments:
+        - environment_key: default
+          spec:
+            client: "2"
+            dependencies: ["databricks-sdk>=0.60", databricks-vectorsearch, openai, "psycopg[binary]", httpx]
+      tasks:
+        - task_key: reset
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/reset_demo.py }
+      permissions:
+        - { service_principal_name: "${resources.apps.geologic.service_principal_client_id}", level: CAN_MANAGE_RUN }
+
+    geologic_produce:
+      name: geologic_produce
+      max_concurrent_runs: 3
+      parameters:
+        - { name: inject, default: "" }
+        - { name: minutes, default: "15" }
+        - { name: rate_per_min, default: "14" }
+      environments:
+        - environment_key: default
+          spec:
+            client: "2"
+            dependencies: ["databricks-sdk>=0.60", "databricks-zerobus-ingest-sdk>=1.0.0"]
+      tasks:
+        - task_key: produce
+          environment_key: default
+          spark_python_task:
+            python_file: ../jobs/produce_signals.py
+            parameters: ["--inject", "{{job.parameters.inject}}", "--minutes", "{{job.parameters.minutes}}", "--rate-per-min", "{{job.parameters.rate_per_min}}"]
+      permissions:
+        - { service_principal_name: "${resources.apps.geologic.service_principal_client_id}", level: CAN_MANAGE_RUN }
+
+    # Runs every minute once unpaused. Keep PAUSED outside the demo window.
+    geologic_refresh:
+      name: geologic_refresh
+      max_concurrent_runs: 1
+      schedule:
+        quartz_cron_expression: "0 * * * * ?"
+        timezone_id: UTC
+        pause_status: PAUSED
+      environments:
+        - environment_key: default
+          spec:
+            client: "2"
+            dependencies: ["databricks-sdk>=0.60", databricks-vectorsearch, openai, httpx]
+      tasks:
+        - task_key: p1
+          pipeline_task: { pipeline_id: "${resources.pipelines.geologic_signals.id}" }
+        - task_key: describe
+          depends_on: [{ task_key: p1 }]
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/describe_images.py }
+        - task_key: p2
+          depends_on: [{ task_key: describe }]
+          pipeline_task: { pipeline_id: "${resources.pipelines.geologic_signals.id}" }
+        - task_key: opps
+          depends_on: [{ task_key: p2 }]
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/build_opportunities.py }
+
+    geologic_deploy_strategist:
+      name: geologic_deploy_strategist
+      max_concurrent_runs: 1
+      environments:
+        - environment_key: default
+          spec:
+            client: "2"
+            dependencies: ["databricks-sdk>=0.60", databricks-vectorsearch, openai, "mlflow>=3.1", databricks-agents]
+      tasks:
+        - task_key: deploy
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/deploy_strategist.py }
+
+    geologic_verify_uc:
+      name: geologic_verify_uc
+      max_concurrent_runs: 1
+      environments:
+        - environment_key: default
+          spec:
+            client: "2"
+            dependencies: ["databricks-sdk>=0.60"]
+      tasks:
+        - task_key: verify
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/verify_uc_functions.py }

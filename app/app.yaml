@@ -1,25 +1,3 @@
+# Start command only. Env and resources live in the bundle app resource (resources/app.yml,
+# config.env) and are applied by `databricks bundle run geologic` (see scripts/deploy.sh).
 command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-env:
-  - name: DATABRICKS_WAREHOUSE_ID
-    valueFrom: sql-warehouse
-  - name: CATALOG_NAME
-    value: jdub_demo
-  - name: SCHEMA_NAME
-    value: geologic
-  # Lakebase (direct env vars; the database resource binding needs a workspace-admin deployer)
-  - name: LAKEBASE_HOST
-    value: ep-withered-butterfly-d1czv7t3.database.us-west-2.cloud.databricks.com
-  - name: LAKEBASE_DB
-    value: geologic
-  - name: LAKEBASE_INSTANCE
-    value: geologic
-  - name: LAKEBASE_USER
-    value: bbbf2434-aa55-4e84-95ea-2679b7607d4c
-  - name: PUBLISH_JOB_ID
-    value: "1111928073598072"
-  - name: RESET_JOB_ID
-    value: "384124888062612"
-  - name: PRODUCE_JOB_ID
-    value: "958330411388682"
-  - name: GEOLOGIC_SUPERVISOR_ENDPOINT
-    value: mas-044fdd7b-endpoint

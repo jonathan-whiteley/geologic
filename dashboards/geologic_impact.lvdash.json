@@ -5,28 +5,36 @@
       "displayName": "Weekly Answer Share",
       "queryLines": [
         "SELECT week_start, brand, answer_share FROM v_answer_share_weekly ORDER BY week_start"
-      ]
+      ],
+      "catalog": "jdub_demo",
+      "schema": "geologic"
     },
     {
       "name": "clusters",
       "displayName": "Cluster by Engine",
       "queryLines": [
         "SELECT cluster, engine, answer_share FROM v_cluster_engine_share"
-      ]
+      ],
+      "catalog": "jdub_demo",
+      "schema": "geologic"
     },
     {
       "name": "kpis",
       "displayName": "KPIs",
       "queryLines": [
         "SELECT * FROM v_kpis"
-      ]
+      ],
+      "catalog": "jdub_demo",
+      "schema": "geologic"
     },
     {
       "name": "opps",
       "displayName": "Opportunities",
       "queryLines": [
         "SELECT rank, title, opp_type, expected_lift_low, expected_lift_high, window_name FROM gold_opportunities ORDER BY rank"
-      ]
+      ],
+      "catalog": "jdub_demo",
+      "schema": "geologic"
     }
   ],
   "pages": [

@@ -1,0 +1,16 @@
+resources:
+  pipelines:
+    geologic_signals:
+      name: geologic-signals
+      catalog: ${var.catalog}
+      schema: ${var.schema}
+      serverless: true
+      continuous: false
+      development: true
+      channel: CURRENT
+      configuration:
+        pipelines.maxFlowRetryAttempts: "0"
+        pipelines.numUpdateRetryAttempts: "0"
+      libraries:
+        - file:
+            path: ../pipelines/signals.sql

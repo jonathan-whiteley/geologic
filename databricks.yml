@@ -1,0 +1,58 @@
+bundle:
+  name: geologic
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    default: jdub_demo
+  schema:
+    default: geologic
+  warehouse_id:
+    description: SQL warehouse for the app and dashboard
+    default: 0168e23e24e6ae10
+  lakebase_host:
+    description: Lakebase read_write_dns for instance geologic
+    default: ep-withered-butterfly-d1czv7t3.database.us-west-2.cloud.databricks.com
+  app_sp_client_id:
+    description: App service principal client id (also its Postgres role and job ACL principal)
+    default: bbbf2434-aa55-4e84-95ea-2679b7607d4c
+  supervisor_endpoint:
+    description: Supervisor agent serving endpoint the app calls
+    default: mas-044fdd7b-endpoint
+
+# No `mode: development`: development mode prefixes job and pipeline names, which would
+# rename the adopted live resources. Names here must equal the live names.
+targets:
+  dev:
+    default: true
+    workspace:
+      profile: DEFAULT
+
+sync:
+  # app/src and app/frontend/dist are gitignored build outputs; include them so the
+  # app source path carries the bundled package and the built frontend.
+  include:
+    - app/src/**
+    - app/frontend/dist/**
+  exclude:
+    - .venv/**
+    - mockups/**
+    - tests/**
+    - uv.lock
+    - "**/__pycache__/**"
+    - "**/*.egg-info/**"
+    # Frontend sources must not reach the app path: package.json triggers an npm build
+    # that times out the app start. Only frontend/dist ships.
+    - app/frontend/node_modules/**
+    - app/frontend/src/**
+    - app/frontend/public/**
+    - app/frontend/index.html
+    - app/frontend/package.json
+    - app/frontend/package-lock.json
+    - app/frontend/postcss.config.js
+    - app/frontend/tailwind.config.js
+    - app/frontend/tsconfig.json
+    - app/frontend/tsconfig.node.json
+    - app/frontend/vite.config.ts
