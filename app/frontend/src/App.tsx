@@ -8,6 +8,7 @@ import PromptsPage from './pages/PromptsPage'
 import PrioritizePage from './pages/PrioritizePage'
 import ActPage from './pages/ActPage'
 import ImpactPage from './pages/ImpactPage'
+import ArchitecturePage from './pages/ArchitecturePage'
 
 const qc = new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: 1 } } })
 
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="prioritize" element={<PrioritizePage />} />
             <Route path="act" element={<ActPage />} />
             <Route path="impact" element={<ImpactPage />} />
+            <Route path="architecture" element={<ArchitecturePage />} />
           </Route>
         </Routes>
       </BrowserRouter>

@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Sparkles, Radar, Target, FileCheck2, TrendingUp, RotateCcw, Megaphone } from 'lucide-react'
+import { Sparkles, Radar, Target, FileCheck2, TrendingUp, RotateCcw, Megaphone, Network } from 'lucide-react'
 import { api } from '../api/client'
 import { ToastProvider, useToast } from '../components/Toast'
 
@@ -59,10 +59,17 @@ function Shell() {
             ))}
           </nav>
 
-          <button onClick={handleReset} className="btn btn-ghost" title="Reset demo">
-            <RotateCcw className="w-4 h-4" />
-            <span className="hidden xl:inline">Reset</span>
-          </button>
+          <div className="flex items-center gap-1">
+            <NavLink to="/architecture" title="Architecture"
+              className={({ isActive }) => `btn btn-ghost ${isActive ? 'text-lce-orange' : ''}`}>
+              <Network className="w-4 h-4" />
+              <span className="hidden xl:inline">Architecture</span>
+            </NavLink>
+            <button onClick={handleReset} className="btn btn-ghost" title="Reset demo">
+              <RotateCcw className="w-4 h-4" />
+              <span className="hidden xl:inline">Reset</span>
+            </button>
+          </div>
         </div>
       </header>
 
