@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { Wand2, GitBranch, Check, X, ShieldCheck, AlertCircle } from 'lucide-react'
+import { Wand2, Check, X, ShieldCheck, AlertCircle } from 'lucide-react'
 import { api } from '../api/client'
 import type { PublishStatus, Suggestion } from '../api/types'
 import { PageSkeleton, ErrorRetry } from '../components/PageState'
 import { useToast } from '../components/Toast'
 
+const FAILED = 'Publish failed. Try again.'
 const STEP_NAMES = ['Brand Guardian re-check', 'Publish to CMS', 'Vector index sync', 'Re-probe questions', 'Judge answers']
 
 function stepState(i: number, publishStep: number): 'done' | 'running' | 'pending' {
@@ -31,9 +32,6 @@ function merge(s: Suggestion, overlay?: PublishStatus): Suggestion & { statusExt
   if (!overlay) return s
   return { ...s, state: overlay.state, publish_step: overlay.publish_step, error: overlay.error, statusExtra: overlay }
 }
-
-const traceHref = (traceId: string) =>
-  `/ml/experiments/search?searchFilter=${encodeURIComponent("name = '/Shared/geologic-drafting'")}#trace=${encodeURIComponent(traceId)}`
 
 export default function ActPage() {
   const toast = useToast()
@@ -72,8 +70,14 @@ export default function ActPage() {
       try {
         const st = await api.status(publishingId)
         setOverlay(prev => ({ ...prev, [publishingId]: st }))
-        if (st.state === 'published' || st.state === 'blocked' || st.state === 'error') {
+        // Stop on anything other than an in-flight publish: published, blocked, or a failure the job
+        // returned to pending_review (Approve is clickable again).
+        if (st.state !== 'publishing' || st.error) {
           setPublishingId(null)
+          if (st.state !== 'published' && st.state !== 'blocked') {
+            setOverlay(prev => ({ ...prev, [publishingId]: { ...st, error: st.error || FAILED } }))
+            refetch()
+          }
           return
         }
       } catch {
@@ -150,12 +154,6 @@ export default function ActPage() {
                   <h3 className="font-semibold text-lg">{s.title}</h3>
                 </div>
               </div>
-              {s.agent_trace_id && (
-                <a href={traceHref(s.agent_trace_id)} target="_blank" rel="noreferrer" className="btn btn-ghost !px-2 !py-1 text-blue-700">
-                  <GitBranch className="w-4 h-4" />
-                  Agent trace
-                </a>
-              )}
             </div>
 
             <p className="text-sm text-text-secondary">{s.rationale}</p>
@@ -206,7 +204,7 @@ export default function ActPage() {
 
             {s.error && <p className="text-sm text-red-600">{s.error}</p>}
 
-            {overlay[s.suggestion_id] && (
+            {overlay[s.suggestion_id] && s.state !== 'pending_review' && (
               <div className="rounded-xl border border-gray-100 bg-surface-secondary p-4 space-y-4">
                 <div className="flex flex-wrap gap-2 text-xs">
                   {STEP_NAMES.map((name, i) => {

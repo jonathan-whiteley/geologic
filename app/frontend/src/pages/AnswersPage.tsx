@@ -6,7 +6,8 @@ import {
   PiggyBank, Timer, ChefHat, Smartphone, Trophy, MessageCircle,
 } from 'lucide-react'
 import { api } from '../api/client'
-import type { ThemeRow } from '../api/types'
+import type { Kpis, ThemeRow } from '../api/types'
+import { fx } from '../lib/format'
 import Heatmap from '../components/Heatmap'
 import { PageSkeleton, ErrorRetry } from '../components/PageState'
 
@@ -45,7 +46,8 @@ export default function AnswersPage() {
   if (isLoading) return <PageSkeleton />
   if (isError || !data) return <ErrorRetry message="Couldn't load Share of Model." onRetry={() => refetch()} />
 
-  const { kpis, heatmap, leaderboard, citation_sources, themes, prompt_ids_by_cluster } = data
+  const { heatmap, leaderboard, citation_sources, themes, prompt_ids_by_cluster } = data
+  const kpis: Partial<Kpis> = data.kpis ?? {}
   const lceRow = leaderboard.find(b => b.brand.toLowerCase().includes('caesar'))
   const topCompetitor = leaderboard.find(b => !b.brand.toLowerCase().includes('caesar'))
 
@@ -70,7 +72,7 @@ export default function AnswersPage() {
 
   function exportLeaderboardCsv() {
     const header = 'Brand,Answer Share,Citation Share\n'
-    const rows = leaderboard.map(r => `${r.brand},${r.answer_share.toFixed(2)},${r.citation_share.toFixed(0)}%`).join('\n')
+    const rows = leaderboard.map(r => `${r.brand},${fx(r.answer_share)},${fx(r.citation_share, 0, '%')}`).join('\n')
     const blob = new Blob([header + rows], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -90,11 +92,11 @@ export default function AnswersPage() {
         </div>
         <div className="flex items-center gap-2 text-sm text-text-secondary">
           <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          Last probe {kpis.answers} answers
+          Last probe {kpis.answers ?? 'N/A'} answers
         </div>
       </div>
 
-      {kpis.answers < 570 && (
+      {kpis.answers != null && kpis.answers < 570 && (
         <div className="badge b-warning !text-sm !px-3 !py-2 w-fit">
           <span className="dot" />
           Some engine calls failed in the last probe. Metrics use {kpis.answers} of 600 answers.
@@ -105,26 +107,26 @@ export default function AnswersPage() {
         <StatCard
           icon={<PieChart className="w-5 h-5" />}
           label="Answer Share"
-          value={kpis.answer_share.toFixed(2)}
-          sub={topCompetitor && <span>{topCompetitor.brand} {topCompetitor.answer_share.toFixed(2)} · named in {kpis.mention_rate.toFixed(0)}%</span>}
+          value={fx(kpis.answer_share)}
+          sub={topCompetitor && <span>{topCompetitor.brand} {fx(topCompetitor.answer_share)} · named in {fx(kpis.mention_rate, 0, '%')}</span>}
         />
         <StatCard
           icon={<Medal className="w-5 h-5" />}
           label="Average rank"
-          value={kpis.avg_rank !== null ? kpis.avg_rank.toFixed(1) : 'N/A'}
+          value={fx(kpis.avg_rank, 1)}
           sub="when LCE is mentioned"
         />
         <StatCard
           icon={<LinkIcon className="w-5 h-5" />}
           label="Citation rate"
-          value={`${kpis.citation_rate.toFixed(0)}%`}
+          value={fx(kpis.citation_rate, 0, '%')}
           sub="cites an official LCE page"
         />
         <StatCard
           icon={<BadgeCheck className="w-5 h-5" />}
           label="Fact accuracy"
-          value={kpis.fact_accuracy !== null ? `${kpis.fact_accuracy.toFixed(0)}%` : 'N/A'}
-          sub={<span className="text-red-600 bg-red-50 px-2 py-0.5 rounded-full font-medium">{kpis.wrong_claims} wrong</span>}
+          value={fx(kpis.fact_accuracy, 0, '%')}
+          sub={<span className="text-red-600 bg-red-50 px-2 py-0.5 rounded-full font-medium">{kpis.wrong_claims ?? 'N/A'} wrong</span>}
         />
       </div>
 
@@ -181,8 +183,8 @@ export default function AnswersPage() {
                         )}
                       </div>
                     </td>
-                    <td className={`px-2 py-3 text-right tabular-nums ${isUs ? 'font-semibold' : ''}`}>{row.answer_share.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{row.citation_share.toFixed(0)}%</td>
+                    <td className={`px-2 py-3 text-right tabular-nums ${isUs ? 'font-semibold' : ''}`}>{fx(row.answer_share)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{fx(row.citation_share, 0, '%')}</td>
                   </tr>
                 )
               })}
@@ -213,21 +215,21 @@ export default function AnswersPage() {
                   </div>
                 </div>
                 <span />
-                <span className={`font-mono text-sm tabular-nums text-right ${s.is_official ? 'text-lce-orange-dark font-semibold' : 'text-text-secondary'}`}>{s.share.toFixed(0)}%</span>
+                <span className={`font-mono text-sm tabular-nums text-right ${s.is_official ? 'text-lce-orange-dark font-semibold' : 'text-text-secondary'}`}>{fx(s.share, 0, '%')}</span>
               </div>
             ))}
           </div>
           <div className="mt-auto pt-5">
             <div className="flex h-2.5 rounded-full overflow-hidden">
               {typeBars.map(t => (
-                <div key={t.label} className={t.color} style={{ width: `${t.value}%` }} title={`${t.label} ${t.value.toFixed(0)}%`} />
+                <div key={t.label} className={t.color} style={{ width: `${t.value}%` }} title={`${t.label} ${fx(t.value, 0, '%')}`} />
               ))}
             </div>
             <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-text-secondary">
               {typeBars.map(t => (
                 <span key={t.label} className="flex items-center gap-1.5">
                   <i className={`w-2 h-2 rounded-full block ${t.color}`} />
-                  {t.label} {t.value.toFixed(0)}%
+                  {t.label} {fx(t.value, 0, '%')}
                 </span>
               ))}
             </div>
@@ -265,7 +267,7 @@ export default function AnswersPage() {
                     </div>
                     <p className="text-xs text-text-tertiary mt-1.5 truncate">&quot;{t.sample_quote}&quot; · {t.answers} answers</p>
                   </div>
-                  <span className={`text-right font-semibold tabular-nums ${t.pct_positive < 60 ? 'text-amber-700' : ''}`}>{t.pct_positive.toFixed(0)}%</span>
+                  <span className={`text-right font-semibold tabular-nums ${t.pct_positive < 60 ? 'text-amber-700' : ''}`}>{fx(t.pct_positive, 0, '%')}</span>
                 </div>
               )
             })}

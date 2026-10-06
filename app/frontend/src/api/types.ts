@@ -1,8 +1,8 @@
-export type Kpis = { answer_share: number; mention_rate: number; avg_rank: number | null; citation_rate: number; fact_accuracy: number | null; wrong_claims: number; answers: number; mentions: number }
+export type Kpis = { answer_share: number | null; mention_rate: number | null; avg_rank: number | null; citation_rate: number | null; fact_accuracy: number | null; wrong_claims: number | null; answers: number | null; mentions: number | null }
 export type HeatCell = { cluster: string; engine: string; answer_share: number }
 export type CitationSource = { publisher: string; source_type: string; is_official: boolean; share: number }
 export type TopQuestion = { prompt_id: string; prompt_text: string; est_monthly_volume: number; volume_tier: 'High' | 'Medium' | 'Low'; visible: boolean; has_wrong_claim: boolean }
-export type LeaderRow = { brand: string; logo: string; answer_share: number; citation_share: number }
+export type LeaderRow = { brand: string; logo: string; answer_share: number | null; citation_share: number | null }
 export type ThemeRow = { theme: string; label: string; answers: number; pct_positive: number; pct_negative: number; sample_quote: string }
 export type ModelSummary = { kpis: Kpis; heatmap: HeatCell[]; leaderboard: LeaderRow[]; citation_sources: CitationSource[]; themes: ThemeRow[]; prompt_ids_by_cluster: Record<string, string>; last_probe_at: string; drill_prompt_id: string }
 export type RelatedPrompt = { prompt_id: string; prompt_text: string; avg_monthly_volume: number; status: 'closest' | 'tracking' | 'track' }

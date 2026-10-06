@@ -26,3 +26,8 @@ export function formatTime(d: string | null): string {
   if (Number.isNaN(dt.getTime())) return d
   return dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 }
+
+/** Null-safe fixed-point: missing or non-finite values (for example mid-reset) render as N/A instead of throwing. */
+export function fx(n: number | null | undefined, digits = 2, suffix = ''): string {
+  return typeof n === 'number' && Number.isFinite(n) ? `${n.toFixed(digits)}${suffix}` : 'N/A'
+}

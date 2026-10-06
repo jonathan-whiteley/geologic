@@ -24,5 +24,6 @@ export const api = {
   impact: () => req<T.Impact>('/impact'),
   ask: (question: string) => req<{ answer: string }>('/ask', { method: 'POST', body: JSON.stringify({ question }) }),
   reset: () => req<{ run_id: number }>('/demo/reset', { method: 'POST' }),
+  resetStatus: (runId: number) => req<{ run_id: number; life_cycle_state: string | null; result_state: string | null }>(`/demo/reset/${runId}`),
   inject: (truth: string) => req<{ run_id: number }>(`/demo/inject/${truth}`, { method: 'POST' }),
 }

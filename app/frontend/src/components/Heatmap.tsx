@@ -27,6 +27,13 @@ interface HeatmapProps {
 
 export default function Heatmap({ data, onCellClick }: HeatmapProps) {
   const byKey = new Map(data.map(d => [`${d.cluster}::${d.engine}`, d.answer_share]))
+  // Only clusters that have data: a cluster with no unbranded answers is left out rather than shown as 0.00.
+  const present = new Set(data.map(d => d.cluster))
+  const known = new Set(CLUSTERS.map(([k]) => k))
+  const rows: [string, string][] = [
+    ...CLUSTERS.filter(([k]) => present.has(k)),
+    ...[...present].filter(k => !known.has(k)).map(k => [k, k] as [string, string]),
+  ]
 
   return (
     <div>
@@ -40,20 +47,21 @@ export default function Heatmap({ data, onCellClick }: HeatmapProps) {
           </tr>
         </thead>
         <tbody>
-          {CLUSTERS.map(([key, label]) => (
+          {rows.map(([key, label]) => (
             <tr key={key}>
               <th className="text-sm font-medium text-left pr-3 whitespace-nowrap">{label}</th>
               {ENGINES.map(engine => {
-                const v = byKey.get(`${key}::${engine}`) ?? 0
+                const v = byKey.get(`${key}::${engine}`)
+                const has = typeof v === 'number' && Number.isFinite(v)
                 return (
                   <td
                     key={engine}
                     tabIndex={0}
-                    className={`cell ${hc(v)}`}
+                    className={`cell ${has ? hc(v) : 'bg-gray-50 text-text-tertiary'}`}
                     onClick={() => onCellClick?.(key)}
                     onKeyDown={e => { if (e.key === 'Enter') onCellClick?.(key) }}
                   >
-                    {v.toFixed(2)}
+                    {has ? v.toFixed(2) : 'N/A'}
                   </td>
                 )
               })}

@@ -1,6 +1,7 @@
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Sparkles, Radar, Target, FileCheck2, TrendingUp, RotateCcw, Megaphone, Network } from 'lucide-react'
+import { Sparkles, Radar, Target, FileCheck2, TrendingUp, RotateCcw, Megaphone, Network, Loader2 } from 'lucide-react'
 import { api } from '../api/client'
 import { ToastProvider, useToast } from '../components/Toast'
 
@@ -17,11 +18,43 @@ function Shell() {
   const { data: suggestions } = useQuery({ queryKey: ['suggestions'], queryFn: api.suggestions })
   const pendingCount = suggestions?.filter(s => s.state === 'pending_review').length ?? 0
 
+  const [resetRunId, setResetRunId] = useState<number | null>(null)
+
   const handleReset = async () => {
-    await api.reset()
-    toast('Resetting demo. This takes about a minute.')
-    window.setTimeout(() => queryClient.invalidateQueries(), 60_000)
+    if (resetRunId) return
+    if (!window.confirm('Reset the demo? This restores the starting pages, suggestions and probe results.')) return
+    try {
+      const { run_id } = await api.reset()
+      setResetRunId(run_id)
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't start the reset. Try again.")
+    }
   }
+
+  // Poll the reset job until it finishes, then refresh every screen.
+  useEffect(() => {
+    if (!resetRunId) return
+    let stopped = false
+    let timer: number
+    const tick = async () => {
+      if (stopped) return
+      try {
+        const st = await api.resetStatus(resetRunId)
+        const done = ['TERMINATED', 'SKIPPED', 'INTERNAL_ERROR'].includes(st.life_cycle_state ?? '')
+        if (done) {
+          setResetRunId(null)
+          await queryClient.invalidateQueries()
+          toast(st.result_state === 'SUCCESS' ? 'Demo reset complete.' : 'Reset did not finish cleanly. Try again.')
+          return
+        }
+      } catch {
+        // transient polling error; keep trying
+      }
+      if (!stopped) timer = window.setTimeout(tick, 5000)
+    }
+    timer = window.setTimeout(tick, 5000)
+    return () => { stopped = true; window.clearTimeout(timer) }
+  }, [resetRunId, queryClient, toast])
 
   return (
     <div className="min-h-screen bg-surface-secondary">
@@ -65,8 +98,8 @@ function Shell() {
               <Network className="w-4 h-4" />
               <span className="hidden xl:inline">Architecture</span>
             </NavLink>
-            <button onClick={handleReset} className="btn btn-ghost" title="Reset demo">
-              <RotateCcw className="w-4 h-4" />
+            <button onClick={handleReset} className="btn btn-ghost" title="Reset demo" disabled={!!resetRunId}>
+              {resetRunId ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
               <span className="hidden xl:inline">Reset</span>
             </button>
           </div>
@@ -95,6 +128,12 @@ function Shell() {
 
       {/* Main Content */}
       <main className="max-w-[1600px] mx-auto px-6 py-6">
+        {resetRunId && (
+          <div role="status" className="mb-4 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-800">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Resetting demo... Screens refresh automatically when it finishes.
+          </div>
+        )}
         <div className="mb-4 flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-lce-orange/10 rounded-full border border-lce-orange/20">
             <Megaphone className="w-4 h-4 text-lce-orange" />
