@@ -15,6 +15,11 @@ class FakeSuggestions:
             r["state"] = "publishing"; return True
         return False
     def set_run(self, sid, run_id): self.runs[sid] = run_id
+    def release(self, sid, error):
+        r = self.rows.get(sid)
+        if r and r["state"] == "publishing":
+            r["state"], r["error"] = "pending_review", error; return True
+        return False
     def reject(self, sid, reviewer):
         r = self.rows.get(sid)
         if r and r["state"] == "pending_review":
@@ -27,6 +32,7 @@ class FakeJobs:
     def run_publish(self, sid): self.calls.append(("publish", sid)); return 101
     def run_reset(self): self.calls.append(("reset",)); return 102
     def run_inject(self, t): self.calls.append(("inject", t)); return 103
+    def reset_state(self, run_id): return {"run_id": run_id, "life_cycle_state": "TERMINATED"} if run_id == 102 else None
 
 S, J = FakeSuggestions(), FakeJobs()
 app.dependency_overrides[deps.get_suggestions] = lambda: S
@@ -63,3 +69,20 @@ def test_prompt_search_validation():
 def test_track_unknown_is_404():
     assert c.post("/api/prompts/c001/track").json() == {"tracked": True}
     assert c.post("/api/prompts/nope/track").status_code == 404
+
+def test_reset_status():
+    assert c.get("/api/demo/reset/102").json()["life_cycle_state"] == "TERMINATED"
+    assert c.get("/api/demo/reset/999").status_code == 404
+
+def test_approve_releases_row_when_job_fails_to_start():  # finding 2
+    S.rows["s2"] = {"suggestion_id": "s2", "state": "pending_review", "tier": "T1"}
+    orig = J.run_publish
+    def boom(sid): raise RuntimeError("jobs api down")
+    J.run_publish = boom
+    try:
+        r = c.post("/api/suggestions/s2/approve")
+    finally:
+        J.run_publish = orig
+    assert r.status_code == 502 and "Try again" in r.json()["detail"]
+    assert S.rows["s2"]["state"] == "pending_review" and "s2" not in S.runs
+    assert c.post("/api/suggestions/s2/approve").status_code == 202  # Approve works again

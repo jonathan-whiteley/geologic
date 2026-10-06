@@ -10,22 +10,30 @@ def _already_applied(page: dict, suggestion: dict) -> bool:
     return page.get(field) == suggestion["diff_after"]
 
 
+FRIENDLY_ERROR = "Publish failed. Try again."
+
+
 def publish(suggestion, store, rules, epoch, reprobe: bool = True) -> str:
+    """Every state write is scoped to rows still 'publishing' (see DeltaStore.set_state). A failed or stale
+    publish returns the row to 'pending_review' with a friendly error so Approve works again; the raw
+    exception goes to stdout only."""
     sid = suggestion["suggestion_id"]
-    if suggestion.get("epoch") != store.current_epoch():
-        store.release(sid, "approved", "stale epoch: demo was reset")
+    in_review = suggestion["state"] in ("approved", "publishing")
+    final_state = "published" if in_review else suggestion["state"]
+    back_state = "pending_review" if in_review else suggestion["state"]
+
+    def stale():
+        print(f"publish {sid}: stale epoch, demo was reset")
+        store.set_state(sid, back_state, FRIENDLY_ERROR)
         return "stale"
+
+    if suggestion.get("epoch") != store.current_epoch():
+        return stale()
     rule = find_exclusion(suggestion["diff_after"], suggestion.get("persona_id"), [], rules)
     if rule or suggestion.get("tier") == "BLOCKED":
         store.audit("publish_job", "blocked", sid, rule or suggestion.get("exclusion_rule_id"), "publish")
         store.set_state(sid, "blocked")
         return "blocked"
-    final_state = "published" if suggestion["state"] in ("approved", "publishing") else suggestion["state"]
-    back_state = "approved" if suggestion["state"] in ("approved", "publishing") else suggestion["state"]
-
-    def stale():
-        store.release(sid, back_state, "stale epoch: demo was reset")
-        return "stale"
 
     try:
         page = store.get_page(suggestion["page_id"])
@@ -51,19 +59,21 @@ def publish(suggestion, store, rules, epoch, reprobe: bool = True) -> str:
             return stale()
         store.set_state(sid, final_state)
     except Exception as e:
-        store.set_state(sid, back_state, str(e))
+        print(f"publish {sid} failed: {type(e).__name__}: {e}")
+        store.set_state(sid, back_state, FRIENDLY_ERROR)
         store.audit("publish_job", "failed", sid, None, None)
         return "failed"
     return "published"
 
 
 def reset(store) -> int:
+    """Fast, visible steps first so the app is consistent quickly; the slow index sync runs last."""
     epoch = store.bump_epoch()      # first, so any in-flight probe or publish becomes stale
-    store.clear_suggestions()
-    store.restore_pages()
-    store.sync_index()
+    store.clear_suggestions()       # clear + restore share one Lakebase transaction (restore commits)
     store.restore_suggestions(epoch)
     store.copy_baseline_probe(epoch)
+    store.restore_pages()
+    store.sync_index()
     return epoch
 
 
@@ -92,11 +102,8 @@ class DeltaStore:
         self.conn.commit()
 
     def set_state(self, sid, state, error=None):
-        self.conn.execute("UPDATE suggestions SET state = %s, error = %s WHERE suggestion_id = %s", (state, error, sid))
-        self.conn.commit()
-
-    def release(self, sid, state, error):
-        """Stale-epoch exit: only touches a row still 'publishing', never a row reset has since restored."""
+        """Only touches a row still 'publishing': never a row reset has since restored, and never a T0 or
+        blocked row the drafting job wrote in its final state."""
         self.conn.execute("UPDATE suggestions SET state = %s, error = %s WHERE suggestion_id = %s AND state = 'publishing'",
                           (state, error, sid))
         self.conn.commit()
@@ -166,7 +173,8 @@ class DeltaResetStore:
         return e
 
     def clear_suggestions(self):
-        self.conn.execute("DELETE FROM suggestions"); self.conn.execute("DELETE FROM cms_page_versions"); self.conn.commit()
+        """No commit: restore_suggestions commits, so the app never sees an empty queue."""
+        self.conn.execute("DELETE FROM suggestions"); self.conn.execute("DELETE FROM cms_page_versions")
 
     def restore_pages(self):
         S = self.S

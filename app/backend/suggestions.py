@@ -41,6 +41,11 @@ class SuggestionRepo:
                                WHERE suggestion_id = %s AND state = 'pending_review' AND tier IN ('T1', 'T2') AND epoch = {_EPOCH}
                                RETURNING suggestion_id""", (reviewer, sid))
 
+    def release(self, sid, error):
+        """Undo a claim whose publish job never started: back to review, only if still 'publishing'."""
+        return self._write("UPDATE suggestions SET state = 'pending_review', error = %s "
+                           "WHERE suggestion_id = %s AND state = 'publishing' RETURNING 1", (error, sid))
+
     def set_run(self, sid, run_id):
         self._write("UPDATE suggestions SET publish_run_id = %s WHERE suggestion_id = %s RETURNING 1", (run_id, sid))
 
@@ -58,6 +63,6 @@ class SuggestionRepo:
                                   count(*) FILTER (WHERE tier = 'T1' AND state = 'published') t1_published,
                                   count(*) FILTER (WHERE tier = 'T1' AND state IN ('published', 'rejected')) t1_reviewed
                            FROM suggestions WHERE epoch = {_EPOCH}""")[0]
-        blocked = self._rows("SELECT count(*) n FROM audit_events WHERE action = 'blocked'")[0]["n"]
+        blocked = self._rows("SELECT count(DISTINCT object_ref) n FROM audit_events WHERE action = 'blocked'")[0]["n"]
         pct = (100 * r["t1_published"] / r["t1_reviewed"]) if r["t1_reviewed"] else None
         return {"t0_auto": r["t0_auto"], "t1_approved_no_edit_pct": pct, "t2_reviews": r["t2_reviews"], "blocked": blocked}

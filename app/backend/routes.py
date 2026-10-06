@@ -68,7 +68,12 @@ def suggestions(repo=Depends(deps.get_suggestions)):
 def approve(sid: str, req: Request, repo=Depends(deps.get_suggestions), jobs=Depends(deps.get_jobs)):
     if not repo.claim(sid, _user(req)):
         raise HTTPException(409, "This suggestion is already publishing or no longer needs review.")
-    run_id = jobs.run_publish(sid)
+    try:
+        run_id = jobs.run_publish(sid)
+    except Exception as e:
+        print(f"approve {sid}: could not start publish job: {type(e).__name__}: {e}")
+        repo.release(sid, "Publish failed. Try again.")
+        raise HTTPException(502, "Couldn't start publishing. Try again.")
     repo.set_run(sid, run_id)
     return {"run_id": run_id}
 
@@ -104,6 +109,13 @@ def ask(body: Ask, sup=Depends(deps.get_supervisor)):
 @router.post("/demo/reset", status_code=202)
 def demo_reset(jobs=Depends(deps.get_jobs)):
     return {"run_id": jobs.run_reset()}
+
+@router.get("/demo/reset/{run_id}")
+def demo_reset_status(run_id: int, jobs=Depends(deps.get_jobs)):
+    st = jobs.reset_state(run_id)
+    if st is None:
+        raise HTTPException(404, "Unknown reset run")
+    return st
 
 @router.post("/demo/inject/{truth_id}", status_code=202)
 def demo_inject(truth_id: str, jobs=Depends(deps.get_jobs)):

@@ -27,14 +27,19 @@ def rerank_messages(description: str, candidates: list[tuple[str, str, float]]) 
     )}]
 
 
+def _norm(answer: str) -> str:
+    """'None.', ' NONE ' and '`none`' all mean none; ids are compared the same way."""
+    return answer.strip().strip("`'\"*").strip().lower().rstrip(".!?,;:").strip()
+
+
 def describe_and_match(image_bytes: bytes, chat, endpoint: str, match_fn, candidates_fn=None) -> dict:
     """Describe an image and match it to a menu item.
 
     When candidates_fn is supplied, uses a retrieve-then-rerank flow:
     candidates_fn(description) returns list[(item_id, search_text, score)].
-    The chat model picks the best item_id; invalid or 'none' answers fall back
-    to the top candidate (an explicit 'none' returns no match). match_fn is used only when candidates_fn is absent or
-    returns an empty list.
+    The chat model picks the best item_id. An answer of 'none' (case, whitespace and trailing punctuation
+    ignored) returns no match; any other answer that is not a candidate id falls back to the top candidate.
+    match_fn is used only when candidates_fn is absent or returns an empty list.
 
     Markdown bold markers (**) are stripped from the description before matching
     and storing so they do not add noise to the VS query.
@@ -44,14 +49,14 @@ def describe_and_match(image_bytes: bytes, chat, endpoint: str, match_fn, candid
     if candidates_fn is not None:
         candidates = candidates_fn(desc)
         if candidates:
-            answer = chat.complete(endpoint, rerank_messages(desc, candidates), max_tokens=20).strip().lower()
+            answer = _norm(chat.complete(endpoint, rerank_messages(desc, candidates), max_tokens=20))
             if answer == "none":   # e.g. a pizza box or a branded shirt: real signal, no menu item to resolve
                 return {"description": desc, "matched_item_id": None, "match_score": None}
             valid_ids = {item_id for item_id, _, _ in candidates}
             if answer in valid_ids:
                 score = next(s for iid, _, s in candidates if iid == answer)
                 return {"description": desc, "matched_item_id": answer, "match_score": score}
-            # Fall back to top candidate on invalid answer or "none"
+            # Fall back to top candidate on an invalid answer
             top_id, _, top_score = candidates[0]
             return {"description": desc, "matched_item_id": top_id, "match_score": top_score}
     item_id, score = match_fn(desc)

@@ -15,7 +15,7 @@ class TokenCache:
 
 def connect(host, db, user, token: TokenCache):
     import psycopg
-    return psycopg.connect(host=host, dbname=db, user=user, password=token.get(), sslmode="require")
+    return psycopg.connect(host=host, dbname=db, user=user, password=token.get(), sslmode="require", connect_timeout=10)
 
 def from_env(w):
     host, db, user = os.environ["LAKEBASE_HOST"], os.environ.get("LAKEBASE_DB", "geologic"), os.environ["LAKEBASE_USER"]

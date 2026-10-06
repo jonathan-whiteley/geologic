@@ -86,3 +86,18 @@ def test_jpeg_photos_sent_with_jpeg_mime():
     from geologic.vision import describe_messages, image_mime
     assert image_mime(b"\xff\xd8\xff\xe0rest") == "image/jpeg" and image_mime(b"\x89PNG") == "image/png"
     assert describe_messages("AAA", "image/jpeg")[0]["content"][1]["image_url"]["url"].startswith("data:image/jpeg;base64,")
+
+
+def test_rerank_none_is_normalized():  # finding 15
+    for raw in ("None.", "  NONE  ", "none!", "`none`"):
+        chat = MultiChat("a closed pizza box", raw)
+        r = describe_and_match(b"img", chat, "ep", lambda d: ("x", 0.1),
+                               candidates_fn=lambda d: [("thin_crust", "thin", 0.9)])
+        assert r["matched_item_id"] is None, raw
+
+
+def test_rerank_id_with_trailing_period_matches():
+    chat = MultiChat("a square pizza", "Detroit_Pepperoni.")
+    r = describe_and_match(b"img", chat, "ep", lambda d: ("x", 0.1),
+                           candidates_fn=lambda d: [("thin_crust", "thin", 0.9), ("detroit_pepperoni", "square", 0.7)])
+    assert r["matched_item_id"] == "detroit_pepperoni"

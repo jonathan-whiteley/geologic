@@ -91,14 +91,16 @@ class Reads:
         if not ids:
             return None
         in_list = ",".join(f"'{p}'" for p in ids)
+        # Share uses unbranded prompts only (same definition as the headline); accuracy uses all prompts.
         rows = query(f"""WITH e AS (
-              SELECT pr.*, ROW_NUMBER() OVER (PARTITION BY pr.prompt_id, pr.engine ORDER BY runs.started_at) AS first_rn,
+              SELECT pr.*, p.branded, ROW_NUMBER() OVER (PARTITION BY pr.prompt_id, pr.engine ORDER BY runs.started_at) AS first_rn,
                      ROW_NUMBER() OVER (PARTITION BY pr.prompt_id, pr.engine ORDER BY runs.started_at DESC) AS last_rn
               FROM {T('probe_responses')} pr JOIN {T('probe_runs')} runs USING (run_id)
               JOIN {T('probe_state')} st ON pr.epoch = st.current_epoch
+              JOIN {T('v_prompts')} p ON p.prompt_id = pr.prompt_id
               WHERE pr.status = 'ok' AND pr.prompt_id IN ({in_list}))
             SELECT phase,
-                   AVG(CASE WHEN lce_mentioned AND lce_rank > 0 THEN 1.0 / lce_rank ELSE 0 END) AS share,
+                   AVG(CASE WHEN NOT branded THEN CASE WHEN lce_mentioned AND lce_rank > 0 THEN 1.0 / lce_rank ELSE 0 END END) AS share,
                    SUM(size(filter(claims, c -> c.verdict = 'correct'))) /
                      NULLIF(SUM(size(filter(claims, c -> c.verdict IN ('correct', 'wrong')))), 0) AS acc
             FROM (SELECT *, 'before' AS phase FROM e WHERE first_rn = 1

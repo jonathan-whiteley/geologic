@@ -32,7 +32,7 @@ _THIRD_PARTY = [
        "Pizza chains compete heavily for football-season customers. Multiple brands run game day promotions, stadium bundles, "
        "and limited-time football deals throughout the season.", 2022),
     _d("comp_pizzahut_nfl_heritage", "news", "sportsbiz-daily", "Pizza chains run big football-season promotions",
-       "Pizza Hut runs football-season party bundles and in-stadium food options at select venues. "
+       "Pizza Hut runs football-season party bundles. "
        "Domino's and other chains have also run major football-themed promotions. The pizza category is highly active during the NFL season.", 2024),
     # S5 context
     _d("reddit_puffs", "reddit", "r/fastfood", "Crazy Puffs appreciation",

@@ -45,6 +45,17 @@ def test_clean_removes_em_and_en_dashes():
     assert em not in out and en not in out
 
 
+def test_clean_leaves_no_stray_comma_punctuation():  # finding 11
+    from geologic.agents.strategist import _clean
+    em, en = "\u2014", "\u2013"
+    assert _clean(f"Hot and ready {em}.") == "Hot and ready."
+    assert _clean(f"Hot and ready {em} ") == "Hot and ready"
+    assert _clean(f"Hot {em}, ready") == "Hot, ready"
+    assert _clean(f"Line one {en}\n{em} line two") == "Line one\nline two"
+    js = '{\n  "name": "Classic Pepperoni",\n  "price": "6.49"\n}'
+    assert _clean(js) == js  # JSON-LD trailing commas untouched
+
+
 def test_finalize_cleans_generated_text_but_not_diff_before():
     em = "—"
     draft = {"asset_type": "faq", "diff_before": f"old {em} body", "diff_after": f"New {em} text 3–4", "rationale": f"why {em} because"}
