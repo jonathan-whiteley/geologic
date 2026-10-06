@@ -26,7 +26,7 @@ def draft_suggestion(opp, page, menu, deals, chat, endpoint) -> dict:
     target = page["jsonld"] if opp.get("asset_type") == "jsonld" else page["body"]
     msg = (f"Opportunity: {opp['opp_type']} ({opp.get('reasoning', '')}).\nPreferred asset type: {opp.get('asset_type')}\n"
            f"Current page ({page['page_id']}):\n{target}\n\nMenu facts:\n{_facts(menu, deals)}")
-    raw = chat.complete(endpoint, [{"role": "system", "content": SYSTEM}, {"role": "user", "content": msg}], max_tokens=900)
+    raw = chat.complete(endpoint, [{"role": "system", "content": SYSTEM}, {"role": "user", "content": msg}], max_tokens=2500)
     raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", (raw or "").strip(), flags=re.MULTILINE)
     try:
         obj = json.loads(raw)

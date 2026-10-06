@@ -18,12 +18,13 @@ from geologic.config import settings as S
 from geologic.clients import FmapiChat
 from geologic.agents.strategist import draft_suggestion, finalize, DraftError
 from geologic.drafting import plan_drafts, initial_state, suggestion_id, red_team_items, UPSERT_SUGGESTION
-from geologic.lakebase import from_env
+from geologic.lakebase import from_env, apply_job_defaults
 from geologic.publish_flow import publish, DeltaStore
 
 spark = SparkSession.builder.getOrCreate()
 rows = lambda q: [r.asDict(recursive=True) for r in spark.sql(q).collect()]
-w = WorkspaceClient(); chat = FmapiChat.from_workspace(w); conn_factory = from_env(w)
+w = WorkspaceClient(); chat = FmapiChat.from_workspace(w)
+apply_job_defaults(w); conn_factory = from_env(w)
 menu, deals = rows(f"SELECT * FROM {S.fq('menu_items')}"), rows(f"SELECT * FROM {S.fq('deals')}")
 rules = rows(f"SELECT * FROM {S.fq('exclusion_rules')}")
 pages = {p["page_id"]: p for p in rows(f"SELECT * FROM {S.fq('site_pages')}")}
@@ -37,6 +38,7 @@ with conn_factory() as conn:
         conn.execute("INSERT INTO audit_events (actor, action, object_ref, exclusion_rule_id, enforcement_point) VALUES "
                      "('pipeline', 'quarantined', %s, %s, 'ingest') ON CONFLICT DO NOTHING", (q["signal_id"], q["quarantine_rule_id"]))
     store = DeltaStore(spark, conn, w)
+    already_live = {r[0] for r in conn.execute("SELECT suggestion_id FROM suggestions WHERE state IN ('auto_published', 'published')")}
     for item in plan_drafts(opps) + red_team_items(quarantined):
         page = pages.get(item["page_id"])
         if page is None:
@@ -60,14 +62,17 @@ with conn_factory() as conn:
                          "('brand_guardian', 'blocked', %s, %s, 'suggest') ON CONFLICT DO NOTHING", (sid, final["exclusion_rule_id"]))
             publish({**final, "suggestion_id": sid, "state": "approved", "epoch": epoch, "page_id": item["page_id"],
                      "persona_id": item.get("persona_id"), "prompt_ids": []}, store, rules, epoch, reprobe=False)
-        elif final["tier"] == "T0":
+        elif final["tier"] == "T0" and sid not in already_live:  # reruns never re-apply a live T0 row (text may differ)
             publish({**final, "suggestion_id": sid, "state": state, "epoch": epoch, "page_id": item["page_id"],
                      "persona_id": item.get("persona_id"), "prompt_ids": []}, store, rules, epoch, reprobe=False)
     conn.commit()
     snap = conn.execute("SELECT * FROM suggestions WHERE epoch = %s", (epoch,)).fetchall()
     cols = [d.name for d in conn.execute("SELECT * FROM suggestions LIMIT 0").description]
 store.sync_index()
-spark.createDataFrame([dict(zip(cols, [json.dumps(v) if isinstance(v, (list, dict)) else v for v in r])) for r in snap]) \
+_TYPES = {"epoch": "INT", "opp_rank": "INT", "publish_step": "INT", "publish_run_id": "BIGINT",
+          "reviewed_at": "TIMESTAMP", "created_at": "TIMESTAMP"}
+_schema = ", ".join(f"{c} {_TYPES.get(c, 'STRING')}" for c in cols)  # explicit: all-NULL columns cannot be inferred
+spark.createDataFrame([tuple(json.dumps(v) if isinstance(v, (list, dict)) else v for v in r) for r in snap], _schema) \
     .write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(S.fq("suggestions_baseline"))
 spark.sql(f"CREATE OR REPLACE TABLE {S.fq('site_pages_demo_start')} AS SELECT * FROM {S.fq('site_pages')}")
 spark.sql(f"CREATE OR REPLACE TABLE {S.fq('web_corpus_demo_start')} AS SELECT * FROM {S.fq('web_corpus')}")
