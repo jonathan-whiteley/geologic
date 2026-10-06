@@ -48,11 +48,12 @@ spark.sql(f"""CREATE TABLE IF NOT EXISTS {S.fq('bronze_signals')} (
 spark.sql(f"""CREATE TABLE IF NOT EXISTS {S.fq('image_descriptions')} (
   signal_id STRING, description STRING, matched_item_id STRING, match_score DOUBLE, described_at TIMESTAMP)""")
 
-# Weekly history before GEOlogic went live (Aug 3 to Sep 14); live weeks come from probe runs
+# Weekly history before GEOlogic went live (Aug 3 to Sep 14); live weeks come from probe runs.
+# Scaled so the history climbs into the live baseline (about 0.51 Little Caesars, 0.43 Domino's) without a jump.
 hist = [(d, "Little Caesars", v) for d, v in zip(["2026-08-03", "2026-08-10", "2026-08-17", "2026-08-24", "2026-08-31", "2026-09-07", "2026-09-14"],
-                                                 [0.29, 0.30, 0.28, 0.30, 0.33, 0.31, 0.35])]
+                                                 [0.40, 0.41, 0.40, 0.42, 0.45, 0.46, 0.49])]
 hist += [(d, "Domino's", v) for d, v in zip(["2026-08-03", "2026-08-10", "2026-08-17", "2026-08-24", "2026-08-31", "2026-09-07", "2026-09-14"],
-                                            [0.42, 0.41, 0.43, 0.42, 0.41, 0.42, 0.41])]
+                                            [0.44, 0.43, 0.45, 0.44, 0.43, 0.44, 0.43])]
 spark.createDataFrame(hist, "week_start STRING, brand STRING, answer_share DOUBLE") \
     .selectExpr("to_date(week_start) AS week_start", "brand", "answer_share") \
     .write.mode("overwrite").saveAsTable(S.fq("answer_share_weekly"))

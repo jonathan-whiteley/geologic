@@ -1,7 +1,7 @@
 CREATE OR REPLACE VIEW jdub_demo.geologic.mv_answer_share
 WITH METRICS LANGUAGE YAML AS $$
 version: 1.1
-source: SELECT r.*, p.cluster, p.prompt_text FROM jdub_demo.geologic.v_latest_responses r JOIN jdub_demo.geologic.v_prompts p USING (prompt_id) WHERE r.status = 'ok' AND NOT p.branded
+source: SELECT r.*, p.cluster, p.prompt_text, p.branded FROM jdub_demo.geologic.v_latest_responses r JOIN jdub_demo.geologic.v_prompts p USING (prompt_id) WHERE r.status = 'ok'
 dimensions:
   - name: Cluster
     expr: cluster
@@ -9,7 +9,8 @@ dimensions:
     expr: engine
 measures:
   - name: Answer Share
-    expr: AVG(CASE WHEN lce_mentioned AND lce_rank > 0 THEN 1.0 / lce_rank ELSE 0 END)
+    expr: AVG(CASE WHEN NOT branded THEN CASE WHEN lce_mentioned AND lce_rank > 0 THEN 1.0 / lce_rank ELSE 0 END END)
+    comment: "Unbranded prompts only, like v_kpis. Citation Rate and Fact Accuracy use all prompts."
   - name: Citation Rate
     expr: AVG(CASE WHEN cites_official THEN 1 ELSE 0 END)
   - name: Fact Accuracy
