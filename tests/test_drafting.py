@@ -26,3 +26,10 @@ def test_upsert_updates_all_columns_and_guards_terminal_states():
         assert f"{col} = EXCLUDED.{col}" in U
     assert "WHERE suggestions.state IN ('drafted', 'pending_review', 'blocked')" in U
     assert U.count("%s") == 17
+
+
+def test_redraft_clears_current_epoch_queue_only():
+    from geologic.drafting import CLEAR_EPOCH_SUGGESTIONS, LIVE_SUGGESTION_IDS
+    assert CLEAR_EPOCH_SUGGESTIONS.startswith("DELETE FROM suggestions WHERE epoch = %s")
+    assert "cms_page_versions" not in CLEAR_EPOCH_SUGGESTIONS
+    assert "auto_published" in LIVE_SUGGESTION_IDS and "DELETE" not in LIVE_SUGGESTION_IDS

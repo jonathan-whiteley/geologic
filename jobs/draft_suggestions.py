@@ -17,7 +17,8 @@ from databricks.sdk import WorkspaceClient
 from geologic.config import settings as S
 from geologic.clients import FmapiChat
 from geologic.agents.strategist import draft_suggestion, finalize, DraftError
-from geologic.drafting import plan_drafts, initial_state, suggestion_id, red_team_items, UPSERT_SUGGESTION
+from geologic.drafting import (plan_drafts, initial_state, suggestion_id, red_team_items, UPSERT_SUGGESTION,
+                               CLEAR_EPOCH_SUGGESTIONS, LIVE_SUGGESTION_IDS)
 from geologic.lakebase import from_env, apply_job_defaults
 from geologic.publish_flow import publish, DeltaStore
 
@@ -38,7 +39,8 @@ with conn_factory() as conn:
         conn.execute("INSERT INTO audit_events (actor, action, object_ref, exclusion_rule_id, enforcement_point) VALUES "
                      "('pipeline', 'quarantined', %s, %s, 'ingest') ON CONFLICT DO NOTHING", (q["signal_id"], q["quarantine_rule_id"]))
     store = DeltaStore(spark, conn, w)
-    already_live = {r[0] for r in conn.execute("SELECT suggestion_id FROM suggestions WHERE state IN ('auto_published', 'published')")}
+    already_live = {r[0] for r in conn.execute(LIVE_SUGGESTION_IDS)}  # read before the clear below
+    conn.execute(CLEAR_EPOCH_SUGGESTIONS, (epoch,))  # a re-draft fully replaces the queue (no stale or duplicate rows)
     for item in plan_drafts(opps) + red_team_items(quarantined):
         page = pages.get(item["page_id"])
         if page is None:

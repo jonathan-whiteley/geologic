@@ -24,6 +24,12 @@ def red_team_items(quarantined_signals):
              "asset_type": "description", "forced_text": s["text"], "prompt_ids": [], "title": "Red-team check on quarantined signal"}
             for s in quarantined_signals]
 
+# A full re-draft replaces the queue for the current epoch. Reset restores epoch-1 rows under the current epoch with their
+# epoch-1 ids, while drafting hashes the current epoch into new ids, so without this the old and new rows would sit side by side.
+# cms_page_versions is page history, not queue state, so it is left alone.
+CLEAR_EPOCH_SUGGESTIONS = "DELETE FROM suggestions WHERE epoch = %s"
+LIVE_SUGGESTION_IDS = "SELECT suggestion_id FROM suggestions WHERE state IN ('auto_published', 'published')"
+
 UPSERT_SUGGESTION = """INSERT INTO suggestions (suggestion_id, epoch, opp_id, opp_rank, title, asset_type, page_id, diff_before, diff_after,
     rationale, tier, state, checks, exclusion_rule_id, persona_id, prompt_ids, agent_trace_id)
     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
