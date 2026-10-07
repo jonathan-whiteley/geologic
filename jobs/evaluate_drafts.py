@@ -33,8 +33,16 @@ def valid_jsonld(inputs, outputs):
 
 mlflow.set_experiment("/Shared/geologic-drafting")
 res = mlflow.genai.evaluate(data=data, scorers=[
-    Guidelines(name="brand_voice", guidelines="Friendly, plain language, short sentences, no hype words."),
-    Guidelines(name="no_competitors", guidelines="Must not mention Domino's, Pizza Hut, Papa Johns, or any other pizza chain."),
+    Guidelines(name="brand_voice", guidelines=(
+        "The text is a Little Caesars web page draft. It passes if it uses friendly, plain language a guest understands. "
+        "Little Caesars brand phrases and plain value statements (for example 'great value' or 'Hot-N-Ready convenience') are on-brand "
+        "and pass. FAQ structure and JSON-LD structure are acceptable formatting. It fails only for superlative or exaggerated hype "
+        "(for example 'best ever', 'unbeatable', 'mind-blowing', 'revolutionary', excessive exclamation points) or for sentences "
+        "so long they are hard to follow (roughly over 35 words).")),
+    Guidelines(name="no_competitors", guidelines=(
+        "The text is Little Caesars' own page content, so mentioning Little Caesars and its product names (Hot-N-Ready, Crazy Bread, "
+        "ExtraMostBestest, Deep!Deep! Dish, Slices-N-Stix, and so on) is expected and passes. It fails only if it names or clearly "
+        "refers to a competing chain (Domino's, Pizza Hut, Papa Johns, or any other non-Little Caesars brand).")),
     Guidelines(name="no_people_claims", guidelines="Must not claim an athlete endorses a product unless the text is an image caption for an approved LCE endorser."),
     valid_jsonld,
 ])
