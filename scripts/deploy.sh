@@ -8,11 +8,14 @@ VARS=()
 [ -n "${WAREHOUSE_ID:-}" ] && VARS+=(--var "warehouse_id=$WAREHOUSE_ID")
 [ -n "${LAKEBASE_HOST:-}" ] && VARS+=(--var "lakebase_host=$LAKEBASE_HOST")
 [ -n "${APP_SP_CLIENT_ID:-}" ] && VARS+=(--var "app_sp_client_id=$APP_SP_CLIENT_ID")
+[ -n "${SUPERVISOR_ENDPOINT:-}" ] && VARS+=(--var "supervisor_endpoint=$SUPERVISOR_ENDPOINT")
 
-# Guard (memory: bundle_deploy_forces_app_replace). If the app already exists but this checkout
-# has no bundle state, deploying would try to create a second app. Bind first:
-#   databricks bundle deployment bind geologic geologic --profile DEFAULT
-if databricks apps get geologic --profile "$PROFILE" >/dev/null 2>&1 && [ ! -d .databricks/bundle/dev ]; then
+# Guard (memory: bundle_deploy_forces_app_replace). Whether the live app exists is checked again
+# against the plan in step 3 (scripts/check_plan.py refuses `create` of adopted resources), because
+# .databricks/bundle state also appears after a plain validate/plan without any bind.
+APP_EXISTS=0
+databricks apps get geologic --profile "$PROFILE" >/dev/null 2>&1 && APP_EXISTS=1
+if [ "$APP_EXISTS" = "1" ] && [ ! -d .databricks/bundle/dev ]; then
   echo "App 'geologic' exists but this checkout has no bundle state. Bind it (see README) before deploying."; exit 1
 fi
 
@@ -30,15 +33,7 @@ rsync -a --delete --exclude __pycache__ --exclude '*.egg-info' src/geologic/ app
 databricks bundle validate --strict "${VARS[@]+"${VARS[@]}"}" --profile "$PROFILE"
 PLAN=$(mktemp)
 databricks bundle plan -o json "${VARS[@]+"${VARS[@]}"}" --profile "$PROFILE" > "$PLAN"
-python3 - "$PLAN" <<'PY'
-import json, sys
-plan = json.load(open(sys.argv[1])).get("plan", {})
-bad = {k: v.get("action") for k, v in plan.items() if v.get("action") in ("delete", "recreate", "replace")}
-for k, v in plan.items():
-    print(f"  {v.get('action'):>8}  {k}")
-if bad:
-    print("Plan deletes or recreates resources; refusing to deploy:", bad); sys.exit(1)
-PY
+python3 scripts/check_plan.py "$PLAN" $([ "$APP_EXISTS" = "1" ] && echo --app-exists) || { rm -f "$PLAN"; exit 1; }
 rm -f "$PLAN"
 
 # 4. Deploy (uploads files, updates jobs, pipeline, dashboard and the app object).
@@ -59,4 +54,4 @@ fi
 # 6. Deploy the app snapshot with the bundle's config.env (a bare `apps deploy` would skip it).
 databricks bundle run geologic "${VARS[@]+"${VARS[@]}"}" --profile "$PROFILE"
 databricks apps get geologic --profile "$PROFILE" -o json \
-  | python3 -c "import json,sys;d=json.load(sys.stdin);print(d['url'], d['app_status']['state'], d['active_deployment']['status']['state'])"
+  | python3 -c "import json,sys;d=json.load(sys.stdin);print(d.get('url'), d.get('app_status', {}).get('state'), ((d.get('active_deployment') or {}).get('status') or {}).get('state'))"

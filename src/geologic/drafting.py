@@ -38,3 +38,22 @@ UPSERT_SUGGESTION = """INSERT INTO suggestions (suggestion_id, epoch, opp_id, op
     tier = EXCLUDED.tier, state = EXCLUDED.state, checks = EXCLUDED.checks, exclusion_rule_id = EXCLUDED.exclusion_rule_id,
     persona_id = EXCLUDED.persona_id, prompt_ids = EXCLUDED.prompt_ids, agent_trace_id = EXCLUDED.agent_trace_id
     WHERE suggestions.state IN ('drafted', 'pending_review', 'blocked')"""
+
+
+def baseline_blocked(failed) -> bool:
+    """True if any draft failed: a partial queue must never become the Reset baseline."""
+    return bool(failed)
+
+
+EVAL_THRESHOLDS = {"no_competitors": 1.0, "valid_jsonld": 1.0, "brand_voice": 0.8}
+
+
+def eval_failures(metrics: dict) -> list[str]:
+    """Names of scorers below threshold. Accepts mlflow keys like 'brand_voice/mean' or bare names.
+    A missing metric counts as a failure."""
+    out = []
+    for name, floor in EVAL_THRESHOLDS.items():
+        v = metrics.get(f"{name}/mean", metrics.get(name))
+        if v is None or v < floor:
+            out.append(f"{name}={v} (need >= {floor})")
+    return out

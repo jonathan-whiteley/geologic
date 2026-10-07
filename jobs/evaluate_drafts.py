@@ -14,6 +14,7 @@ import mlflow
 from mlflow.genai.scorers import Guidelines, scorer
 from databricks.sdk import WorkspaceClient
 from geologic.datagen.reference import menu_items
+from geologic.drafting import eval_failures
 from geologic.jsonld import validate
 from geologic.lakebase import from_env, apply_job_defaults
 
@@ -49,3 +50,7 @@ res = mlflow.genai.evaluate(data=data, scorers=[
     valid_jsonld,
 ])
 print(json.dumps(res.metrics, indent=2, default=str))
+bad = eval_failures(res.metrics)
+if bad:
+    print("Evaluation thresholds not met:", "; ".join(bad))
+    sys.exit(1)

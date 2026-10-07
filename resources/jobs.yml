@@ -31,6 +31,10 @@ resources:
           depends_on: [{ task_key: vector_search }]
           environment_key: default
           spark_python_task: { python_file: ../jobs/run_probe.py, parameters: ["--mode", "full", "--trigger", "setup", "--set-baseline", "true"] }
+        - task_key: views
+          depends_on: [{ task_key: baseline_probe }]
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/run_views.py }
         - task_key: seed_signals
           depends_on: [{ task_key: data }]
           environment_key: default
@@ -50,11 +54,11 @@ resources:
           environment_key: default
           spark_python_task: { python_file: ../jobs/setup_prompt_explorer.py }
         - task_key: themes
-          depends_on: [{ task_key: baseline_probe }]
+          depends_on: [{ task_key: baseline_probe }, { task_key: views }]
           environment_key: default
           spark_python_task: { python_file: ../jobs/build_themes.py }
         - task_key: opportunities
-          depends_on: [{ task_key: pipeline_2 }, { task_key: baseline_probe }]
+          depends_on: [{ task_key: pipeline_2 }, { task_key: baseline_probe }, { task_key: views }]
           environment_key: default
           spark_python_task: { python_file: ../jobs/build_opportunities.py }
         - task_key: draft

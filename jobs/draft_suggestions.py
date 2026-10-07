@@ -17,7 +17,7 @@ from databricks.sdk import WorkspaceClient
 from geologic.config import settings as S
 from geologic.clients import FmapiChat
 from geologic.agents.strategist import draft_suggestion, finalize, DraftError
-from geologic.drafting import (plan_drafts, initial_state, suggestion_id, red_team_items, UPSERT_SUGGESTION,
+from geologic.drafting import (baseline_blocked, plan_drafts, initial_state, suggestion_id, red_team_items, UPSERT_SUGGESTION,
                                CLEAR_EPOCH_SUGGESTIONS, LIVE_SUGGESTION_IDS)
 from geologic.lakebase import from_env, apply_job_defaults
 from geologic.publish_flow import publish, DeltaStore
@@ -39,6 +39,7 @@ with conn_factory() as conn:
         conn.execute("INSERT INTO audit_events (actor, action, object_ref, exclusion_rule_id, enforcement_point) VALUES "
                      "('pipeline', 'quarantined', %s, %s, 'ingest') ON CONFLICT DO NOTHING", (q["signal_id"], q["quarantine_rule_id"]))
     store = DeltaStore(spark, conn, w)
+    failed = []  # opp ids whose draft failed; any failure blocks the Reset baseline snapshot below
     already_live = {r[0] for r in conn.execute(LIVE_SUGGESTION_IDS)}  # read before the clear below
     conn.execute(CLEAR_EPOCH_SUGGESTIONS, (epoch,))  # a re-draft fully replaces the queue (no stale or duplicate rows)
     for item in plan_drafts(opps) + red_team_items(quarantined):
@@ -49,9 +50,9 @@ with conn_factory() as conn:
             try:
                 draft = ({"asset_type": item["asset_type"], "diff_before": page["body"], "diff_after": item["forced_text"], "rationale": "red team"}
                          if item.get("forced_text") else draft_suggestion(item, page, menu, deals, chat, S.judge_endpoint))
-            except DraftError as e:
-                print("draft failed", item["opp_id"], e); continue
-            final = finalize(draft, item, rules, menu)
+                final = finalize(draft, item, rules, menu)
+            except Exception as e:  # DraftError or any per-item failure
+                print("draft failed", item["opp_id"], item["asset_type"], repr(e)); failed.append(item["opp_id"]); continue
             trace_id = span.trace_id
         sid = suggestion_id(item["opp_id"], item["asset_type"], epoch)
         state = initial_state(final["tier"])
@@ -64,10 +65,13 @@ with conn_factory() as conn:
                          "('brand_guardian', 'blocked', %s, %s, 'suggest') ON CONFLICT DO NOTHING", (sid, final["exclusion_rule_id"]))
             publish({**final, "suggestion_id": sid, "state": "approved", "epoch": epoch, "page_id": item["page_id"],
                      "persona_id": item.get("persona_id"), "prompt_ids": []}, store, rules, epoch, reprobe=False)
-        elif final["tier"] == "T0" and sid not in already_live:  # reruns never re-apply a live T0 row (text may differ)
+        elif final["tier"] == "T0" and sid not in already_live:  # a T0 row already live is not re-applied (text may differ); re-draft only from a freshly Reset state
             publish({**final, "suggestion_id": sid, "state": state, "epoch": epoch, "page_id": item["page_id"],
                      "persona_id": item.get("persona_id"), "prompt_ids": []}, store, rules, epoch, reprobe=False)
     conn.commit()
+    if baseline_blocked(failed):
+        print(f"FAILED drafts for {sorted(set(failed))}; baseline tables NOT written. Reset and re-draft.")
+        sys.exit(1)
     snap = conn.execute("SELECT * FROM suggestions WHERE epoch = %s", (epoch,)).fetchall()
     cols = [d.name for d in conn.execute("SELECT * FROM suggestions LIMIT 0").description]
 store.sync_index()
