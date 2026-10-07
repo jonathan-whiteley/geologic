@@ -99,8 +99,9 @@ Do these in order.
 6. `databricks bundle run geologic_setup --profile DEFAULT` (about 30 to 40 minutes). It generates
    the reference data, images, corpus, Vector Search indexes, the baseline probe, the SQL views
    (`views` task, `jobs/run_views.py`), themes, opportunities and the draft queue.
-7. **SQL objects** (run with the warehouse): `sql/uc_functions.sql`, `sql/supervisor_tools.sql`,
-   `sql/metric_views.sql`. Metric-view YAML must go through
+7. **SQL objects** (run with the warehouse): `sql/public_views.sql` (v_public_signals and
+   v_answer_share_weekly, read by the app, Genie, and the answer-key check), `sql/uc_functions.sql`,
+   `sql/supervisor_tools.sql`, `sql/metric_views.sql`. Metric-view YAML must go through
    `databricks api post /api/2.0/sql/statements` (statement text in the JSON body); the CLI
    statement helpers strip the indentation and break the YAML.
 8. `databricks bundle run geologic_deploy_strategist --profile DEFAULT` (serves
