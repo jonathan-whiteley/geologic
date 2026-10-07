@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 DEFAULT_ENGINES = {
     "Claude": "databricks-claude-sonnet-4-6",
     "Llama": "databricks-meta-llama-3-3-70b-instruct",
-    "GPT-OSS": "databricks-gpt-oss-120b",
+    "ChatGPT": "databricks-gpt-oss-120b",
     "Gemma": "databricks-gemma-3-12b",
 }
 
