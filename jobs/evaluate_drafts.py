@@ -36,7 +36,9 @@ res = mlflow.genai.evaluate(data=data, scorers=[
     Guidelines(name="brand_voice", guidelines=(
         "The text is a Little Caesars web page draft. It passes if it uses friendly, plain language a guest understands. "
         "Little Caesars brand phrases and plain value statements (for example 'great value' or 'Hot-N-Ready convenience') are on-brand "
-        "and pass. FAQ structure and JSON-LD structure are acceptable formatting. It fails only for superlative or exaggerated hype "
+        "and pass. Little Caesars product names (ExtraMostBestest, Deep!Deep! Dish, Crazy Bread, and so on) are proper names, never hype, "
+        "and plain food descriptions such as 'loaded with pepperoni' are fine. "
+        "FAQ structure and JSON-LD structure are acceptable formatting. It fails only for superlative or exaggerated hype "
         "(for example 'best ever', 'unbeatable', 'mind-blowing', 'revolutionary', excessive exclamation points) or for sentences "
         "so long they are hard to follow (roughly over 35 words).")),
     Guidelines(name="no_competitors", guidelines=(
