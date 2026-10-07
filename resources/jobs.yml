@@ -34,7 +34,7 @@ resources:
         - task_key: seed_signals
           depends_on: [{ task_key: data }]
           environment_key: default
-          spark_python_task: { python_file: ../jobs/produce_signals.py, parameters: ["--minutes", "2", "--inject", "S3_kittle,S4_exclusion,S5_pretzel,S5_puffs,S7_crawler"] }
+          spark_python_task: { python_file: ../jobs/produce_signals.py, parameters: ["--minutes", "2", "--inject", "S3_goff,S4_exclusion,S5_pretzel,S5_puffs,S7_crawler"] }
         - task_key: pipeline_1
           depends_on: [{ task_key: seed_signals }, { task_key: images }]
           pipeline_task: { pipeline_id: "${resources.pipelines.geologic_signals.id}" }
@@ -61,6 +61,10 @@ resources:
           depends_on: [{ task_key: opportunities }]
           environment_key: default
           spark_python_task: { python_file: ../jobs/draft_suggestions.py }
+        - task_key: answer_key
+          depends_on: [{ task_key: draft }]
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/answer_key_check.py }
 
     geologic_publish:
       name: geologic_publish
@@ -170,3 +174,16 @@ resources:
         - task_key: verify
           environment_key: default
           spark_python_task: { python_file: ../jobs/verify_uc_functions.py }
+
+    geologic_eval:
+      name: geologic_eval
+      max_concurrent_runs: 1
+      environments:
+        - environment_key: default
+          spec:
+            client: "2"
+            dependencies: ["databricks-sdk>=0.60", "psycopg[binary]", "mlflow>=3.1"]
+      tasks:
+        - task_key: evaluate
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/evaluate_drafts.py }
