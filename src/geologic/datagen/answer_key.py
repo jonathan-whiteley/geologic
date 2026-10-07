@@ -5,6 +5,6 @@ ANSWER_KEY = {
     "S3": {"opp_type": "persona_moment", "persona_id": "p_goff", "item_id": "detroit_pepperoni", "tiers": ["T2"]},
     "S4": {"quarantined": True, "rule_id": "EX-01", "enforcement_points": ["ingest", "suggest", "publish"], "in_feed": False},
     "S5": {"higher_item": "crazy_puffs_pepperoni", "lower_item": "pretzel_crust"},
-    "S6": {"opp_type": "content_gap", "cluster": "sponsorship", "tiers": ["T0", "T1"]},
+    "S6": {"opp_type": "citation_gap", "cluster": "sponsorship", "tiers": ["T0", "T1"]},
     "S7": {"opp_type": "crawler_gap", "page_id": "pg_order", "tiers": ["T0"]},
 }

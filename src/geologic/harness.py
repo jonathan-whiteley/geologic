@@ -18,11 +18,12 @@ def check(state) -> list[str]:
             f.append(f"{sid}: no {k['opp_type']} opportunity for {k['page_id']}")
         elif _tiers(state, k["opp_type"], k["page_id"]) != sorted(k["tiers"]):
             f.append(f"{sid}: tiers {_tiers(state, k['opp_type'], k['page_id'])} != {sorted(k['tiers'])}")
-    s6 = _opp(state, opp_type="content_gap", cluster="sponsorship")
+    k6 = K["S6"]
+    s6 = _opp(state, opp_type=k6["opp_type"], cluster="sponsorship")
     if not s6:
-        f.append("S6: no sponsorship content gap")
-    elif _tiers(state, "content_gap", s6["page_id"]) != sorted(K["S6"]["tiers"]):
-        f.append(f"S6: tiers {_tiers(state, 'content_gap', s6['page_id'])} != {sorted(K['S6']['tiers'])}")
+        f.append(f"S6: no sponsorship {k6['opp_type']} opportunity")
+    elif _tiers(state, k6["opp_type"], s6["page_id"]) != sorted(k6["tiers"]):
+        f.append(f"S6: tiers {_tiers(state, k6['opp_type'], s6['page_id'])} != {sorted(k6['tiers'])}")
     k3 = K["S3"]
     s3 = _opp(state, opp_type=k3["opp_type"], item_id=k3["item_id"], persona_id=k3["persona_id"])
     if not s3:

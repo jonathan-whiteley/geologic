@@ -12,6 +12,12 @@ class DraftError(ValueError):
 
 ASSET_TYPES = {"jsonld", "faq", "description", "alt_text"}
 
+# The validator (geologic.jsonld) only knows these types; anything else bumps a T0 draft to T1.
+JSONLD_RULE = ("For jsonld, the top-level @type must be exactly one of MenuItem, Offer, Organization, FAQPage. "
+               "Use MenuItem on a single menu item page. On a site-level page (about, order, menu, deals) use Organization "
+               "with name, url, description, and makesOffer entries of @type Offer where useful. "
+               "Never use Menu, MenuSection, FoodEstablishment, Restaurant, or any other @type. Prices must match the menu facts.")
+
 SYSTEM = ("You are the Content Strategist for Little Caesars. Draft one change to one web page so AI answer engines "
           "can quote accurate, current facts. Use only the menu facts provided. Voice: friendly, plain, short sentences. "
           "Never mention competitors. Return only JSON: {\"asset_type\": one of jsonld|faq|description|alt_text, "
@@ -25,7 +31,8 @@ def _facts(menu, deals):
 def draft_suggestion(opp, page, menu, deals, chat, endpoint) -> dict:
     target = page["jsonld"] if opp.get("asset_type") == "jsonld" else page["body"]
     msg = (f"Opportunity: {opp['opp_type']} ({opp.get('reasoning', '')}).\nPreferred asset type: {opp.get('asset_type')}\n"
-           f"Current page ({page['page_id']}):\n{target}\n\nMenu facts:\n{_facts(menu, deals)}")
+           f"Current page ({page['page_id']}):\n{target}\n\nMenu facts:\n{_facts(menu, deals)}"
+           + (f"\n\n{JSONLD_RULE}" if opp.get("asset_type") == "jsonld" else ""))
     raw = chat.complete(endpoint, [{"role": "system", "content": SYSTEM}, {"role": "user", "content": msg}], max_tokens=2500)
     raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", (raw or "").strip(), flags=re.MULTILINE)
     try:

@@ -62,3 +62,14 @@ def test_finalize_cleans_generated_text_but_not_diff_before():
     f = finalize(draft, {"opp_id": "o", "title": f"T {em} x"}, exclusion_rules(), menu_items())
     assert f["diff_after"] == "New, text 3-4" and f["rationale"] == "why, because"
     assert f["diff_before"] == f"old {em} body" and f["title"] == "T, x"
+
+
+def test_jsonld_request_pins_supported_types():
+    seen = {}
+    class Spy:
+        def complete(self, endpoint, messages, max_tokens=600):
+            seen["user"] = messages[-1]["content"]
+            return json.dumps({"asset_type": "jsonld", "diff_after": "{}", "rationale": "x"})
+    page = {"page_id": "pg_order", "body": "Order", "jsonld": None}
+    draft_suggestion({**OPP, "asset_type": "jsonld", "page_id": "pg_order"}, page, menu_items(), deals(), Spy(), "ep")
+    assert "MenuItem, Offer, Organization, FAQPage" in seen["user"] and "FoodEstablishment" in seen["user"]

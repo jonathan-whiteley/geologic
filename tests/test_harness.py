@@ -6,7 +6,7 @@ def good_state():
     return {
         "opps": [opp(opp_type="accuracy_fix", page_id="pg_item_classic_pepperoni", item_id="classic_pepperoni", rank=1),
                  opp(opp_type="content_gap", page_id="pg_deals_game_day", cluster="game_day_party", rank=2),
-                 opp(opp_type="content_gap", page_id="pg_about", cluster="sponsorship", rank=3),
+                 opp(opp_type="citation_gap", page_id="pg_about", cluster="sponsorship", rank=3),
                  opp(opp_type="persona_moment", page_id="pg_item_detroit_pepperoni", item_id="detroit_pepperoni", persona_id="p_goff", rank=4, signal_ids=["k"]),
                  opp(opp_type="trend", page_id="pg_item_crazy_puffs_pepperoni", item_id="crazy_puffs_pepperoni", rank=5),
                  opp(opp_type="crawler_gap", page_id="pg_order", rank=6),
@@ -16,8 +16,8 @@ def good_state():
                         {"opp_type": "accuracy_fix", "page_id": "pg_item_classic_pepperoni", "tier": "T1"},
                         {"opp_type": "content_gap", "page_id": "pg_deals_game_day", "tier": "T1"},
                         {"opp_type": "persona_moment", "page_id": "pg_item_detroit_pepperoni", "tier": "T2"},
-                        {"opp_type": "content_gap", "page_id": "pg_about", "tier": "T0"},
-                        {"opp_type": "content_gap", "page_id": "pg_about", "tier": "T1"},
+                        {"opp_type": "citation_gap", "page_id": "pg_about", "tier": "T0"},
+                        {"opp_type": "citation_gap", "page_id": "pg_about", "tier": "T1"},
                         {"opp_type": "crawler_gap", "page_id": "pg_order", "tier": "T0"}],
         "audits": [{"exclusion_rule_id": "EX-01", "enforcement_point": p} for p in ("ingest", "suggest", "publish")],
         "public_signal_ids": {"k"},
@@ -52,3 +52,9 @@ def test_metric_must_improve_after_publish():
 def test_wrong_tier():
     s = good_state(); s["suggestions"][3]["tier"] = "T1"
     assert any("S3" in f for f in check(s))
+
+
+def test_s6_is_citation_gap_not_content_gap():
+    s = good_state()
+    next(o for o in s["opps"] if o["cluster"] == "sponsorship")["opp_type"] = "content_gap"
+    assert any("S6" in f for f in check(s))
