@@ -42,8 +42,9 @@ principal and secret scope. The Vector Search endpoint and indexes are created b
 - A serverless SQL warehouse id (bundle variable `warehouse_id`)
 - Lakebase instance `geologic` and its host (`read_write_dns`, bundle variable `lakebase_host`)
 - Zerobus ingest secrets for `geologic_produce`
-- Genie space id (bundle variable `genie_space_id`, passed to the app as `GENIE_SPACE_ID`)
-- Supervisor agent endpoint name (bundle variable `supervisor_endpoint`; the fallback for Ask)
+- Genie space id (bundle variable `genie_space_id`, default set to the live space, passed to the
+  app as `GENIE_SPACE_ID`)
+- Supervisor agent endpoint name (bundle variable `supervisor_endpoint`; v1 `/api/ask` route only)
 
 Bundle variable defaults in `databricks.yml` hold the live values for this workspace. Override any
 of them with `WAREHOUSE_ID`, `LAKEBASE_HOST`, `APP_SP_CLIENT_ID` or `SUPERVISOR_ENDPOINT` when running
@@ -116,9 +117,11 @@ Do these in order.
 9. **Genie and Supervisor.** Create the Genie space from `genie/space.json`, then the Supervisor
    per `docs/supervisor.md`. Grant the app SP `CAN_RUN` on the Genie space and set the
    `genie_space_id` bundle variable to the space id (the app reads it as the `GENIE_SPACE_ID` env in
-   `resources/app.yml`). The Ask Genie panel calls the Genie Conversation API on that space
-   directly (live phases, SQL, follow-ups in one conversation); the Supervisor is the fallback path
-   (`/api/ask`, text only, no follow-ups). Set the `supervisor_endpoint` variable (or
+   `resources/app.yml`; the default is the live space). The Ask Genie panel calls the Genie
+   Conversation API on that space directly (live phases, SQL, follow-ups in one conversation). There
+   is no fallback: if `GENIE_SPACE_ID` is unset, the panel shows "Genie is not configured." The v1
+   Supervisor route (`POST /api/ask`, text only) remains for API use only; nothing in the UI calls
+   it. To keep that route working, set the `supervisor_endpoint` variable (or
    `SUPERVISOR_ENDPOINT=... bash scripts/deploy.sh`) and redeploy; the bundle binds the endpoint to
    the app with `CAN_QUERY`.
 
