@@ -5,7 +5,7 @@ import MeasureLayout from './layouts/MeasureLayout'
 import AnswersPage from './pages/AnswersPage'
 import PromptsPage from './pages/PromptsPage'
 import FixPage from './pages/FixPage'
-import ImpactPage from './pages/ImpactPage'
+import ProvePage from './pages/ProvePage'
 import ArchitecturePage from './pages/ArchitecturePage'
 import { ActRedirect, MonitorRedirect } from './pages/Redirects'
 
@@ -26,7 +26,7 @@ export default function App() {
             </Route>
             {/* Task 8 swaps in ProvePage */}
             <Route path="fix" element={<FixPage />} />
-            <Route path="prove" element={<ImpactPage />} />
+            <Route path="prove" element={<ProvePage />} />
             <Route path="architecture" element={<ArchitecturePage />} />
             {/* v1 bookmarks */}
             <Route path="monitor/*" element={<MonitorRedirect />} />
