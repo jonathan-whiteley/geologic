@@ -42,6 +42,9 @@ def test_genie_space_has_brand_share_for_competitors():  # G3
     assert "v_brand_share" in text and "array_position(brands_mentioned" in text and "Domino's" in text
     # the per-engine formula needs v_prompts.branded, so v_prompts is a data source too
     assert "v_prompts" in text and "jdub_demo.geologic.v_prompts" in ids
+    # 'Domino''s' parses as 'Dominos' in Databricks SQL and never matches; use the chr(39) form
+    assert "concat('Domino', chr(39), 's')" in text
+    assert "Domino''s" not in text
 
 def test_gateway_view_dedupes_served_entities():  # S2
     for path in ("sql/gateway_views.sql", "sql/v2_data_fixes.sql"):
