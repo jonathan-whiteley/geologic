@@ -4,6 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Sparkles, Radar, FileCheck2, TrendingUp, RotateCcw, Megaphone, Network, Loader2 } from 'lucide-react'
 import { api } from '../api/client'
 import { ToastProvider, useToast } from '../components/Toast'
+import GeniePanel from '../components/genie/GeniePanel'
+import { GeniePanelProvider, useGeniePanel } from '../state/genie-panel'
 
 const navItems = [
   { to: '/measure', label: 'Measure', icon: Radar },
@@ -14,6 +16,7 @@ const navItems = [
 function Shell() {
   const queryClient = useQueryClient()
   const toast = useToast()
+  const { toggle, openPanel } = useGeniePanel()
   const { data: suggestions } = useQuery({ queryKey: ['suggestions'], queryFn: api.suggestions })
   const pendingCount = suggestions?.filter(s => s.state === 'pending_review').length ?? 0
 
@@ -29,6 +32,19 @@ function Shell() {
       toast(err instanceof Error ? err.message : "Couldn't start the reset. Try again.")
     }
   }
+
+  // "/" opens Ask Genie (the panel focuses its composer) unless the user is typing somewhere.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
+      const t = e.target as HTMLElement | null
+      if (t && (['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) || t.isContentEditable)) return
+      e.preventDefault()
+      openPanel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [openPanel])
 
   // Poll the reset job until it finishes, then refresh every screen.
   useEffect(() => {
@@ -97,6 +113,10 @@ function Shell() {
               <Network className="w-4 h-4" />
               <span className="hidden xl:inline">Architecture</span>
             </NavLink>
+            <button className="btn btn-primary" onClick={toggle} title="Ask Genie (/)" aria-label="Ask Genie">
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">Ask Genie</span>
+            </button>
             <button onClick={handleReset} className="btn btn-ghost" title="Reset demo" disabled={!!resetRunId}>
               {resetRunId ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
               <span className="hidden xl:inline">Reset</span>
@@ -153,7 +173,10 @@ function Shell() {
 export default function AppLayout() {
   return (
     <ToastProvider>
-      <Shell />
+      <GeniePanelProvider>
+        <Shell />
+        <GeniePanel />
+      </GeniePanelProvider>
     </ToastProvider>
   )
 }

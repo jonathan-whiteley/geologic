@@ -1,13 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { BadgeAlert, CircleDashed, Flame } from 'lucide-react'
+import { BadgeAlert, CircleDashed, Flame, Sparkles } from 'lucide-react'
 import { api } from '../api/client'
 import type { Opportunity } from '../api/types'
 import { PageSkeleton, ErrorRetry } from '../components/PageState'
 import EvidencePanel from '../components/EvidencePanel'
 import DraftPanel from '../components/DraftPanel'
 import { formatK } from '../lib/format'
+import { useGeniePanel } from '../state/genie-panel'
 
 type CategoryKey = 'all' | 'accuracy' | 'gap' | 'moment'
 
@@ -46,16 +47,23 @@ export default function FixPage() {
   const [category, setCategory] = useState<CategoryKey>('all')
   const opps = useQuery({ queryKey: ['opps'], queryFn: api.opportunities })
   const sugg = useQuery({ queryKey: ['suggestions'], queryFn: api.suggestions })
+  const { ask, setFocus } = useGeniePanel()
 
   const maxLift = useMemo(() => Math.max(1, ...(opps.data ?? []).map(o => o.expected_lift_high)), [opps.data])
+  const oppParam = searchParams.get('opp')
+  const sel = opps.data?.find(o => o.opp_id === oppParam) ?? opps.data?.[0]
+
+  // The selected opportunity is the Ask Genie focus item while this page is open.
+  useEffect(() => {
+    setFocus(sel?.title ?? null)
+    return () => setFocus(null)
+  }, [sel?.opp_id])
 
   if (opps.isLoading || sugg.isLoading) return <PageSkeleton statCards={0} />
   if (opps.isError || !opps.data) return <ErrorRetry message="Couldn't load opportunities." onRetry={() => opps.refetch()} />
 
   const data = opps.data
   const visible = data.filter(o => category === 'all' || categoryOf(o.opp_type) === category)
-  const oppParam = searchParams.get('opp')
-  const sel = data.find(o => o.opp_id === oppParam) ?? data[0]
   const drafts = (sugg.data ?? []).filter(s => s.opp_id === sel?.opp_id)
 
   return (
@@ -116,7 +124,12 @@ export default function FixPage() {
           return (
             <div className="card p-6 space-y-6">
               <div className="space-y-3">
-                <h3 className="font-semibold text-lg">{sel.title}</h3>
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="font-semibold text-lg">{sel.title}</h3>
+                  <button className="btn btn-ghost !text-xs shrink-0" onClick={() => ask('Why is this opportunity ranked where it is, and what would move it?')}>
+                    <Sparkles className="w-3.5 h-3.5" />Ask Genie about this
+                  </button>
+                </div>
                 <p className={`text-sm ${sel.status === 'monitor' ? 'text-amber-700' : 'text-text-secondary'}`}>{sel.reasoning}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {badge && <span className={`badge b-${badge.variant}`}><span className="dot" />{badge.label}</span>}

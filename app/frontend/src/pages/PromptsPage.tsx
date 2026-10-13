@@ -1,8 +1,8 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  Search, ChevronDown, BookmarkPlus, Download, MessageSquareQuote,
+  Search, ChevronDown, BookmarkPlus, Download, MessageSquareQuote, Sparkles,
 } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
@@ -15,6 +15,7 @@ import { Button } from '../components/ui/Button'
 import { CLUSTERS } from '../components/Heatmap'
 import QuestionInventory from '../components/QuestionInventory'
 import { formatDate, formatK1 } from '../lib/format'
+import { useGeniePanel } from '../state/genie-panel'
 
 const CLUSTER_LABEL = new Map(CLUSTERS)
 
@@ -100,6 +101,13 @@ export default function PromptsPage() {
   })
 
   const isTracked = tracked ?? data?.tracked ?? false
+
+  // The open question is the Ask Genie focus item while the deep dive is showing.
+  const { ask, setFocus } = useGeniePanel()
+  useEffect(() => {
+    setFocus(data?.prompt_text ?? null)
+    return () => setFocus(null)
+  }, [data?.prompt_text])
 
   const chartData = useMemo(() => (data?.series ?? []).map(s => ({
     month: s.month,
@@ -204,6 +212,9 @@ export default function PromptsPage() {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <button className="btn btn-ghost !text-xs" onClick={() => ask('How do the engines answer this question, and has it changed over time?')}>
+                <Sparkles className="w-3.5 h-3.5" />Ask Genie about this
+              </button>
               <div className="inline-flex items-center gap-2 rounded-xl border border-lce-orange/40 bg-lce-cream px-3 py-2 text-sm">
                 <span className="text-text-secondary">Engine:</span>
                 <select

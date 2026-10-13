@@ -29,3 +29,14 @@ export const api = {
   resetStatus: (runId: number) => req<{ run_id: number; life_cycle_state: string | null; result_state: string | null }>(`/demo/reset/${runId}`),
   inject: (truth: string) => req<{ run_id: number }>(`/demo/inject/${truth}`, { method: 'POST' }),
 }
+
+export function genieAsk(question: string, conversationId?: string, context?: string) {
+  return req<{ conversation_id: string; message_id: string }>('/genie/ask', {
+    method: 'POST',
+    body: JSON.stringify({ question, conversation_id: conversationId ?? null, context: context ?? null }),
+  })
+}
+
+export function genieMessage(c: string, m: string) {
+  return req<T.GenieMessage>(`/genie/message/${encodeURIComponent(c)}/${encodeURIComponent(m)}`)
+}
