@@ -114,3 +114,31 @@ def test_unconfigured_is_503(monkeypatch):
     monkeypatch.setattr(deps, "_genie", None)
     app.dependency_overrides.pop(deps.get_genie, None)
     assert TestClient(app).post("/api/genie/ask", json={"question": "q"}).status_code == 503
+
+def test_source_of_skips_cte_names():  # G4: a WITH query like the live one
+    sql = """WITH cluster_share AS (SELECT `Cluster`, MEASURE(`Share of Model`) AS s FROM jdub_demo.geologic.mv_answer_share GROUP BY ALL),
+             ranked AS (SELECT *, RANK() OVER (ORDER BY s) AS r FROM cluster_share)
+             SELECT * FROM ranked WHERE r = 1"""
+    assert source_of(sql) == "Genie · mv_answer_share"
+    assert source_of("with x as (select * from v_kpis) select * from x join gold_opportunities g on 1=1") == "Genie · v_kpis, gold_opportunities"
+
+class NotFound(Exception):  # same class name as databricks.sdk.errors.NotFound
+    pass
+
+class ResourceDoesNotExist(NotFound):
+    pass
+
+def test_gone_conversation_errors_start_fresh():  # G5
+    for exc in (NotFound("Conversation c9"), ResourceDoesNotExist("x"), type("BadRequest", (Exception,), {})("bad id"),
+                type("InvalidParameterValue", (Exception,), {})("bad"), RuntimeError("Conversation not found")):
+        api = FakeGenieApi(followup_exc=exc)
+        assert svc(api).ask("q", conversation_id="old")["conversation_id"] == "c2", exc
+
+def test_other_follow_up_errors_propagate():  # G5
+    import pytest
+    for exc in (RuntimeError("warehouse unavailable"), type("PermissionDenied", (Exception,), {})("no access"),
+                type("TooManyRequests", (Exception,), {})("slow down")):
+        api = FakeGenieApi(followup_exc=exc)
+        with pytest.raises(type(exc)):
+            svc(api).ask("q", conversation_id="old")
+        assert [c[0] for c in api.calls] == ["followup"]

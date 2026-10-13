@@ -9,6 +9,10 @@ MAX_ROWS = 500
 MAX_CONTEXT = 300
 CACHE_MAX = 200
 _TABLE = re.compile(r"\b(?:FROM|JOIN)\s+((?:`?\w+`?\.){0,2}`?(\w+)`?)", re.I)
+_CTE = re.compile(r"(?:\bWITH\s+(?:RECURSIVE\s+)?|,\s*)`?(\w+)`?\s+AS\s*\(", re.I)
+# The follow-up conversation is gone or invalid (expired, unknown id): only these start a fresh conversation.
+_GONE_TYPES = {"NotFound", "ResourceDoesNotExist", "BadRequest", "InvalidParameterValue"}
+_GONE_TEXT = ("RESOURCE_DOES_NOT_EXIST", "not found")
 
 
 def with_context(question, context):
@@ -20,11 +24,20 @@ def with_context(question, context):
 def source_of(sql):
     if not sql:
         return None
+    ctes = {m.group(1).lower() for m in _CTE.finditer(sql)}
     names = []
     for m in _TABLE.finditer(sql):
-        if m.group(2) not in names:
+        if m.group(2) not in names and m.group(2).lower() not in ctes:
             names.append(m.group(2))
     return f"Genie · {', '.join(names)}" if names else "Genie"
+
+
+def conversation_gone(e):
+    """True for SDK errors (matched by class name, so tests run without the SDK) or messages meaning the conversation is gone."""
+    if any(t.__name__ in _GONE_TYPES for t in type(e).__mro__):
+        return True
+    msg = str(e)
+    return _GONE_TEXT[0] in msg or _GONE_TEXT[1] in msg.lower()
 
 
 def _val(x):
@@ -44,6 +57,8 @@ class GenieService:
                 r = g.create_message(space_id=self.space_id, conversation_id=conversation_id, content=content).response
                 return {"conversation_id": r.conversation_id, "message_id": r.message_id or r.id}
             except Exception as e:  # expired or unknown conversation: start fresh, the panel carries on
+                if not conversation_gone(e):
+                    raise
                 print(f"genie follow-up on {conversation_id} failed, starting fresh: {type(e).__name__}: {e}")
         r = g.start_conversation(space_id=self.space_id, content=content).response
         return {"conversation_id": r.conversation_id, "message_id": r.message_id or r.id}
