@@ -1,14 +1,13 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import AppLayout from './layouts/AppLayout'
-import MonitorLayout from './layouts/MonitorLayout'
+import MeasureLayout from './layouts/MeasureLayout'
 import AnswersPage from './pages/AnswersPage'
-import SignalsPage from './pages/SignalsPage'
 import PromptsPage from './pages/PromptsPage'
 import PrioritizePage from './pages/PrioritizePage'
-import ActPage from './pages/ActPage'
 import ImpactPage from './pages/ImpactPage'
 import ArchitecturePage from './pages/ArchitecturePage'
+import { ActRedirect, MonitorRedirect } from './pages/Redirects'
 
 const qc = new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: 1 } } })
 
@@ -18,18 +17,22 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route element={<AppLayout />}>
-            <Route index element={<Navigate to="/monitor/answers" replace />} />
-            <Route path="monitor" element={<MonitorLayout />}>
+            <Route index element={<Navigate to="/measure/answers" replace />} />
+            <Route path="measure" element={<MeasureLayout />}>
               <Route index element={<Navigate to="answers" replace />} />
               <Route path="answers" element={<AnswersPage />} />
-              <Route path="signals" element={<SignalsPage />} />
-              <Route path="prompts" element={<PromptsPage />} />
-              <Route path="prompts/:promptId" element={<PromptsPage />} />
+              <Route path="questions" element={<PromptsPage />} />
+              <Route path="questions/:promptId" element={<PromptsPage />} />
             </Route>
-            <Route path="prioritize" element={<PrioritizePage />} />
-            <Route path="act" element={<ActPage />} />
-            <Route path="impact" element={<ImpactPage />} />
+            {/* Tasks 7 and 8 swap in FixPage and ProvePage */}
+            <Route path="fix" element={<PrioritizePage />} />
+            <Route path="prove" element={<ImpactPage />} />
             <Route path="architecture" element={<ArchitecturePage />} />
+            {/* v1 bookmarks */}
+            <Route path="monitor/*" element={<MonitorRedirect />} />
+            <Route path="prioritize" element={<Navigate to="/fix" replace />} />
+            <Route path="act" element={<ActRedirect />} />
+            <Route path="impact" element={<Navigate to="/prove" replace />} />
           </Route>
         </Routes>
       </BrowserRouter>

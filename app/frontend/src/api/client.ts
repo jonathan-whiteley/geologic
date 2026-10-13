@@ -16,6 +16,8 @@ export const api = {
   promptExplorer: (id: string) => req<T.PromptExplorer>(`/prompts/${id}`),
   trackPrompt: (id: string) => req<{ tracked: boolean }>(`/prompts/${id}/track`, { method: 'POST' }),
   signals: () => req<T.SignalsResp>('/signals?limit=50'),
+  inventory: () => req<T.InventoryRow[]>('/prompts'),
+  evidence: (id: string) => req<T.Evidence>(`/opportunities/${id}/evidence`),
   opportunities: () => req<T.Opportunity[]>('/opportunities'),
   suggestions: () => req<T.Suggestion[]>('/suggestions'),
   approve: (id: string) => req<{ run_id: number }>(`/suggestions/${id}/approve`, { method: 'POST' }),

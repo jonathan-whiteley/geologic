@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Sparkles, Radar, Target, FileCheck2, TrendingUp, RotateCcw, Megaphone, Network, Loader2 } from 'lucide-react'
+import { Sparkles, Radar, FileCheck2, TrendingUp, RotateCcw, Megaphone, Network, Loader2 } from 'lucide-react'
 import { api } from '../api/client'
 import { ToastProvider, useToast } from '../components/Toast'
 
 const navItems = [
-  { to: '/monitor', label: 'Monitor', icon: Radar },
-  { to: '/prioritize', label: 'Prioritize', icon: Target },
-  { to: '/act', label: 'Act', icon: FileCheck2 },
-  { to: '/impact', label: 'Impact', icon: TrendingUp },
+  { to: '/measure', label: 'Measure', icon: Radar },
+  { to: '/fix', label: 'Fix', icon: FileCheck2 },
+  { to: '/prove', label: 'Prove', icon: TrendingUp },
 ]
 
 function Shell() {
@@ -85,7 +84,7 @@ function Shell() {
               >
                 <item.icon className="w-4 h-4" />
                 <span>{item.label}</span>
-                {item.to === '/act' && pendingCount > 0 && (
+                {item.to === '/fix' && pendingCount > 0 && (
                   <span className="ml-1 text-[11px] font-semibold bg-lce-orange text-white rounded-full px-1.5">{pendingCount}</span>
                 )}
               </NavLink>
@@ -118,7 +117,7 @@ function Shell() {
             >
               <item.icon className="w-4 h-4" />
               <span>{item.label}</span>
-              {item.to === '/act' && pendingCount > 0 && (
+              {item.to === '/fix' && pendingCount > 0 && (
                 <span className="ml-1 text-[11px] font-semibold bg-lce-orange text-white rounded-full px-1.5">{pendingCount}</span>
               )}
             </NavLink>

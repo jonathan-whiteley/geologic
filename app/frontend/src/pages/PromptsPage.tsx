@@ -120,7 +120,7 @@ export default function PromptsPage() {
     setSearchError(null)
     try {
       const res = await api.promptSearch(q)
-      navigate(`/monitor/prompts/${res.prompt_id}`)
+      navigate(`/measure/questions/${res.prompt_id}`)
       toast('Probed 4 engines')
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : 'Something went wrong.')
@@ -229,7 +229,7 @@ export default function PromptsPage() {
               <p className={`text-3xl font-semibold tabular-nums mt-1 ${data.kpis.volume_tier === 'High' ? 'text-green-700' : 'text-amber-700'}`}>{data.kpis.volume_tier}</p>
             </div>
             <div className="p-5">
-              <p className="text-sm text-text-secondary">Answer Share</p>
+              <p className="text-sm text-text-secondary">Share of Model</p>
               <p className="text-3xl font-semibold tabular-nums mt-1">{data.kpis.answer_share !== null ? data.kpis.answer_share.toFixed(2) : 'N/A'}</p>
             </div>
             <div className="p-5">
@@ -301,7 +301,7 @@ export default function PromptsPage() {
                   const tracking = trackingOverride[r.prompt_id] ?? r.status === 'tracking'
                   return (
                     <div key={r.prompt_id} className="py-2.5 flex items-center gap-3">
-                      <button className="flex-1 min-w-0 text-left" onClick={() => navigate(`/monitor/prompts/${r.prompt_id}`)}>
+                      <button className="flex-1 min-w-0 text-left" onClick={() => navigate(`/measure/questions/${r.prompt_id}`)}>
                         <p className="text-sm leading-snug">{r.prompt_text}</p>
                         <p className="text-xs text-text-tertiary mt-0.5">{formatK1(r.avg_monthly_volume)} / mo</p>
                       </button>
