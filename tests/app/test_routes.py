@@ -152,3 +152,38 @@ def test_proof_save_failure_does_not_break_status():  # Review Focus 3
 def test_evidence_route_adds_live_page():
     ev = _with_repo(ProofSuggestions(), lambda: c.get("/api/opportunities/opp_1/evidence").json())
     assert ev["live_page"]["version"] == 2
+
+
+class UnproofedSuggestions(ProofSuggestions):
+    """A publish finished while nobody polled status (Fix page closed): no proof row yet."""
+    def __init__(self, fail_lookup=False):
+        super().__init__(); self.fail_lookup = fail_lookup
+    def latest_published_without_proof(self):
+        if self.fail_lookup: raise RuntimeError("lakebase down")
+        if self.saved: return None
+        return {"suggestion_id": "p1", "title": "Fix price", "reviewer": "jw@x.com", "prompt_ids": ["q001"]}
+
+def test_impact_saves_proof_for_unproofed_published_suggestion():
+    repo = UnproofedSuggestions()
+    imp = _with_repo(repo, lambda: c.get("/api/impact").json())
+    assert len(repo.saved) == 1
+    sid, title, reviewer, ba, summary = repo.saved[0]
+    assert (sid, title, reviewer) == ("p1", "Fix price", "jw@x.com") and ba["after"]["answer"] == "b" and summary["share_after"] == 0.4
+    assert imp["proof"] == {"title": "Fix price"}
+
+def test_impact_skips_proof_when_no_before_after():
+    repo = UnproofedSuggestions()
+    orig = FakeReads.before_after
+    FakeReads.before_after = lambda self, ids: None
+    try:
+        imp = _with_repo(repo, lambda: c.get("/api/impact").json())
+    finally:
+        FakeReads.before_after = orig
+    assert repo.saved == [] and imp["proof"] is None
+
+def test_impact_still_200_when_safety_net_raises():
+    r = _with_repo(UnproofedSuggestions(fail_lookup=True), lambda: c.get("/api/impact"))
+    assert r.status_code == 200 and r.json()["proof"] is None
+    failing_save = UnproofedSuggestions(); failing_save.fail = True
+    r = _with_repo(failing_save, lambda: c.get("/api/impact"))
+    assert r.status_code == 200 and r.json()["proof"] is None

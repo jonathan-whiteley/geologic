@@ -63,3 +63,15 @@ def test_live_page_latest_version():
     repo = SuggestionRepo(lambda: LogConn(log, [(3, "jw@x.com", "2026-10-13T10:00:00Z")], ["version", "published_by", "published_at"]))
     assert repo.live_page("pg_deals") == {"version": 3, "published_by": "jw@x.com", "published_at": "2026-10-13T10:00:00Z"}
     assert "ORDER BY version DESC LIMIT 1" in log[-1][0] and log[-1][1] == ("pg_deals",)
+
+def test_latest_published_without_proof_sql_shape():
+    log = []
+    repo = SuggestionRepo(lambda: LogConn(log, [("s1", "Fix price", "jw@x.com", ["q001"])], ["suggestion_id", "title", "reviewer", "prompt_ids"]))
+    assert repo.latest_published_without_proof() == {"suggestion_id": "s1", "title": "Fix price", "reviewer": "jw@x.com", "prompt_ids": ["q001"]}
+    sql = log[-1][0]
+    assert "s.epoch = (SELECT epoch FROM demo_state WHERE id = 1)" in sql and "s.state = 'published'" in sql
+    assert "NOT EXISTS (SELECT 1 FROM proof_results p WHERE p.suggestion_id = s.suggestion_id)" in sql
+    assert sql.endswith("ORDER BY s.reviewed_at DESC NULLS LAST LIMIT 1")
+
+def test_latest_published_without_proof_none_when_empty():
+    assert SuggestionRepo(lambda: LogConn([])).latest_published_without_proof() is None

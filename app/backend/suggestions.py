@@ -78,6 +78,14 @@ class SuggestionRepo:
                           FROM proof_results ORDER BY saved_at DESC LIMIT 1""")
         return r[0] if r else None
 
+    def latest_published_without_proof(self):
+        """Most recent publish of this epoch whose proof was never saved (nobody polled its status)."""
+        r = self._rows(f"""SELECT s.suggestion_id, s.title, s.reviewer, s.prompt_ids FROM suggestions s
+                           WHERE s.epoch = {_EPOCH} AND s.state = 'published'
+                             AND NOT EXISTS (SELECT 1 FROM proof_results p WHERE p.suggestion_id = s.suggestion_id)
+                           ORDER BY s.reviewed_at DESC NULLS LAST LIMIT 1""")
+        return r[0] if r else None
+
     def live_page(self, page_id):
         r = self._rows("SELECT version, published_by, published_at FROM cms_page_versions WHERE page_id = %s ORDER BY version DESC LIMIT 1",
                        (page_id,))

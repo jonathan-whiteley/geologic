@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Wand2, Check, X, ShieldCheck, AlertCircle } from 'lucide-react'
 import { api } from '../api/client'
@@ -38,42 +38,69 @@ export default function DraftPanel({ suggestions }: { suggestions: Suggestion[] 
     () => (suggestions.find(x => x.state === 'pending_review') ?? suggestions[0])?.suggestion_id ?? null,
   )
   const [overlay, setOverlay] = useState<Record<string, PublishStatus>>({})
-  const [publishingId, setPublishingId] = useState<string | null>(null)
+  const [publishing, setPublishing] = useState<string[]>([])
   const [actionError, setActionError] = useState<string | null>(null)
   const [approving, setApproving] = useState(false)
   const [rejecting, setRejecting] = useState(false)
+  const pollers = useRef(new Map<string, () => void>())
 
+  const stopPublishing = (sid: string) => setPublishing(prev => prev.filter(id => id !== sid))
+
+  // One poller per publishing suggestion, each started and stopped on its own, so a second
+  // Approve never cancels the first.
   useEffect(() => {
-    if (!publishingId) return
-    let stopped = false
-    let timer: number
-    const tick = async () => {
-      if (stopped) return
-      try {
-        const st = await api.status(publishingId)
-        setOverlay(prev => ({ ...prev, [publishingId]: st }))
-        // Stop on anything other than an in-flight publish: published, blocked, or a failure the job
-        // returned to pending_review (Approve is clickable again).
-        if (st.state !== 'publishing' || st.error) {
-          setPublishingId(null)
-          if (st.state === 'published') {
-            // The status poll saved the proof row server-side; refresh Prove and the review badge.
-            queryClient.invalidateQueries({ queryKey: ['impact'] })
-            queryClient.invalidateQueries({ queryKey: ['suggestions'] })
-          } else if (st.state !== 'blocked') {
-            setOverlay(prev => ({ ...prev, [publishingId]: { ...st, error: st.error || FAILED } }))
-            queryClient.invalidateQueries({ queryKey: ['suggestions'] })
+    for (const sid of publishing) {
+      if (pollers.current.has(sid)) continue
+      let stopped = false
+      let timer: number
+      const tick = async () => {
+        if (stopped) return
+        try {
+          const st = await api.status(sid)
+          if (stopped) return
+          setOverlay(prev => ({ ...prev, [sid]: st }))
+          // Stop on anything other than an in-flight publish: published, blocked, or a failure the job
+          // returned to pending_review (Approve is clickable again).
+          if (st.state !== 'publishing' || st.error) {
+            pollers.current.delete(sid)
+            stopPublishing(sid)
+            if (st.state === 'published') {
+              // The status poll saved the proof row server-side; refresh Prove, the review badge and evidence.
+              queryClient.invalidateQueries({ queryKey: ['impact'] })
+              queryClient.invalidateQueries({ queryKey: ['suggestions'] })
+              queryClient.invalidateQueries({ queryKey: ['evidence'] })
+            } else if (st.state !== 'blocked') {
+              setOverlay(prev => ({ ...prev, [sid]: { ...st, error: st.error || FAILED } }))
+              queryClient.invalidateQueries({ queryKey: ['suggestions'] })
+            }
+            return
           }
-          return
+        } catch {
+          // transient polling error; keep trying
         }
-      } catch {
-        // transient polling error; keep trying
+        if (!stopped) timer = window.setTimeout(tick, 2000)
       }
-      if (!stopped) timer = window.setTimeout(tick, 2000)
+      timer = window.setTimeout(tick, 2000)
+      pollers.current.set(sid, () => { stopped = true; window.clearTimeout(timer) })
     }
-    timer = window.setTimeout(tick, 2000)
-    return () => { stopped = true; window.clearTimeout(timer) }
-  }, [publishingId, queryClient])
+    for (const [sid, stop] of pollers.current) {
+      if (!publishing.includes(sid)) { stop(); pollers.current.delete(sid) }
+    }
+  }, [publishing, queryClient])
+
+  // Stop every poller on unmount (switching opportunities remounts this panel).
+  useEffect(() => {
+    const map = pollers.current
+    return () => { map.forEach(stop => stop()); map.clear() }
+  }, [])
+
+  // Resume polling for anything the server says is still publishing (remount, page reload).
+  const serverPublishing = suggestions.filter(x => x.state === 'publishing').map(x => x.suggestion_id).join(',')
+  useEffect(() => {
+    if (!serverPublishing) return
+    const ids = serverPublishing.split(',')
+    setPublishing(prev => (ids.every(id => prev.includes(id)) ? prev : [...prev, ...ids.filter(id => !prev.includes(id))]))
+  }, [serverPublishing])
 
   const selected = suggestions.find(x => x.suggestion_id === selectedId) ?? suggestions[0]
   if (!selected) return null
@@ -85,7 +112,7 @@ export default function DraftPanel({ suggestions }: { suggestions: Suggestion[] 
     try {
       await api.approve(selected.suggestion_id)
       setOverlay(prev => ({ ...prev, [selected.suggestion_id]: { state: 'publishing', publish_step: 0, error: null } }))
-      setPublishingId(selected.suggestion_id)
+      setPublishing(prev => (prev.includes(selected.suggestion_id) ? prev : [...prev, selected.suggestion_id]))
     } catch (err) {
       const status = (err as { status?: number }).status
       const message = err instanceof Error ? err.message : 'Something went wrong.'
@@ -116,15 +143,18 @@ export default function DraftPanel({ suggestions }: { suggestions: Suggestion[] 
     <div className="space-y-5">
       {suggestions.length > 1 && (
         <div className="flex flex-wrap gap-1.5">
-          {suggestions.map(item => (
-            <button
-              key={item.suggestion_id}
-              onClick={() => setSelectedId(item.suggestion_id)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${item.suggestion_id === s.suggestion_id ? 'bg-lce-orange/5 ring-1 ring-lce-orange/30' : 'bg-surface-secondary text-text-secondary hover:bg-gray-100'}`}
-            >
-              {item.tier} · {item.asset_type}
-            </button>
-          ))}
+          {suggestions.map(item => {
+            const m = merge(item, overlay[item.suggestion_id])
+            return (
+              <button
+                key={item.suggestion_id}
+                onClick={() => setSelectedId(item.suggestion_id)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${item.suggestion_id === s.suggestion_id ? 'bg-lce-orange/5 ring-1 ring-lce-orange/30' : 'bg-surface-secondary text-text-secondary hover:bg-gray-100'}`}
+              >
+                {item.tier} · {item.asset_type}{m.state !== 'pending_review' ? ` · ${m.state.replace('_', ' ')}` : ''}
+              </button>
+            )
+          })}
         </div>
       )}
 

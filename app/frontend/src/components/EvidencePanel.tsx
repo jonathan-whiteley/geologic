@@ -18,8 +18,8 @@ export default function EvidencePanel({ oppId }: { oppId: string }) {
       {(truth || live_page) && (
         <div className="rounded-xl border border-green-100 bg-green-50/40 p-4 space-y-2">
           <p className="text-xs font-semibold text-green-700 flex items-center gap-1.5"><BadgeCheck className="w-3.5 h-3.5" />Source of truth</p>
-          {truth && <p className="text-sm"><b>{truth.name}</b>: ${truth.price.toFixed(2)} <span className="text-text-tertiary">· menu, Unity Catalog</span></p>}
-          {live_page && <p className="text-sm flex items-center gap-1.5"><Database className="w-3.5 h-3.5 text-text-tertiary" />Live page v{live_page.version} <span className="text-text-tertiary">· Lakebase</span></p>}
+          {truth && <p className="text-sm"><b>{truth.name}</b>{truth.price != null && <>: ${Number(truth.price).toFixed(2)}</>} <span className="text-text-tertiary">· menu, Unity Catalog</span></p>}
+          {live_page && <p className="text-sm flex items-start gap-1.5"><Database className="w-3.5 h-3.5 mt-0.5 shrink-0 text-text-tertiary" /><span>Live page v{live_page.version} <span className="text-text-tertiary">· published by {live_page.published_by} · {new Date(live_page.published_at).toLocaleString()} · Lakebase</span></span></p>}
         </div>
       )}
       {cited_instead.length > 0 && (

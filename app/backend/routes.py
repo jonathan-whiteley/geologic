@@ -118,6 +118,15 @@ def status(sid: str, repo=Depends(deps.get_suggestions), reads=Depends(deps.get_
 
 @router.get("/impact")
 def impact(reads=Depends(deps.get_reads), repo=Depends(deps.get_suggestions)):
+    try:  # safety net: a publish that finished with the Fix page closed still gets its proof row
+        u = repo.latest_published_without_proof()
+        if u:
+            ba = reads.before_after(u["prompt_ids"])
+            if ba is not None:
+                repo.save_proof(u["suggestion_id"], u.get("title") or u["suggestion_id"], u.get("reviewer"), ba,
+                                reads.cluster_before_after(u["prompt_ids"]))
+    except Exception as e:
+        print(f"proof safety net: {type(e).__name__}: {e}")
     try:
         proof = repo.latest_proof()
     except Exception as e:  # proof_results missing on an old Lakebase: show the empty state
