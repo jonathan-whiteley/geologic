@@ -1,7 +1,7 @@
 # GEOlogic
 
 Generative Engine Optimization demo for Little Caesars on Databricks, in three tabs: **Measure**,
-**Fix**, **Prove**. GEOlogic probes four AI answer engines (Claude, ChatGPT, Gemini and Meta AI, all
+**Fix**, **Impact** (renamed from Prove). GEOlogic probes four AI answer engines (Claude, ChatGPT, Gemini and Meta AI, all
 through AI Gateway) with a prompt bank, measures **Share of Model** (rank-weighted mention score;
 the column is still `answer_share`), finds wrong claims and content gaps, drafts fixes, publishes
 approved content through a governed flow, and proves the lift with a Lakebase proof card and Genie.
@@ -78,7 +78,7 @@ runtime never tries an npm build.
 Do these in order.
 
 1. **Lakebase.** Create the Lakebase instance `geologic` and apply `sql/lakebase_schema.sql` to its
-   `geologic` database. Note its `read_write_dns`. The schema includes `proof_results`, the Prove
+   `geologic` database. Note its `read_write_dns`. The schema includes `proof_results`, the Impact
    tab's proof card: the app writes a row when a publish completes, and Reset does not clear it.
    On an existing instance, re-apply the file (it is idempotent) to add it, then grant the app SP
    `SELECT, INSERT, UPDATE, DELETE` on the new table (step 5).
@@ -124,6 +124,13 @@ Do these in order.
    it. To keep that route working, set the `supervisor_endpoint` variable (or
    `SUPERVISOR_ENDPOINT=... bash scripts/deploy.sh`) and redeploy; the bundle binds the endpoint to
    the app with `CAN_QUERY`.
+10. **Data fixes (v2 final fix wave).** `sql/v2_data_fixes.sql` is idempotent: run Part A on the SQL
+    warehouse (opportunity reasoning says Share of Model and names clusters by label, and
+    `v_gateway_usage` counts each request once) as the deployer, and Part B on the Lakebase
+    `geologic` database (`proof_results.prompt_text`, the question shown on the proof card; the app
+    works without it until then). After changing `genie/space.json`, PATCH the space with it
+    (`v_brand_share` and `v_prompts` answer competitor Share of Model such as "And for Domino's?").
+    On an existing deployment, run this step after `bash scripts/deploy.sh`.
 
 Note: S1/S2 improve-after-publish checks in the answer-key test only run when `accuracy_by_run` /
 `share_by_run` are supplied.
@@ -147,9 +154,11 @@ reason) and the dashboard `parent_path` equal to its live folder. Always read `b
 
 ## Demo-day checklist
 
-1. Rehearse once: in **Fix**, approve and publish the Classic Pepperoni fix, wait for the before
-   and after, then click **Reset** to return to the baseline. The Prove proof card keeps that result
-   (`proof_results` survives Reset).
+1. Rehearse once: in **Fix**, approve and publish #1 **Answer game day party questions**, wait for
+   the before and after, check the **Impact** card shows an answer where Little Caesars now appears,
+   then click **Reset** to return to the baseline. The Impact proof card keeps that result
+   (`proof_results` survives Reset) and refreshes if the same fix is published again live. The card
+   shows the question and engine whose answer moved most.
 2. Run the demo (see `docs/demo-script.md` and `docs/demo-script-3min.md`). The rehearsed path keeps
    `geologic_refresh` paused.
 3. OPTIONAL, only if streaming live signals: unpause `geologic_refresh` (Jobs UI, or set
