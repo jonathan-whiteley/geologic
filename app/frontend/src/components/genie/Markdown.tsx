@@ -17,6 +17,12 @@ const components: Components = {
     </a>
   ),
   code: ({ children }) => <code className="px-1 rounded bg-surface-secondary text-[0.85em]">{children}</code>,
+  // Fenced blocks (long SQL) scroll inside the panel; the inner code drops the inline chip styling.
+  pre: ({ children }) => (
+    <pre className="rounded-xl border border-gray-100 bg-surface-secondary px-4 py-3 font-mono text-[11px] text-text-secondary overflow-x-auto whitespace-pre-wrap [&>code]:p-0 [&>code]:bg-transparent [&>code]:text-[11px]">
+      {children}
+    </pre>
+  ),
   table: ({ children }) => (
     <div className="overflow-x-auto rounded-xl border border-gray-100">
       <table className="w-full text-sm">{children}</table>

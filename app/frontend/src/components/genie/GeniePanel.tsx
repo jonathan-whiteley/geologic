@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
+import { useEffect, useRef, type CSSProperties, type KeyboardEvent } from 'react'
 import { useLocation } from 'react-router-dom'
 import { ArrowUp, RotateCcw, Sparkles, X } from 'lucide-react'
 import { tabForPath, useGeniePanel } from '../../state/genie-panel'
@@ -16,10 +16,9 @@ const SUGGESTED: Record<string, string[]> = {
 /** Right-side Ask Genie slide-over, mounted once in AppLayout. Visibility flips at once on open (so the composer
  *  can take focus) and only after the slide-out on close (so a closed panel is out of the tab order). */
 export default function GeniePanel() {
-  const { open, closePanel, ask, turns, busy, newChat, contextLabel } = useGeniePanel()
+  const { open, closePanel, ask, turns, busy, newChat, contextLabel, draft, setDraft } = useGeniePanel()
   const { pathname } = useLocation()
   const suggestions = SUGGESTED[tabForPath(pathname)] ?? STARTERS
-  const [draft, setDraft] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 

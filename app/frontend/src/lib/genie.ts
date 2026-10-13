@@ -24,6 +24,8 @@ interface ThreadState {
 const POLL_MS = 1500
 const TIMEOUT_MS = 180_000
 const TERMINAL = ['COMPLETED', 'FAILED', 'CANCELLED', 'QUERY_RESULT_EXPIRED']
+/** Consecutive failed polls to ride out (a network or proxy blip) before failing the turn. */
+const MAX_POLL_FAILURES = 2
 
 export function useGenieThread() {
   const [thread, setThread] = useState<ThreadState>({ turns: [] })
@@ -44,9 +46,17 @@ export function useGenieThread() {
         // Always keep the returned id: the backend restarts a stale conversation under a new one.
         setThread(prev => ({ ...prev, conversationId: conversation_id }))
         let tableShown = false
+        let failures = 0
         while (Date.now() - startedAt < TIMEOUT_MS) {
           await new Promise(r => setTimeout(r, POLL_MS))
-          const m = await genieMessage(conversation_id, message_id)
+          let m: GenieMessage
+          try {
+            m = await genieMessage(conversation_id, message_id)
+            failures = 0
+          } catch (e) {
+            if (++failures > MAX_POLL_FAILURES) throw e
+            continue
+          }
           if (m.partial && m.columns.length && !tableShown) {
             tableShown = true
             update(id, { result: m, tableMs: Date.now() - startedAt })

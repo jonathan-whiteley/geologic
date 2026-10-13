@@ -25,6 +25,9 @@ type GeniePanelApi = {
   newChat(): void
   contextLabel: string
   setFocus(label: string | null): void
+  /** Composer text, held here so an ask that arrives while Genie is busy lands in the composer instead of being lost. */
+  draft: string
+  setDraft(text: string): void
 }
 
 const Ctx = createContext<GeniePanelApi | null>(null)
@@ -35,6 +38,7 @@ export function GeniePanelProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const [focus, setFocusState] = useState<string | null>(null)
   const [focusPath, setFocusPath] = useState(pathname)
+  const [draft, setDraft] = useState('')
 
   // Clear the focus item on route change, during render so pages that set it on mount win.
   if (focusPath !== pathname) {
@@ -57,15 +61,19 @@ export function GeniePanelProvider({ children }: { children: ReactNode }) {
   const ask = useCallback((q: string) => {
     setOpen(true)
     const question = q.trim()
-    // One message at a time per Genie conversation: a second ask while one is running only opens the panel.
-    if (!question || live.current.busy) return
+    if (!question) return
+    // One message at a time per Genie conversation: a second ask while one is running waits in the composer.
+    if (live.current.busy) {
+      setDraft(question)
+      return
+    }
     void live.current.ask(question, live.current.contextLabel)
   }, [])
 
   const { turns, reset } = thread
   const value = useMemo<GeniePanelApi>(
-    () => ({ open, openPanel, closePanel, toggle, ask, turns, busy, newChat: reset, contextLabel, setFocus }),
-    [open, openPanel, closePanel, toggle, ask, turns, busy, reset, contextLabel, setFocus],
+    () => ({ open, openPanel, closePanel, toggle, ask, turns, busy, newChat: reset, contextLabel, setFocus, draft, setDraft }),
+    [open, openPanel, closePanel, toggle, ask, turns, busy, reset, contextLabel, setFocus, draft],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

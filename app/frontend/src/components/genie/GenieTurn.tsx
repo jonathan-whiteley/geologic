@@ -56,6 +56,7 @@ export default function GenieTurn({ turn, busy, onFollowUp }: Props) {
         {r && turn.status === 'done' && (
           <>
             {r.text && <Markdown text={r.text} />}
+            {!r.text && r.columns.length === 0 && <p className="text-sm text-text-secondary">Genie returned no answer. Try rephrasing.</p>}
             {r.columns.length > 0 && (
               <QueryResult columns={r.columns} rows={r.rows} rowCount={r.row_count} truncated={r.truncated} sql={r.sql} />
             )}

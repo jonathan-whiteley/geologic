@@ -2,7 +2,7 @@
 
 export type ColumnKind = 'currency' | 'percent' | 'integer' | 'decimal' | 'date' | 'text'
 
-const PERCENT = new Set(['fact_accuracy', 'mention_rate', 'visibility', 'citation_rate', 'owned_citation_share'])
+const PERCENT = new Set(['fact_accuracy', 'mention_rate', 'visibility', 'citation_rate', 'owned_citation_share', 'citation_share'])
 const INTEGER = new Set(['est_volume', 'question_volume', 'avg_monthly_volume', 'answers', 'citations', 'wrong_claims'])
 const INT_TYPES = ['INT', 'LONG', 'BIGINT', 'SHORT', 'TINYINT', 'SMALLINT']
 const DECIMAL_TYPES = ['DOUBLE', 'FLOAT', 'DECIMAL']
@@ -17,12 +17,13 @@ export function columnKind(name: string, type = ''): ColumnKind {
   const t = type.toUpperCase()
   if (/^(year|quarter|fiscal_year)$/.test(n) || t === 'BOOLEAN') return 'text'
   if (PERCENT.has(n) || /(_pct|_rate)$/.test(n)) return 'percent'
-  // Share of Model is a 0 to 1 score: always a decimal, never a percent.
-  if (n === 'share' || /(answer_share|share_of_model)/.test(n)) return 'decimal'
+  // Share of Model is a 0 to 1 score: always a decimal, never a percent. Genie aliases it freely
+  // (lce_share, dominos_share, brand_share), so any other *_share column is a decimal too.
+  if (n === 'share' || /(answer_share|share_of_model)/.test(n) || /_share$/.test(n)) return 'decimal'
   if (INTEGER.has(n)) return 'integer'
   if (/(^|_)price($|_)/.test(n)) return 'currency'
   if (t === 'DATE' || t.startsWith('TIMESTAMP') || /(^|_)(date|week|month|week_start)($|_)/.test(n)) return 'date'
-  if (/(^|_)(pct|percent)(_|$)|_share$/.test(n)) return 'percent'
+  if (/(^|_)(pct|percent)(_|$)/.test(n)) return 'percent'
   if (INT_TYPES.some(x => t.startsWith(x))) return 'integer'
   if (DECIMAL_TYPES.some(x => t.startsWith(x))) return 'decimal'
   return 'text'
