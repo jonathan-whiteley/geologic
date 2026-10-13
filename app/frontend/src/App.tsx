@@ -24,7 +24,6 @@ export default function App() {
               <Route path="questions" element={<PromptsPage />} />
               <Route path="questions/:promptId" element={<PromptsPage />} />
             </Route>
-            {/* Task 8 swaps in ProvePage */}
             <Route path="fix" element={<FixPage />} />
             <Route path="prove" element={<ProvePage />} />
             <Route path="architecture" element={<ArchitecturePage />} />

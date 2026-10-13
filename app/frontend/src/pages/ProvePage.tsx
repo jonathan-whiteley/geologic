@@ -25,6 +25,11 @@ function weekLabel(week: string) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+function savedAtLabel(savedAt: string) {
+  const d = new Date(savedAt)
+  return Number.isNaN(d.getTime()) ? '' : ` · ${d.toLocaleString()}`
+}
+
 export default function ProvePage() {
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['impact'], queryFn: api.impact })
   const { ask, openPanel } = useGeniePanel()
@@ -73,11 +78,11 @@ export default function ProvePage() {
             </div>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-gray-100 p-4 space-y-2"><span className="badge b-default">Before · {p.engine}</span><p className="text-sm">{p.before_answer}</p></div>
-            <div className="rounded-xl border border-green-100 p-4 space-y-2 shadow-soft"><span className="badge b-success"><span className="dot" />After · {p.engine}</span><p className="text-sm">{p.after_answer}</p>
+            <div className="rounded-xl border border-gray-100 p-4 space-y-2"><span className="badge b-default">Before · {p.engine}</span><p className={p.before_answer ? 'text-sm' : 'text-sm text-text-tertiary'}>{p.before_answer ?? 'No answer captured'}</p></div>
+            <div className="rounded-xl border border-green-100 p-4 space-y-2 shadow-soft"><span className="badge b-success"><span className="dot" />After · {p.engine}</span><p className={p.after_answer ? 'text-sm' : 'text-sm text-text-tertiary'}>{p.after_answer ?? 'No answer captured'}</p>
               {p.after_cited.length > 0 && <p className="font-mono text-[11px] text-lce-orange-dark">cites: {p.after_cited.join(' · ')}</p>}</div>
           </div>
-          <p className="text-xs text-text-tertiary flex items-center gap-1.5"><Database className="w-3.5 h-3.5" />Approved by {p.reviewer ?? 'presenter'} · {new Date(p.saved_at).toLocaleString()} · stored in Lakebase</p>
+          <p className="text-xs text-text-tertiary flex items-center gap-1.5"><Database className="w-3.5 h-3.5" />Approved by {p.reviewer ?? 'presenter'}{savedAtLabel(p.saved_at)} · stored in Lakebase</p>
         </div>
       ) : (
         <div className="card p-6 text-sm text-text-tertiary">
