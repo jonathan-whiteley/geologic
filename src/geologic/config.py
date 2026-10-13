@@ -4,12 +4,12 @@ import json
 import os
 from dataclasses import dataclass, field
 
-# Verified READY on fe-vm-jdub-vm-serverless (2026-09-29).
+# Verified READY on fe-vm-jdub-vm-serverless (2026-10-13).
 DEFAULT_ENGINES = {
-    "Claude": "databricks-claude-sonnet-4-6",
-    "Llama": "databricks-meta-llama-3-3-70b-instruct",
-    "ChatGPT": "databricks-gpt-oss-120b",
-    "Gemma": "databricks-gemma-3-12b",
+    "Claude": "databricks-claude-sonnet-5-5",
+    "ChatGPT": "databricks-gpt-5-5",
+    "Gemini": "databricks-gemini-3-8-flash",
+    "Meta AI": "databricks-llama-4-maverick",
 }
 
 

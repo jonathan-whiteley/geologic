@@ -28,17 +28,17 @@ def test_ok_row():
     assert r["accuracy_score"] == 0.0 and r["claims"][0]["verdict"] == "wrong"
 
 def test_engine_retries_then_error():
-    rows = run([Eng("Llama", [RuntimeError("429")] * 3)], [])
+    rows = run([Eng("Meta AI", [RuntimeError("429")] * 3)], [])
     assert rows[0]["status"] == "engine_error" and rows[0]["answer"] is None
 
 def test_engine_recovers_after_retry():
-    rows = run([Eng("Llama", [RuntimeError("429"), EngineAnswer("ok", [], [])])], [GOOD])
+    rows = run([Eng("Meta AI", [RuntimeError("429"), EngineAnswer("ok", [], [])])], [GOOD])
     assert rows[0]["status"] == "ok"
 
 def test_judge_strict_retry_then_unjudged():
-    rows = run([Eng("Gemma", [EngineAnswer("x", [], [])])], ["garbage", "still garbage"])
+    rows = run([Eng("Gemini", [EngineAnswer("x", [], [])])], ["garbage", "still garbage"])
     assert rows[0]["status"] == "unjudged" and rows[0]["accuracy_score"] is None
 
 def test_judge_strict_retry_succeeds():
-    rows = run([Eng("Gemma", [EngineAnswer("x", [], [])])], ["garbage", GOOD])
+    rows = run([Eng("Gemini", [EngineAnswer("x", [], [])])], ["garbage", GOOD])
     assert rows[0]["status"] == "ok"

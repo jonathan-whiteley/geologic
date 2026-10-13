@@ -21,11 +21,14 @@ class Retriever(Protocol):
     def search(self, query: str, k: int) -> list[Doc]: ...
 
 class ChatClient(Protocol):
-    def complete(self, endpoint: str, messages: list[dict], max_tokens: int = 600) -> str: ...
+    def complete(self, endpoint: str, messages: list[dict], max_tokens: int = 600,
+                 usage_context: dict | None = None) -> str: ...
 
 SYSTEM = ("You are an AI answer engine like ChatGPT or Perplexity. Answer the user's question in 2 to 4 sentences "
           "using only the sources provided. Name specific brands and prices when the sources give them. "
           "Cite sources inline as [doc_id].")
+# Tags engine answer calls so AI Gateway usage tracking can be scoped to GEOlogic (see sql/gateway_views.sql).
+USAGE_CONTEXT = {"app": "geologic", "role": "probe"}
 _CITE = re.compile(r"\[([A-Za-z0-9_\-]+)\]")
 
 class EngineProxy:
@@ -38,7 +41,7 @@ class EngineProxy:
         text = self.chat.complete(self.endpoint, [
             {"role": "system", "content": SYSTEM},
             {"role": "user", "content": f"Sources:\n{sources}\n\nQuestion: {prompt}"},
-        ])
+        ], usage_context=USAGE_CONTEXT)
         allowed = [d.doc_id for d in docs]
         cited = []
         for m in _CITE.findall(text or ""):

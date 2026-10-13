@@ -13,6 +13,17 @@ def test_chat_list_content_joins_text_parts():
     parts = [{"type": "reasoning", "summary": []}, {"type": "text", "text": "a"}, {"type": "text", "text": "b"}]
     assert FmapiChat(FakeOpenAI(parts)).complete("ep", []) == "ab"
 
+def test_chat_usage_context_sent_as_extra_body_only_when_given():
+    seen = []
+    def create(**kw):
+        seen.append(kw)
+        return NS(choices=[NS(message=NS(content="x"))])
+    c = FmapiChat(NS(chat=NS(completions=NS(create=create))))
+    c.complete("ep", [], usage_context={"app": "geologic"})
+    c.complete("ep", [])
+    assert seen[0]["extra_body"] == {"usage_context": {"app": "geologic"}}
+    assert "extra_body" not in seen[1]
+
 class FakeIndex:
     def __init__(self, cols, rows): self.cols, self.rows = cols, rows
     def similarity_search(self, **kw):

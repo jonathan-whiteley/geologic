@@ -11,8 +11,9 @@ class FmapiChat:
     def from_workspace(cls, w):
         return cls(w.serving_endpoints.get_open_ai_client())
 
-    def complete(self, endpoint, messages, max_tokens=600):
-        r = self._c.chat.completions.create(model=endpoint, messages=messages, max_tokens=max_tokens, temperature=0.2)
+    def complete(self, endpoint, messages, max_tokens=600, usage_context=None):
+        kw = {"extra_body": {"usage_context": usage_context}} if usage_context else {}
+        r = self._c.chat.completions.create(model=endpoint, messages=messages, max_tokens=max_tokens, temperature=0.2, **kw)
         content = r.choices[0].message.content
         if isinstance(content, list):  # reasoning models return typed parts
             return "".join(p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text")
