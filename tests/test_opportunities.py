@@ -113,3 +113,10 @@ def test_null_reach_does_not_crash():
             sig(signal_id="t2", velocity=5.0, reach=None, menu_item_id="pretzel_crust")]
     opps = build([], PROMPTS, MENU, CAL, sigs, NOW, personas=PERSONAS)
     assert {o["opp_type"] for o in opps} >= {"persona_moment", "trend"}
+
+def test_gap_reasoning_uses_cluster_label_not_key():  # O2
+    gd = BY["content_gap:pg_deals_game_day"]
+    assert " in Game-day / party sizing across " in gd["reasoning"] and "game_day_party" not in gd["reasoning"]
+    assert gd["title"] == "Answer game day party questions"
+    cg = BY["citation_gap:pg_about"]
+    assert " in Sponsorship (NFL) with " in cg["reasoning"]

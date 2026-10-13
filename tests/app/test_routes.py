@@ -126,7 +126,8 @@ class ProofSuggestions(FakeSuggestions):
     def live_page(self, page_id): return {"version": 2, "published_by": "jw", "published_at": "t"}
     def health(self): return {"t0_auto": 0, "t1_approved_no_edit_pct": None, "t2_reviews": 0, "blocked": 0}
 
-FakeReads.before_after = lambda self, ids: {"before": {"answer": "a", "cited": []}, "after": {"answer": "b", "cited": []}}
+FakeReads.before_after = lambda self, ids: {"before": {"answer": "a", "cited": []}, "after": {"answer": "b", "cited": []},
+                                            "engine": "Gemini", "prompt_id": "q111", "prompt_text": "Game day food ideas for a crowd"}
 FakeReads.cluster_before_after = lambda self, ids: {"share_before": 0.1, "share_after": 0.4, "accuracy_before": 50.0, "accuracy_after": 100.0}
 FakeReads.weekly = lambda self: []
 
@@ -158,7 +159,7 @@ class UnproofedSuggestions(ProofSuggestions):
     """A publish finished while nobody polled status (Fix page closed): no proof row yet."""
     def __init__(self, fail_lookup=False):
         super().__init__(); self.fail_lookup = fail_lookup
-    def latest_published_without_proof(self):
+    def latest_published_needing_proof(self):
         if self.fail_lookup: raise RuntimeError("lakebase down")
         if self.saved: return None
         return {"suggestion_id": "p1", "title": "Fix price", "reviewer": "jw@x.com", "prompt_ids": ["q001"]}
@@ -187,3 +188,12 @@ def test_impact_still_200_when_safety_net_raises():
     failing_save = UnproofedSuggestions(); failing_save.fail = True
     r = _with_repo(failing_save, lambda: c.get("/api/impact"))
     assert r.status_code == 200 and r.json()["proof"] is None
+
+def test_status_and_safety_net_carry_engine_and_question():  # P2
+    repo = ProofSuggestions()
+    st = _with_repo(repo, lambda: c.get("/api/suggestions/p1/status").json())
+    assert st["engine"] == "Gemini" and st["prompt_text"] == "Game day food ideas for a crowd" and st["prompt_id"] == "q111"
+    assert repo.saved[0][3]["engine"] == "Gemini" and repo.saved[0][3]["prompt_text"] == "Game day food ideas for a crowd"
+    repo = UnproofedSuggestions()
+    _with_repo(repo, lambda: c.get("/api/impact"))
+    assert repo.saved[0][3]["engine"] == "Gemini"

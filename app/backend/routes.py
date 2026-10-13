@@ -118,8 +118,8 @@ def status(sid: str, repo=Depends(deps.get_suggestions), reads=Depends(deps.get_
 
 @router.get("/impact")
 def impact(reads=Depends(deps.get_reads), repo=Depends(deps.get_suggestions)):
-    try:  # safety net: a publish that finished with the Fix page closed still gets its proof row
-        u = repo.latest_published_without_proof()
+    try:  # safety net: a publish nobody polled (Fix page closed), or a newer publish than the saved proof, gets a fresh proof row
+        u = repo.latest_published_needing_proof()
         if u:
             ba = reads.before_after(u["prompt_ids"])
             if ba is not None:

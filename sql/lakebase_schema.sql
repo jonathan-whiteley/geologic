@@ -60,5 +60,8 @@ CREATE TABLE IF NOT EXISTS proof_results (
   accuracy_before DOUBLE PRECISION,
   accuracy_after DOUBLE PRECISION,
   reviewer TEXT,
-  saved_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  saved_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  prompt_text TEXT
 );
+-- Databases created before the proof card showed its question (v2 final fix wave).
+ALTER TABLE proof_results ADD COLUMN IF NOT EXISTS prompt_text TEXT;

@@ -5,11 +5,25 @@ from backend.warehouse import query
 from geologic.brands import LOGOS
 from geologic.photos import credit_for
 from geologic.datagen.prompts_ext import THEME_LABELS
+from geologic.datagen.reference import CLUSTER_LABELS
 
 T = lambda n: f"{os.environ.get('CATALOG_NAME', 'jdub_demo')}.{os.environ.get('SCHEMA_NAME', 'geologic')}.{n}"
 DRILL_TEXT = "How much is a Little Caesars Hot-N-Ready pizza right now?"
 _PID = re.compile(r"^q\d{3}$")
 _SAFE_ID = re.compile(r"^[A-Za-z0-9_]+$")
+ENGINE_ORDER = ("Claude", "ChatGPT", "Gemini", "Meta AI")
+_CLUSTER_IN = re.compile(r" in (" + "|".join(CLUSTER_LABELS) + r") (across|with) ")
+
+def label_clusters(text):
+    """'... in game_day_party across 84 answers' -> '... in Game-day / party sizing across 84 answers'."""
+    return _CLUSTER_IN.sub(lambda m: f" in {CLUSTER_LABELS[m.group(1)]} {m.group(2)} ", text)
+
+def _improvement(b, a):
+    """How much one (prompt, engine) answer improved from before to after: +2 newly names Little Caesars (-2 dropped it),
+    +1 per rank position gained when named both times, +1 per wrong claim removed (net)."""
+    mb, ma = bool(b["lce_mentioned"]) and (b["lce_rank"] or 0) > 0, bool(a["lce_mentioned"]) and (a["lce_rank"] or 0) > 0
+    score = 2 if ma and not mb else -2 if mb and not ma else (b["lce_rank"] - a["lce_rank"]) if ma else 0
+    return score + (b["wrong"] or 0) - (a["wrong"] or 0)
 
 def _in_list(ids):
     """Quoted SQL IN list of safe ids, or None when nothing safe remains (caller skips the query)."""
@@ -79,9 +93,10 @@ class Reads:
     def opportunities(self):
         # Rows built before the v2 rename still say "Answer Share"; the builder now writes "Share of Model".
         rows = query(f"SELECT * FROM {T('gold_opportunities')} ORDER BY rank")
+        # Rows built before labels were added say "in game_day_party across"; show the cluster's human label.
         for r in rows:
             if r.get("reasoning"):
-                r["reasoning"] = r["reasoning"].replace("Answer Share", "Share of Model")
+                r["reasoning"] = label_clusters(r["reasoning"].replace("Answer Share", "Share of Model"))
         return rows
 
     def prompt_inventory(self):
@@ -138,15 +153,40 @@ class Reads:
     def weekly(self):
         return query(f"SELECT week_start, brand, answer_share FROM {T('v_answer_share_weekly')} ORDER BY week_start")
 
-    def before_after(self, prompt_ids, engine="Claude"):
-        """First and latest answer in the current epoch for the first affected prompt."""
-        if not prompt_ids:
+    def before_after(self, prompt_ids):
+        """First and latest answer in the current epoch for the (prompt, engine) pair that improved most.
+        Falls back to the pair with the most wrong claims before, then to the first prompt on Claude."""
+        ids = _in_list(prompt_ids)
+        if not ids:
             return None
-        rows = query(f"""SELECT pr.answer, pr.cited_doc_ids AS cited FROM {T('probe_responses')} pr
-                         JOIN {T('probe_runs')} runs USING (run_id) JOIN {T('probe_state')} st ON pr.epoch = st.current_epoch
-                         WHERE pr.prompt_id = :p AND pr.engine = :e AND pr.status = 'ok' ORDER BY runs.started_at""",
-                     {"p": prompt_ids[0], "e": engine})
-        return {"before": rows[0], "after": rows[-1]} if len(rows) >= 2 else None
+        rows = query(f"""WITH e AS (
+              SELECT pr.prompt_id, pr.engine, pr.answer, pr.cited_doc_ids AS cited, pr.lce_mentioned, pr.lce_rank,
+                     CASE WHEN pr.claims IS NULL THEN 0 ELSE size(filter(pr.claims, c -> c.verdict = 'wrong')) END AS wrong,
+                     ROW_NUMBER() OVER (PARTITION BY pr.prompt_id, pr.engine ORDER BY runs.started_at) AS first_rn,
+                     ROW_NUMBER() OVER (PARTITION BY pr.prompt_id, pr.engine ORDER BY runs.started_at DESC) AS last_rn
+              FROM {T('probe_responses')} pr JOIN {T('probe_runs')} runs USING (run_id)
+              JOIN {T('probe_state')} st ON pr.epoch = st.current_epoch
+              WHERE pr.status = 'ok' AND pr.prompt_id IN ({ids}))
+            SELECT e.prompt_id, e.engine, e.answer, e.cited, e.lce_mentioned, e.lce_rank, e.wrong, p.prompt_text,
+                   CASE WHEN e.first_rn = 1 THEN 'before' ELSE 'after' END AS phase
+            FROM e LEFT JOIN {T('v_prompts')} p ON p.prompt_id = e.prompt_id
+            WHERE (e.first_rn = 1 OR e.last_rn = 1) AND NOT (e.first_rn = 1 AND e.last_rn = 1)""")
+        pairs = {}
+        for r in rows:
+            pairs.setdefault((r["prompt_id"], r["engine"]), {})[r["phase"]] = r
+        pairs = {k: v for k, v in pairs.items() if "before" in v and "after" in v}
+        if not pairs:
+            return None
+        order = lambda k: (ENGINE_ORDER.index(k[1]) if k[1] in ENGINE_ORDER else len(ENGINE_ORDER), k[0])
+        scored = sorted(pairs, key=lambda k: (-_improvement(pairs[k]["before"], pairs[k]["after"]), order(k)))
+        key = scored[0]
+        if _improvement(pairs[key]["before"], pairs[key]["after"]) <= 0:  # nothing moved: show where the errors were
+            by_wrong = sorted(pairs, key=lambda k: (-(pairs[k]["before"]["wrong"] or 0), order(k)))
+            first = next((p for p in prompt_ids if (p, "Claude") in pairs), None)
+            key = by_wrong[0] if pairs[by_wrong[0]]["before"]["wrong"] else ((first, "Claude") if first else min(pairs, key=order))
+        b, a = pairs[key]["before"], pairs[key]["after"]
+        return {"before": {"answer": b["answer"], "cited": b["cited"]}, "after": {"answer": a["answer"], "cited": a["cited"]},
+                "engine": key[1], "prompt_id": key[0], "prompt_text": a.get("prompt_text") or b.get("prompt_text")}
 
     def cluster_before_after(self, prompt_ids):
         ids = [p for p in prompt_ids or [] if _PID.match(p)]
