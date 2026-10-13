@@ -13,6 +13,7 @@ import { PageSkeleton, ErrorRetry } from '../components/PageState'
 import { useToast } from '../components/Toast'
 import { Button } from '../components/ui/Button'
 import { CLUSTERS } from '../components/Heatmap'
+import QuestionInventory from '../components/QuestionInventory'
 import { formatDate, formatK1 } from '../lib/format'
 
 const CLUSTER_LABEL = new Map(CLUSTERS)
@@ -90,8 +91,7 @@ export default function PromptsPage() {
   const [tracked, setTracked] = useState<boolean | null>(null)
   const [trackingSelf, setTrackingSelf] = useState(false)
 
-  const { data: model } = useQuery({ queryKey: ['model'], queryFn: api.modelSummary })
-  const promptId = routePromptId ?? model?.drill_prompt_id
+  const promptId = routePromptId
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['prompt', promptId],
@@ -178,12 +178,22 @@ export default function PromptsPage() {
       </form>
       {searchError && <p className="text-sm text-red-600">{searchError}</p>}
 
-      {isLoading || !data ? (
+      {!promptId ? (
+        <>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-lce-orange-dark mb-1">Measure</p>
+            <h2 className="text-2xl font-semibold">Questions</h2>
+            <p className="text-text-secondary text-sm mt-1">Search any consumer question, or pick one we already track</p>
+          </div>
+          <QuestionInventory clusterLabel={c => CLUSTER_LABEL.get(c) ?? c} />
+        </>
+      ) : isLoading || !data ? (
         isError ? <ErrorRetry message="Couldn't load this question." onRetry={() => refetch()} /> : <PageSkeleton statCards={4} />
       ) : (
         <>
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
+              <button className="text-sm text-text-secondary hover:text-text-primary" onClick={() => navigate('/measure/questions')}>← All questions</button>
               <p className="text-xs font-semibold uppercase tracking-wider text-lce-orange-dark mb-1">Monitor</p>
               <h2 className="text-2xl font-semibold">{data.prompt_text}</h2>
               <p className="text-text-secondary text-sm mt-1">
