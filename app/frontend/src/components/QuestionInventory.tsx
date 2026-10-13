@@ -42,22 +42,28 @@ export default function QuestionInventory({ clusterLabel }: { clusterLabel: (c: 
         <table className="w-full text-sm">
           <thead className="text-left text-xs text-text-tertiary sticky top-0 bg-white">
             <tr><th className="py-2 pr-3">Question</th><th className="pr-3">Cluster</th><th className="pr-3 text-right">Volume/mo</th>
-              <th className="pr-3">Type</th><th className="pr-3 text-right">Engines naming LCE</th><th className="pr-3 text-right">Share of Model</th><th /></tr>
+              <th className="pr-3">Tier</th><th className="pr-3">Type</th><th className="pr-3 text-right">Engines naming LCE</th><th className="pr-3 text-right">Share of Model</th><th /></tr>
           </thead>
           <tbody>
             {rows.map(r => (
               <tr key={r.prompt_id} onClick={() => navigate(`/measure/questions/${r.prompt_id}`)}
                 className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer">
-                <td className="py-2.5 pr-3 font-medium">{r.prompt_text}</td>
+                <td className="py-2.5 pr-3 font-medium">
+                  <button type="button" className="text-left font-medium hover:underline"
+                    onClick={e => { e.stopPropagation(); navigate(`/measure/questions/${r.prompt_id}`) }}>
+                    {r.prompt_text}
+                  </button>
+                </td>
                 <td className="pr-3 text-text-secondary">{clusterLabel(r.cluster)}</td>
                 <td className="pr-3 text-right tabular-nums">{r.avg_monthly_volume != null ? formatK(r.avg_monthly_volume) : 'N/A'}</td>
+                <td className="pr-3"><span className={`badge ${r.volume_tier === 'High' ? 'b-success' : 'b-warning'}`}>{r.volume_tier}</span></td>
                 <td className="pr-3"><span className="badge b-default">{r.branded ? 'Branded' : 'Unbranded'}</span></td>
                 <td className={`pr-3 text-right tabular-nums ${r.engines_naming === 0 ? 'text-red-600 font-semibold' : ''}`}>{r.engines_naming} of {r.engines_answered}</td>
                 <td className="pr-3 text-right tabular-nums">{r.answer_share != null ? r.answer_share.toFixed(2) : 'N/A'}</td>
                 <td>{r.has_wrong_claim && <span className="badge b-error"><span className="dot" />Wrong claim</span>}</td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-text-tertiary">No questions in this filter.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={8} className="py-8 text-center text-text-tertiary">No questions in this filter.</td></tr>}
           </tbody>
         </table>
       </div>

@@ -178,6 +178,10 @@ export default function PromptsPage() {
       </form>
       {searchError && <p className="text-sm text-red-600">{searchError}</p>}
 
+      {promptId && (
+        <button className="text-sm text-text-secondary hover:text-text-primary" onClick={() => navigate('/measure/questions')}>← All questions</button>
+      )}
+
       {!promptId ? (
         <>
           <div>
@@ -193,7 +197,6 @@ export default function PromptsPage() {
         <>
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
-              <button className="text-sm text-text-secondary hover:text-text-primary" onClick={() => navigate('/measure/questions')}>← All questions</button>
               <p className="text-xs font-semibold uppercase tracking-wider text-lce-orange-dark mb-1">Monitor</p>
               <h2 className="text-2xl font-semibold">{data.prompt_text}</h2>
               <p className="text-text-secondary text-sm mt-1">
