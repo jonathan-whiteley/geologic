@@ -107,7 +107,7 @@ def build(responses, prompts, menu, calendar, signals, now, personas=()) -> list
             opps.append(_opp("content_gap", f"Answer {cluster.replace('_', ' ')} questions", page_id=CLUSTER_PAGES[cluster],
                              prompt_ids=pids, cluster=cluster, gap=1 - share / GAP_THRESHOLD, volume=vol,
                              window=win,
-                             reasoning=f"Answer Share {share:.2f} in {cluster} across {len(rows)} answers.", assets=assets))
+                             reasoning=f"Share of Model {share:.2f} in {cluster} across {len(rows)} answers.", assets=assets))
         elif mention_rate >= MENTION_FLOOR and official_rate < CITE_THRESHOLD:
             # citation_gap: LCE is mentioned but engines cite third-party sources rather than lce.com
             if cluster == "sponsorship":

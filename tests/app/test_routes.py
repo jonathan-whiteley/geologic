@@ -98,3 +98,15 @@ def test_jobs_reset_state_unknown_run_is_none(monkeypatch):
     j = Jobs(N(jobs=N(get_run=get_run)))
     assert j.reset_state(1) is None and j.reset_state(3) is None
     assert j.reset_state(2) == {"run_id": 2, "life_cycle_state": "TERMINATED", "result_state": "SUCCESS"}
+
+
+FakeReads.prompt_inventory = lambda self: [{"prompt_id": "q001"}]
+FakeReads.opportunity_evidence = lambda self, oid: None if oid == "nope" else {"opp_id": oid, "page_id": "pg_menu", "wrong_claims": [],
+                                                                                "truth": None, "cited_instead": [], "signal": None}
+
+def test_prompt_inventory_route():
+    assert c.get("/api/prompts").json() == [{"prompt_id": "q001"}]
+
+def test_evidence_route():
+    assert c.get("/api/opportunities/nope/evidence").status_code == 404
+    assert c.get("/api/opportunities/opp_1/evidence").json()["opp_id"] == "opp_1"

@@ -21,6 +21,17 @@ def prompt_detail(prompt_id: str, reads=Depends(deps.get_reads)):
         raise HTTPException(404, "Unknown question")
     return d
 
+@router.get("/prompts")
+def prompt_inventory(reads=Depends(deps.get_reads)):
+    return reads.prompt_inventory()
+
+@router.get("/opportunities/{opp_id}/evidence")
+def opportunity_evidence(opp_id: str, reads=Depends(deps.get_reads)):
+    ev = reads.opportunity_evidence(opp_id)
+    if ev is None:
+        raise HTTPException(404, "Unknown opportunity")
+    return ev
+
 @router.get("/prompts/search")
 def prompt_search(q: str = "", reads=Depends(deps.get_reads)):
     if not q.strip():
