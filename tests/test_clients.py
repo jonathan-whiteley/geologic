@@ -57,3 +57,31 @@ def test_menu_candidates_returns_triples():
 
 def test_menu_candidates_empty():
     assert menu_candidates(FakeIndex(["item_id", "search_text", "score"], []), "x") == []
+
+
+class TempRejected(Exception):
+    """Shape of openai.BadRequestError for models that only accept the default temperature."""
+
+
+def test_chat_retries_without_temperature_when_model_rejects_it_and_remembers():
+    seen = []
+    def create(**kw):
+        seen.append(kw)
+        if "temperature" in kw:
+            raise TempRejected("Error code: 400 - Model us.anthropic.claude-sonnet-5-5 does not support the temperature parameter.")
+        return NS(choices=[NS(message=NS(content="ok"))])
+    c = FmapiChat(NS(chat=NS(completions=NS(create=create))))
+    assert c.complete("ep", []) == "ok"
+    assert c.complete("ep", []) == "ok"
+    assert [("temperature" in kw) for kw in seen] == [True, False, False]  # second call skips the doomed attempt
+
+
+def test_chat_other_errors_still_raise():
+    def create(**kw):
+        raise TempRejected("Error code: 429 - rate limited")
+    c = FmapiChat(NS(chat=NS(completions=NS(create=create))))
+    try:
+        c.complete("ep", [])
+        assert False, "expected raise"
+    except TempRejected:
+        pass
