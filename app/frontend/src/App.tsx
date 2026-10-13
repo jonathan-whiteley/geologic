@@ -4,7 +4,7 @@ import AppLayout from './layouts/AppLayout'
 import MeasureLayout from './layouts/MeasureLayout'
 import AnswersPage from './pages/AnswersPage'
 import PromptsPage from './pages/PromptsPage'
-import PrioritizePage from './pages/PrioritizePage'
+import FixPage from './pages/FixPage'
 import ImpactPage from './pages/ImpactPage'
 import ArchitecturePage from './pages/ArchitecturePage'
 import { ActRedirect, MonitorRedirect } from './pages/Redirects'
@@ -24,8 +24,8 @@ export default function App() {
               <Route path="questions" element={<PromptsPage />} />
               <Route path="questions/:promptId" element={<PromptsPage />} />
             </Route>
-            {/* Tasks 7 and 8 swap in FixPage and ProvePage */}
-            <Route path="fix" element={<PrioritizePage />} />
+            {/* Task 8 swaps in ProvePage */}
+            <Route path="fix" element={<FixPage />} />
             <Route path="prove" element={<ImpactPage />} />
             <Route path="architecture" element={<ArchitecturePage />} />
             {/* v1 bookmarks */}
