@@ -15,18 +15,21 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { toPng, toSvg } from 'html-to-image'
-import { Radio, Star, Bot, Zap, Workflow, Search, Sparkles, Database, LayoutDashboard } from 'lucide-react'
+import { Radio, Star, Bot, Zap, Workflow, Search, Sparkles, Database, LayoutDashboard, DoorOpen, Scale, BarChart3, MessageSquareText } from 'lucide-react'
 
-type Layer = 'source' | 'ingest' | 'pipeline' | 'search' | 'agent' | 'lakebase' | 'app'
+type Layer = 'source' | 'ingest' | 'pipeline' | 'gateway' | 'search' | 'agent' | 'lakebase' | 'genie' | 'app' | 'uc'
 
 const LAYER: Record<Layer, { fg: string; ring: string; tint: string; label: string }> = {
   source: { fg: '#64748B', ring: 'rgba(100,116,139,0.40)', tint: 'rgba(100,116,139,0.10)', label: 'Sources' },
   ingest: { fg: '#FF671B', ring: 'rgba(255,103,27,0.40)', tint: 'rgba(255,103,27,0.10)', label: 'Zerobus Ingest' },
   pipeline: { fg: '#0EA5E9', ring: 'rgba(14,165,233,0.40)', tint: 'rgba(14,165,233,0.10)', label: 'Lakeflow SDP' },
+  gateway: { fg: '#0B2026', ring: 'rgba(11,32,38,0.40)', tint: 'rgba(11,32,38,0.10)', label: 'AI Gateway' },
   search: { fg: '#8B5CF6', ring: 'rgba(139,92,246,0.40)', tint: 'rgba(139,92,246,0.10)', label: 'Vector Search' },
-  agent: { fg: '#EC4899', ring: 'rgba(236,72,153,0.40)', tint: 'rgba(236,72,153,0.10)', label: 'Agent System' },
+  agent: { fg: '#EC4899', ring: 'rgba(236,72,153,0.40)', tint: 'rgba(236,72,153,0.10)', label: 'Agent Bricks' },
   lakebase: { fg: '#F59E0B', ring: 'rgba(245,158,11,0.40)', tint: 'rgba(245,158,11,0.10)', label: 'Lakebase' },
+  genie: { fg: '#14B8A6', ring: 'rgba(20,184,166,0.40)', tint: 'rgba(20,184,166,0.10)', label: 'Genie' },
   app: { fg: '#10B981', ring: 'rgba(16,185,129,0.40)', tint: 'rgba(16,185,129,0.10)', label: 'Databricks App' },
+  uc: { fg: '#64748B', ring: 'rgba(100,116,139,0.40)', tint: 'rgba(100,116,139,0.10)', label: 'Unity Catalog' },
 }
 
 interface CardData {
@@ -101,6 +104,8 @@ function CardNode({ data }: NodeProps) {
       <Handle type="source" position={Position.Right} isConnectable={false} style={hiddenHandle} />
       <Handle id="bottom-source" type="source" position={Position.Bottom} isConnectable={false} style={hiddenHandle} />
       <Handle id="bottom-target" type="target" position={Position.Bottom} isConnectable={false} style={hiddenHandle} />
+      <Handle id="top-source" type="source" position={Position.Top} isConnectable={false} style={hiddenHandle} />
+      <Handle id="top-target" type="target" position={Position.Top} isConnectable={false} style={hiddenHandle} />
     </div>
   )
 }
@@ -114,7 +119,7 @@ const hiddenHandle: React.CSSProperties = {
 }
 
 function HeaderNode({ data }: NodeProps) {
-  const d = data as unknown as { label: string }
+  const d = data as unknown as { label: string; width?: number }
   return (
     <div
       style={{
@@ -125,7 +130,7 @@ function HeaderNode({ data }: NodeProps) {
         color: '#A1A1AA',
         padding: '8px 0 10px',
         borderBottom: '1.5px solid #E4E4E7',
-        minWidth: 200,
+        width: d.width ?? 200,
         textAlign: 'center',
         fontFamily: 'var(--font-sans)',
       }}
@@ -135,101 +140,104 @@ function HeaderNode({ data }: NodeProps) {
   )
 }
 
-const nodeTypes = { card: CardNode, header: HeaderNode }
+function BandNode({ data }: NodeProps) {
+  const d = data as unknown as { label: string; width: number }
+  const tone = LAYER.uc
+  return (
+    <div
+      style={{
+        width: d.width,
+        padding: '12px 16px',
+        background: tone.tint,
+        border: `1.5px solid ${tone.ring}`,
+        borderRadius: 10,
+        textAlign: 'center',
+        fontSize: 12.5,
+        fontWeight: 600,
+        color: tone.fg,
+        letterSpacing: '-0.01em',
+        fontFamily: 'var(--font-sans)',
+      }}
+    >
+      {d.label}
+    </div>
+  )
+}
+
+const nodeTypes = { card: CardNode, header: HeaderNode, band: BandNode }
 
 const HEADER_Y = -40
 
+const ICON = { size: 16, strokeWidth: 2 }
+
+function card(
+  id: string,
+  x: number,
+  y: number,
+  layer: Layer,
+  title: string,
+  sub: string,
+  icon: React.ReactNode,
+): Node {
+  return {
+    id,
+    type: 'card',
+    position: { x, y },
+    data: { title, sub, icon, layer },
+    sourcePosition: Position.Right,
+    targetPosition: Position.Left,
+  }
+}
+
+function header(id: string, x: number, label: string, width: number): Node {
+  return { id, type: 'header', position: { x, y: HEADER_Y }, data: { label, width }, draggable: false, selectable: false }
+}
+
 const INITIAL_NODES: Node[] = [
-  { id: 'hdr-sources', type: 'header', position: { x: 0, y: HEADER_Y }, data: { label: 'Sources' }, draggable: false, selectable: false },
-  { id: 'hdr-ingest', type: 'header', position: { x: 280, y: HEADER_Y }, data: { label: 'Ingest' }, draggable: false, selectable: false },
-  { id: 'hdr-process', type: 'header', position: { x: 560, y: HEADER_Y }, data: { label: 'Process' }, draggable: false, selectable: false },
-  { id: 'hdr-index', type: 'header', position: { x: 840, y: HEADER_Y }, data: { label: 'Index' }, draggable: false, selectable: false },
-  { id: 'hdr-intel', type: 'header', position: { x: 1120, y: HEADER_Y }, data: { label: 'Intelligence' }, draggable: false, selectable: false },
-  { id: 'hdr-serve', type: 'header', position: { x: 1400, y: HEADER_Y }, data: { label: 'Serve' }, draggable: false, selectable: false },
+  header('hdr-measure', 0, 'Measure', 670),
+  header('hdr-fix', 730, 'Fix', 480),
+  header('hdr-prove', 1240, 'Prove', 200),
+  header('hdr-serve', 1520, 'Serve', 200),
+  // Measure
+  card('src-social', 0, 40, 'source', 'Social and athlete posts', 'Posts with photos', <Radio {...ICON} />),
+  card('src-reviews', 0, 150, 'source', 'Reviews', 'Guest ratings and comments', <Star {...ICON} />),
+  card('src-crawler', 0, 260, 'source', 'AI crawler hits', 'GPTBot, PerplexityBot, ClaudeBot', <Bot {...ICON} />),
+  card('zerobus', 235, 150, 'ingest', 'Zerobus Ingest', 'Signals stream into Delta, no message bus', <Zap {...ICON} />),
+  card('sdp', 470, 150, 'pipeline', 'Lakeflow SDP', 'Classify, match to menu, quarantine', <Workflow {...ICON} />),
+  card('gateway', 0, 400, 'gateway', 'AI Gateway', 'One governed door: Claude, ChatGPT, Gemini, Meta AI; usage tracked', <DoorOpen {...ICON} />),
+  card('judge', 270, 410, 'gateway', 'LLM judge', 'Mentions, rank, fact checks', <Scale {...ICON} />),
+  // Fix
+  card('vs', 730, 150, 'search', 'Vector Search', 'Pages, menu, questions', <Search {...ICON} />),
+  card('agent', 1010, 150, 'agent', 'Agent Bricks', 'Content Strategist drafts, Brand Guardian checks', <Sparkles {...ICON} />),
+  card('lakebase', 1010, 20, 'lakebase', 'Lakebase', 'Approvals, page versions, proof', <Database {...ICON} />),
+  // Prove
+  card('genie', 1240, 150, 'genie', 'Genie', 'Ask in plain English, see the SQL', <MessageSquareText {...ICON} />),
+  card('metrics', 1240, 410, 'pipeline', 'Metric views', 'Share of Model, accuracy, citations', <BarChart3 {...ICON} />),
+  // Serve
+  card('app', 1520, 150, 'app', 'Databricks App', 'GEOlogic', <LayoutDashboard {...ICON} />),
+  // Unity Catalog band
   {
-    id: 'src-social',
-    type: 'card',
-    position: { x: 0, y: 40 },
-    data: { title: 'Social and athlete posts', sub: 'Posts with photos', icon: <Radio size={16} strokeWidth={2} />, layer: 'source' },
-    sourcePosition: Position.Right,
-    targetPosition: Position.Left,
-  },
-  {
-    id: 'src-reviews',
-    type: 'card',
-    position: { x: 0, y: 150 },
-    data: { title: 'Reviews', sub: 'Guest ratings and comments', icon: <Star size={16} strokeWidth={2} />, layer: 'source' },
-    sourcePosition: Position.Right,
-    targetPosition: Position.Left,
-  },
-  {
-    id: 'src-crawler',
-    type: 'card',
-    position: { x: 0, y: 260 },
-    data: { title: 'AI crawler hits', sub: 'GPTBot, PerplexityBot, ClaudeBot', icon: <Bot size={16} strokeWidth={2} />, layer: 'source' },
-    sourcePosition: Position.Right,
-    targetPosition: Position.Left,
-  },
-  {
-    id: 'zerobus',
-    type: 'card',
-    position: { x: 280, y: 150 },
-    data: { title: 'Zerobus Ingest', sub: 'Streams signals into Delta', icon: <Zap size={16} strokeWidth={2} />, layer: 'ingest' },
-    sourcePosition: Position.Right,
-    targetPosition: Position.Left,
-  },
-  {
-    id: 'sdp',
-    type: 'card',
-    position: { x: 560, y: 150 },
-    data: { title: 'Lakeflow SDP', sub: 'Classify, menu match, quarantine', icon: <Workflow size={16} strokeWidth={2} />, layer: 'pipeline' },
-    sourcePosition: Position.Right,
-    targetPosition: Position.Left,
-  },
-  {
-    id: 'vs',
-    type: 'card',
-    position: { x: 840, y: 150 },
-    data: { title: 'Vector Search', sub: 'Web pages, menu, questions', icon: <Search size={16} strokeWidth={2} />, layer: 'search' },
-    sourcePosition: Position.Right,
-    targetPosition: Position.Left,
-  },
-  {
-    id: 'agent',
-    type: 'card',
-    position: { x: 1120, y: 150 },
-    data: { title: 'Agent System', sub: 'Agent Bricks + Genie', icon: <Sparkles size={16} strokeWidth={2} />, layer: 'agent' },
-    sourcePosition: Position.Right,
-    targetPosition: Position.Left,
-  },
-  {
-    id: 'app',
-    type: 'card',
-    position: { x: 1400, y: 40 },
-    data: { title: 'Databricks App', sub: 'GEOlogic, React + FastAPI', icon: <LayoutDashboard size={16} strokeWidth={2} />, layer: 'app' },
-    sourcePosition: Position.Right,
-    targetPosition: Position.Left,
-  },
-  {
-    id: 'lakebase',
-    type: 'card',
-    position: { x: 1400, y: 260 },
-    data: { title: 'Lakebase', sub: 'Suggestions, approvals, audit', icon: <Database size={16} strokeWidth={2} />, layer: 'lakebase' },
-    sourcePosition: Position.Right,
-    targetPosition: Position.Left,
+    id: 'uc',
+    type: 'band',
+    position: { x: 0, y: 540 },
+    data: { label: 'Unity Catalog: governance, lineage, inference tables', width: 1720 },
+    draggable: false,
+    selectable: false,
   },
 ]
 
 function edge(
   source: string,
   target: string,
-  opts: { color?: string; label?: string; animated?: boolean; dashed?: boolean } = {},
+  opts: { color?: string; label?: string; animated?: boolean; dashed?: boolean; sourceHandle?: string; targetHandle?: string } = {},
 ): Edge {
   const dashed = opts.dashed ?? false
   return {
     id: `${source}->${target}`,
     source,
     target,
+    sourceHandle: opts.sourceHandle,
+    targetHandle: opts.targetHandle,
     type: 'smoothstep',
     animated: opts.animated ?? false,
     label: opts.label,
@@ -260,9 +268,14 @@ const INITIAL_EDGES: Edge[] = [
   edge('src-crawler', 'zerobus', { color: LAYER.ingest.fg }),
   edge('zerobus', 'sdp', { color: LAYER.pipeline.fg, animated: true }),
   edge('sdp', 'vs', { color: LAYER.search.fg, animated: true }),
+  edge('gateway', 'judge', { color: LAYER.gateway.fg, animated: true }),
+  edge('judge', 'metrics', { color: LAYER.gateway.fg, animated: true }),
+  edge('sdp', 'metrics', { color: LAYER.pipeline.fg, animated: true, sourceHandle: 'bottom-source' }),
   edge('vs', 'agent', { color: LAYER.agent.fg, animated: true, label: 'Retrieval' }),
-  edge('agent', 'app', { color: LAYER.app.fg, animated: true, label: 'Answers' }),
-  edge('agent', 'lakebase', { color: LAYER.lakebase.fg, animated: true, label: 'Drafts' }),
+  edge('agent', 'lakebase', { color: LAYER.lakebase.fg, animated: true, label: 'Drafts', sourceHandle: 'top-source', targetHandle: 'bottom-target' }),
+  edge('lakebase', 'app', { color: LAYER.lakebase.fg, animated: true, label: 'Approvals', targetHandle: 'top-target' }),
+  edge('metrics', 'genie', { color: LAYER.genie.fg, animated: true, sourceHandle: 'top-source', targetHandle: 'bottom-target' }),
+  edge('genie', 'app', { color: LAYER.app.fg, animated: true, label: 'Answers' }),
 ]
 
 function Toolbar() {
@@ -457,6 +470,18 @@ export default function ArchitecturePage() {
         <ReactFlowProvider>
           <FlowInner />
         </ReactFlowProvider>
+        <p
+          style={{
+            margin: 0,
+            padding: '10px 16px',
+            borderTop: '1px solid #E4E4E7',
+            background: '#fff',
+            fontSize: 12,
+            color: '#71717A',
+          }}
+        >
+          In production, AI Gateway routes to the live OpenAI, Gemini and Anthropic APIs, or you land your GEO tracking vendor's data in Unity Catalog.
+        </p>
         <LegendFooter />
       </div>
     </div>
