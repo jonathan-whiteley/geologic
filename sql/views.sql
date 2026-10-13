@@ -59,11 +59,16 @@ kpi_unb AS (
   SELECT AVG(CASE WHEN lce_mentioned AND lce_rank > 0 THEN 1.0 / lce_rank ELSE 0 END) AS answer_share,
          AVG(CASE WHEN lce_mentioned THEN 1 ELSE 0 END) AS mention_rate,
          AVG(CASE WHEN lce_mentioned THEN lce_rank END) AS avg_rank
-  FROM unb)
+  FROM unb),
+-- Owned citation share: of every citation in ok answers, the fraction pointing at an official LCE page.
+cit AS (
+  SELECT AVG(CASE WHEN w.is_official THEN 1 ELSE 0 END) AS owned_citation_share
+  FROM (SELECT explode(cited_doc_ids) AS doc_id FROM all_ok) c
+  JOIN jdub_demo.geologic.web_corpus w USING (doc_id))
 SELECT kpi_unb.answer_share, kpi_unb.mention_rate, kpi_unb.avg_rank,
        kpi_all.citation_rate, kpi_all.fact_accuracy, kpi_all.wrong_claims,
-       kpi_all.answers, kpi_all.mentions
-FROM kpi_all CROSS JOIN kpi_unb;
+       kpi_all.answers, kpi_all.mentions, cit.owned_citation_share
+FROM kpi_all CROSS JOIN kpi_unb CROSS JOIN cit;
 
 CREATE OR REPLACE VIEW jdub_demo.geologic.v_citation_sources AS
 WITH c AS (SELECT explode(cited_doc_ids) AS doc_id FROM jdub_demo.geologic.v_latest_responses WHERE status = 'ok')
