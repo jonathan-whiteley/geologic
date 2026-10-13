@@ -10,7 +10,7 @@ import { GeniePanelProvider, useGeniePanel } from '../state/genie-panel'
 const navItems = [
   { to: '/measure', label: 'Measure', icon: Radar },
   { to: '/fix', label: 'Fix', icon: FileCheck2 },
-  { to: '/prove', label: 'Prove', icon: TrendingUp },
+  { to: '/impact', label: 'Impact', icon: TrendingUp },
 ]
 
 function Shell() {
@@ -108,15 +108,15 @@ function Shell() {
           </nav>
 
           <div className="flex items-center gap-1">
+            <button className="btn btn-primary" onClick={toggle} title="Ask Genie (/)" aria-label="Ask Genie">
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">Ask Genie</span>
+            </button>
             <NavLink to="/architecture" title="Architecture"
               className={({ isActive }) => `btn btn-ghost ${isActive ? 'text-lce-orange' : ''}`}>
               <Network className="w-4 h-4" />
               <span className="hidden xl:inline">Architecture</span>
             </NavLink>
-            <button className="btn btn-primary" onClick={toggle} title="Ask Genie (/)" aria-label="Ask Genie">
-              <Sparkles className="w-4 h-4" />
-              <span className="hidden sm:inline">Ask Genie</span>
-            </button>
             <button onClick={handleReset} className="btn btn-ghost" title="Reset demo" disabled={!!resetRunId}>
               {resetRunId ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
               <span className="hidden xl:inline">Reset</span>
@@ -164,7 +164,7 @@ function Shell() {
       </main>
 
       <p className="text-center text-xs text-text-tertiary mt-10 pb-6">
-        Built on Databricks · Zerobus · Lakeflow · Agent Bricks · Vector Search · Lakebase · AI/BI · Genie
+        Built on Databricks · Zerobus · Lakeflow · AI Gateway · Agent Bricks · Vector Search · Lakebase · AI/BI · Genie
       </p>
     </div>
   )

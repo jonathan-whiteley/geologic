@@ -6,6 +6,7 @@ import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts'
 import { api } from '../api/client'
+import { cleanAnswer, movedMetrics } from '../lib/format'
 import { PageSkeleton, ErrorRetry } from '../components/PageState'
 import { STARTERS } from '../components/genie/GeniePanel'
 import { useGeniePanel } from '../state/genie-panel'
@@ -30,7 +31,7 @@ function savedAtLabel(savedAt: string) {
   return Number.isNaN(d.getTime()) ? '' : ` · ${d.toLocaleString()}`
 }
 
-export default function ProvePage() {
+export default function ImpactPage() {
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['impact'], queryFn: api.impact })
   const { ask, openPanel } = useGeniePanel()
 
@@ -52,7 +53,7 @@ export default function ProvePage() {
   const firstPublishWeek = chartData.find(d => d.week > FIRST_PUBLISH_AFTER)
 
   if (isLoading) return <PageSkeleton statCards={0} />
-  if (isError || !data) return <ErrorRetry message="Couldn't load Prove." onRetry={() => refetch()} />
+  if (isError || !data) return <ErrorRetry message="Couldn't load Impact." onRetry={() => refetch()} />
 
   const { health } = data
   const p = data.proof
@@ -60,7 +61,7 @@ export default function ProvePage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-lce-orange-dark mb-1">Prove</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-lce-orange-dark mb-1">Impact</p>
         <h2 className="text-2xl font-semibold">Did it work?</h2>
         <p className="text-text-secondary">What published fixes did to Share of Model, and what to ask next</p>
       </div>
@@ -73,14 +74,15 @@ export default function ProvePage() {
               <h3 className="font-semibold text-lg">{p.title}</h3>
             </div>
             <div className="flex gap-6 text-sm">
-              {p.share_before != null && p.share_after != null && <span>Share of Model <b className="tabular-nums">{p.share_before.toFixed(2)} → {p.share_after.toFixed(2)}</b></span>}
-              {p.accuracy_before != null && p.accuracy_after != null && <span>Fact accuracy <b className="tabular-nums">{p.accuracy_before.toFixed(0)}% → {p.accuracy_after.toFixed(0)}%</b></span>}
+              {movedMetrics(p).map(m => <span key={m.label}>{m.label} <b className="tabular-nums">{m.before} → {m.after}</b></span>)}
             </div>
           </div>
+          {p.prompt_text && <p className="text-sm"><span className="text-text-secondary">Question: </span><span className="font-medium">{p.prompt_text}</span></p>}
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-gray-100 p-4 space-y-2"><span className="badge b-default">Before · {p.engine}</span><p className={p.before_answer ? 'text-sm' : 'text-sm text-text-tertiary'}>{p.before_answer ?? 'No answer captured'}</p></div>
-            <div className="rounded-xl border border-green-100 p-4 space-y-2 shadow-soft"><span className="badge b-success"><span className="dot" />After · {p.engine}</span><p className={p.after_answer ? 'text-sm' : 'text-sm text-text-tertiary'}>{p.after_answer ?? 'No answer captured'}</p>
-              {p.after_cited.length > 0 && <p className="font-mono text-[11px] text-lce-orange-dark">cites: {p.after_cited.join(' · ')}</p>}</div>
+            <div className="rounded-xl border border-gray-100 p-4 space-y-2"><span className="badge b-default">Before · {p.engine}</span><p className={p.before_answer ? 'text-sm' : 'text-sm text-text-tertiary'}>{p.before_answer ? cleanAnswer(p.before_answer) : 'No answer captured'}</p>
+              <p className="font-mono text-[11px] text-text-tertiary">cites: {(p.before_cited ?? []).join(' · ') || 'none'}</p></div>
+            <div className="rounded-xl border border-green-100 p-4 space-y-2 shadow-soft"><span className="badge b-success"><span className="dot" />After · {p.engine}</span><p className={p.after_answer ? 'text-sm' : 'text-sm text-text-tertiary'}>{p.after_answer ? cleanAnswer(p.after_answer) : 'No answer captured'}</p>
+              <p className="font-mono text-[11px] text-lce-orange-dark">cites: {(p.after_cited ?? []).join(' · ') || 'none'}</p></div>
           </div>
           <p className="text-xs text-text-tertiary flex items-center gap-1.5"><Database className="w-3.5 h-3.5" />Approved by {p.reviewer ?? 'presenter'}{savedAtLabel(p.saved_at)} · stored in Lakebase</p>
         </div>

@@ -31,3 +31,30 @@ export function formatTime(d: string | null): string {
 export function fx(n: number | null | undefined, digits = 2, suffix = ''): string {
   return typeof n === 'number' && Number.isFinite(n) ? `${n.toFixed(digits)}${suffix}` : 'N/A'
 }
+
+/** Answer text for display: drop inline citation tokens like [comp_dominos_party_guide] or [blog_a, lce_pg_deals];
+ *  the sources are listed under the answer instead. */
+export function cleanAnswer(text: string): string {
+  return text.replace(/\s*\[[\w ,.-]+\]/g, '').trim()
+}
+
+export type MetricMove = { share_before: number | null; share_after: number | null; accuracy_before: number | null; accuracy_after: number | null }
+
+/** Only the metrics that moved (at display precision), Share of Model first: a flat metric is left out. */
+export function movedMetrics(m: MetricMove): { label: string; before: string; after: string }[] {
+  const out: { label: string; before: string; after: string }[] = []
+  if (m.share_before != null && m.share_after != null && m.share_before.toFixed(2) !== m.share_after.toFixed(2)) {
+    out.push({ label: 'Share of Model', before: m.share_before.toFixed(2), after: m.share_after.toFixed(2) })
+  }
+  if (m.accuracy_before != null && m.accuracy_after != null && m.accuracy_before.toFixed(0) !== m.accuracy_after.toFixed(0)) {
+    out.push({ label: 'Fact accuracy', before: `${m.accuracy_before.toFixed(0)}%`, after: `${m.accuracy_after.toFixed(0)}%` })
+  }
+  return out
+}
+
+/** Engines in the order every screen lists them; unknown engines sort last. */
+export const ENGINE_ORDER = ['Claude', 'ChatGPT', 'Gemini', 'Meta AI']
+export function engineRank(engine: string): number {
+  const i = ENGINE_ORDER.indexOf(engine)
+  return i === -1 ? ENGINE_ORDER.length : i
+}

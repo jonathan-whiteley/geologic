@@ -196,7 +196,7 @@ function header(id: string, x: number, label: string, width: number): Node {
 const INITIAL_NODES: Node[] = [
   header('hdr-measure', 0, 'Measure', 670),
   header('hdr-fix', 730, 'Fix', 480),
-  header('hdr-prove', 1240, 'Prove', 200),
+  header('hdr-impact', 1240, 'Impact', 200),
   header('hdr-serve', 1520, 'Serve', 200),
   // Measure
   card('src-social', 0, 40, 'source', 'Social and athlete posts', 'Posts with photos', <Radio {...ICON} />),
@@ -210,7 +210,7 @@ const INITIAL_NODES: Node[] = [
   card('vs', 730, 150, 'search', 'Vector Search', 'Pages, menu, questions', <Search {...ICON} />),
   card('agent', 1010, 150, 'agent', 'Agent Bricks', 'Content Strategist drafts, Brand Guardian checks', <Sparkles {...ICON} />),
   card('lakebase', 1010, 20, 'lakebase', 'Lakebase', 'Approvals, page versions, proof', <Database {...ICON} />),
-  // Prove
+  // Impact
   card('genie', 1240, 150, 'genie', 'Genie', 'Ask in plain English, see the SQL', <MessageSquareText {...ICON} />),
   card('metrics', 1240, 410, 'pipeline', 'Metric views', 'Share of Model, accuracy, citations', <BarChart3 {...ICON} />),
   // Serve

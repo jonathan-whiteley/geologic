@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { api } from '../api/client'
 import type { Kpis, ThemeRow } from '../api/types'
-import { fx } from '../lib/format'
+import { engineRank, fx } from '../lib/format'
 import Heatmap from '../components/Heatmap'
 import { PageSkeleton, ErrorRetry } from '../components/PageState'
 
@@ -104,7 +104,7 @@ export default function AnswersPage() {
       {gateway && gateway.engines.length > 0 && (
         <div className="card px-5 py-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
           <span className="font-semibold flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-lce-orange" />Engines served through AI Gateway</span>
-          <span className="text-text-secondary">{gateway.engines.map(e => e.engine).join(' · ')}</span>
+          <span className="text-text-secondary">{[...gateway.engines].sort((x, y) => engineRank(x.engine) - engineRank(y.engine)).map(e => e.engine).join(' · ')}</span>
           <span><b className="tabular-nums">{gateway.answers}</b> <span className="text-text-secondary">answers this probe</span></span>
           {gateway.logged !== null && gateway.logged > 0 && (
             <span><b className="tabular-nums">{gateway.logged.toLocaleString()}</b> <span className="text-text-secondary">probe requests tracked by AI Gateway</span></span>

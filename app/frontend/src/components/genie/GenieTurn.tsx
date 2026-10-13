@@ -35,7 +35,7 @@ export default function GenieTurn({ turn, busy, onFollowUp }: Props) {
           <>
             <div className="flex items-center gap-3 text-sm text-lce-orange">
               <Loader2 className="w-4 h-4 animate-spin" />
-              {PHASES[turn.phase || ''] || 'Thinking'}...
+              {r && r.columns.length > 0 ? 'Writing the answer' : PHASES[turn.phase || ''] || 'Thinking'}...
             </div>
             {r && r.columns.length > 0 && (
               <QueryResult columns={r.columns} rows={r.rows} rowCount={r.row_count} truncated={r.truncated} sql={r.sql} />
@@ -61,6 +61,7 @@ export default function GenieTurn({ turn, busy, onFollowUp }: Props) {
               <QueryResult columns={r.columns} rows={r.rows} rowCount={r.row_count} truncated={r.truncated} sql={r.sql} />
             )}
             {r.source && <p className="font-mono text-[11px] text-text-tertiary">{r.source}</p>}
+            {turn.note && <p className="text-xs text-text-secondary">{turn.note}</p>}
             {r.suggested_questions.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {r.suggested_questions.slice(0, 3).map(noDashes).map(q => (

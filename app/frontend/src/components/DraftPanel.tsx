@@ -4,6 +4,7 @@ import { Wand2, Check, X, ShieldCheck, AlertCircle } from 'lucide-react'
 import { api } from '../api/client'
 import type { PublishStatus, Suggestion } from '../api/types'
 import { useToast } from './Toast'
+import { cleanAnswer, movedMetrics } from '../lib/format'
 
 const FAILED = 'Publish failed. Try again.'
 const STEP_NAMES = ['Brand Guardian re-check', 'Publish to CMS', 'Vector index sync', 'Re-probe questions', 'Judge answers']
@@ -65,10 +66,14 @@ export default function DraftPanel({ suggestions }: { suggestions: Suggestion[] 
             pollers.current.delete(sid)
             stopPublishing(sid)
             if (st.state === 'published') {
-              // The status poll saved the proof row server-side; refresh Prove, the review badge and evidence.
+              // The status poll saved the proof row server-side; refresh Impact, the review badge and evidence.
               queryClient.invalidateQueries({ queryKey: ['impact'] })
               queryClient.invalidateQueries({ queryKey: ['suggestions'] })
               queryClient.invalidateQueries({ queryKey: ['evidence'] })
+            } else if (st.state === 'pending_review' && !st.error) {
+              // Back to review with no error (for example a Reset ran): not a failed publish, so drop the overlay.
+              setOverlay(prev => { const next = { ...prev }; delete next[sid]; return next })
+              queryClient.invalidateQueries({ queryKey: ['suggestions'] })
             } else if (st.state !== 'blocked') {
               setOverlay(prev => ({ ...prev, [sid]: { ...st, error: st.error || FAILED } }))
               queryClient.invalidateQueries({ queryKey: ['suggestions'] })
@@ -252,31 +257,29 @@ export default function DraftPanel({ suggestions }: { suggestions: Suggestion[] 
           {s.state === 'published' && s.statusExtra?.before && s.statusExtra?.after && (() => {
             const before = s.statusExtra!.before!
             const after = s.statusExtra!.after!
+            const engine = s.statusExtra!.engine ?? 'Claude'
+            const question = s.statusExtra!.prompt_text
             return (
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-2">
-                  <span className="badge b-default">Before · Claude</span>
-                  <p className="text-sm">{before.answer}</p>
-                  <p className="font-mono text-[11px] text-text-tertiary">cites: {before.cited.join(' · ') || 'none'}</p>
-                </div>
-                <div className="bg-white rounded-xl border border-green-100 p-4 space-y-2 shadow-soft">
-                  <span className="badge b-success"><span className="dot" />After · Claude</span>
-                  <p className="text-sm">{after.answer}</p>
-                  <p className="font-mono text-[11px] text-lce-orange-dark">cites: {after.cited.join(' · ') || 'none'}</p>
+              <div className="space-y-2">
+                {question && <p className="text-sm"><span className="text-text-secondary">Question: </span><span className="font-medium">{question}</span></p>}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-2">
+                    <span className="badge b-default">Before · {engine}</span>
+                    <p className="text-sm">{cleanAnswer(before.answer ?? '')}</p>
+                    <p className="font-mono text-[11px] text-text-tertiary">cites: {(before.cited ?? []).join(' · ') || 'none'}</p>
+                  </div>
+                  <div className="bg-white rounded-xl border border-green-100 p-4 space-y-2 shadow-soft">
+                    <span className="badge b-success"><span className="dot" />After · {engine}</span>
+                    <p className="text-sm">{cleanAnswer(after.answer ?? '')}</p>
+                    <p className="font-mono text-[11px] text-lce-orange-dark">cites: {(after.cited ?? []).join(' · ') || 'none'}</p>
+                  </div>
                 </div>
               </div>
             )
           })()}
 
           {s.state === 'published' && s.statusExtra?.summary && (() => {
-            const sum = s.statusExtra!.summary!
-            const parts: string[] = []
-            if (sum.accuracy_before !== null && sum.accuracy_after !== null) {
-              parts.push(`Accuracy ${sum.accuracy_before.toFixed(0)}% → ${sum.accuracy_after.toFixed(0)}%.`)
-            }
-            if (sum.share_before !== null && sum.share_after !== null) {
-              parts.push(`Share of Model ${sum.share_before.toFixed(2)} → ${sum.share_after.toFixed(2)}.`)
-            }
+            const parts = movedMetrics(s.statusExtra!.summary!).map(m => `${m.label} ${m.before} → ${m.after}.`)
             return parts.length ? <p className="text-sm text-text-secondary">{parts.join(' ')}</p> : null
           })()}
         </div>

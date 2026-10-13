@@ -6,7 +6,7 @@ import { useGenieThread, type Turn } from '../lib/genie'
 const TABS: [string, string][] = [
   ['/measure', 'Measure'],
   ['/fix', 'Fix'],
-  ['/prove', 'Prove'],
+  ['/impact', 'Impact'],
   ['/architecture', 'Architecture'],
 ]
 

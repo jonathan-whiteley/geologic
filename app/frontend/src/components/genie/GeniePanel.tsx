@@ -9,7 +9,7 @@ export const STARTERS = ['Which question cluster has the lowest Share of Model?'
 const SUGGESTED: Record<string, string[]> = {
   Measure: ['Which question cluster has the lowest Share of Model?', "How does our Share of Model compare to Domino's by engine?", "Which publishers do engines cite most when they don't cite us?"],
   Fix: ['Which engine still gets our prices wrong?', 'What are the top 3 opportunities and why?', 'Which opportunities expire in the next 48 hours?'],
-  Prove: STARTERS,
+  Impact: STARTERS,
   Architecture: STARTERS,
 }
 

@@ -14,6 +14,8 @@ export interface Turn {
   tableMs?: number
   result?: GenieMessage
   error?: string
+  /** Quiet line under a kept table when Genie timed out while still writing its summary. */
+  note?: string
 }
 
 interface ThreadState {
@@ -22,7 +24,8 @@ interface ThreadState {
 }
 
 const POLL_MS = 1500
-const TIMEOUT_MS = 180_000
+const TIMEOUT_MS = 300_000
+export const STILL_WRITING = 'Genie is still writing its summary. Ask again in a moment.'
 const TERMINAL = ['COMPLETED', 'FAILED', 'CANCELLED', 'QUERY_RESULT_EXPIRED']
 /** Consecutive failed polls to ride out (a network or proxy blip) before failing the turn. */
 const MAX_POLL_FAILURES = 2
@@ -46,6 +49,7 @@ export function useGenieThread() {
         // Always keep the returned id: the backend restarts a stale conversation under a new one.
         setThread(prev => ({ ...prev, conversationId: conversation_id }))
         let tableShown = false
+        let latest: GenieMessage | undefined
         let failures = 0
         while (Date.now() - startedAt < TIMEOUT_MS) {
           await new Promise(r => setTimeout(r, POLL_MS))
@@ -57,6 +61,7 @@ export function useGenieThread() {
             if (++failures > MAX_POLL_FAILURES) throw e
             continue
           }
+          if (m.columns.length) latest = m
           if (m.partial && m.columns.length && !tableShown) {
             tableShown = true
             update(id, { result: m, tableMs: Date.now() - startedAt })
@@ -73,7 +78,12 @@ export function useGenieThread() {
           }
           update(id, { phase: m.status })
         }
-        update(id, { status: 'error', error: 'Genie did not answer within 3 minutes', elapsedMs: Date.now() - startedAt })
+        if (latest) {
+          // The SQL finished and the table is on screen: keep it, without the half-written summary.
+          update(id, { status: 'done', result: { ...latest, text: '' }, note: STILL_WRITING, elapsedMs: Date.now() - startedAt })
+          return
+        }
+        update(id, { status: 'error', error: 'Genie did not answer within 5 minutes', elapsedMs: Date.now() - startedAt })
       } catch (e) {
         update(id, { status: 'error', error: `Sorry: ${e instanceof Error ? e.message : String(e)}`, elapsedMs: Date.now() - startedAt })
       }

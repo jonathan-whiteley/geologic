@@ -5,7 +5,7 @@ import MeasureLayout from './layouts/MeasureLayout'
 import AnswersPage from './pages/AnswersPage'
 import PromptsPage from './pages/PromptsPage'
 import FixPage from './pages/FixPage'
-import ProvePage from './pages/ProvePage'
+import ImpactPage from './pages/ImpactPage'
 import ArchitecturePage from './pages/ArchitecturePage'
 import { ActRedirect, MonitorRedirect } from './pages/Redirects'
 
@@ -25,13 +25,13 @@ export default function App() {
               <Route path="questions/:promptId" element={<PromptsPage />} />
             </Route>
             <Route path="fix" element={<FixPage />} />
-            <Route path="prove" element={<ProvePage />} />
+            <Route path="impact" element={<ImpactPage />} />
             <Route path="architecture" element={<ArchitecturePage />} />
             {/* v1 bookmarks */}
             <Route path="monitor/*" element={<MonitorRedirect />} />
             <Route path="prioritize" element={<Navigate to="/fix" replace />} />
             <Route path="act" element={<ActRedirect />} />
-            <Route path="impact" element={<Navigate to="/prove" replace />} />
+            <Route path="prove" element={<Navigate to="/impact" replace />} />
           </Route>
         </Routes>
       </BrowserRouter>
