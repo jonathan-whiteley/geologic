@@ -150,3 +150,19 @@ def demo_inject(truth_id: str, jobs=Depends(deps.get_jobs)):
     if truth_id not in SEEDED:
         raise HTTPException(404, "Unknown seeded signal")
     return {"run_id": jobs.run_inject(truth_id)}
+
+class GenieAsk(BaseModel):
+    question: str
+    conversation_id: str | None = None
+    context: str | None = None
+
+@router.post("/genie/ask")
+def genie_ask(body: GenieAsk, genie=Depends(deps.get_genie)):
+    if not body.question.strip():
+        raise HTTPException(400, "Type a question first.")
+    ctx = body.context.strip()[:300] if body.context and body.context.strip() else None
+    return genie.ask(body.question.strip(), conversation_id=body.conversation_id or None, context=ctx)
+
+@router.get("/genie/message/{conversation_id}/{message_id}")
+def genie_message(conversation_id: str, message_id: str, genie=Depends(deps.get_genie)):
+    return genie.get_message(conversation_id, message_id)

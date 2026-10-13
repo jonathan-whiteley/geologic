@@ -21,6 +21,9 @@ variables:
   supervisor_endpoint:
     description: Supervisor agent serving endpoint the app calls
     default: mas-044fdd7b-endpoint
+  genie_space_id:
+    description: GEOlogic Genie space (Ask Genie panel)
+    default: 01f1c1ad57691e9ab2457acf2bff7d78
 
 # No `mode: development`: development mode prefixes job and pipeline names, which would
 # rename the adopted live resources. Names here must equal the live names.
