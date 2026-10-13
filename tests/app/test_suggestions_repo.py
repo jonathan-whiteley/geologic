@@ -35,3 +35,31 @@ def test_release_is_scoped_to_publishing():  # finding 2
     assert SuggestionRepo(lambda: Conn(log)).release("s1", "Publish failed. Try again.")
     q, args = log[-1]
     assert "state = 'pending_review'" in q and "AND state = 'publishing'" in q and args == ("Publish failed. Try again.", "s1")
+
+
+class LogConn(Conn):
+    def __init__(self, log, rows=None, cols=None):
+        super().__init__(log); self.rows, self.cols = rows or [], cols or []
+    def execute(self, sql, args=()):
+        self.log.append((" ".join(sql.split()), args))
+        if sql.lstrip().upper().startswith("SELECT"):
+            return Cur(self.rows, self.cols)
+        return Cur([(1,)], ["x"])
+
+def test_save_proof_upserts():
+    log = []
+    ba = {"before": {"answer": "old", "cited": ["d1"]}, "after": {"answer": "new", "cited": ["lce_pg_deals"]}}
+    SuggestionRepo(lambda: LogConn(log)).save_proof("s1", "Fix price", "jw@x.com", ba,
+                                                   {"share_before": 0.1, "share_after": 0.4, "accuracy_before": 50.0, "accuracy_after": 100.0})
+    sql, args = log[-1]
+    assert sql.startswith("INSERT INTO proof_results") and "ON CONFLICT (suggestion_id) DO UPDATE" in sql
+    assert args[0] == "s1" and "old" in args and "new" in args and 0.4 in args
+
+def test_latest_proof_none_when_empty():
+    assert SuggestionRepo(lambda: LogConn([])).latest_proof() is None
+
+def test_live_page_latest_version():
+    log = []
+    repo = SuggestionRepo(lambda: LogConn(log, [(3, "jw@x.com", "2026-10-13T10:00:00Z")], ["version", "published_by", "published_at"]))
+    assert repo.live_page("pg_deals") == {"version": 3, "published_by": "jw@x.com", "published_at": "2026-10-13T10:00:00Z"}
+    assert "ORDER BY version DESC LIMIT 1" in log[-1][0] and log[-1][1] == ("pg_deals",)

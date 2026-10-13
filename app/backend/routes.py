@@ -26,10 +26,15 @@ def prompt_inventory(reads=Depends(deps.get_reads)):
     return reads.prompt_inventory()
 
 @router.get("/opportunities/{opp_id}/evidence")
-def opportunity_evidence(opp_id: str, reads=Depends(deps.get_reads)):
+def opportunity_evidence(opp_id: str, reads=Depends(deps.get_reads), repo=Depends(deps.get_suggestions)):
     ev = reads.opportunity_evidence(opp_id)
     if ev is None:
         raise HTTPException(404, "Unknown opportunity")
+    try:
+        ev["live_page"] = repo.live_page(ev["page_id"]) if ev.get("page_id") else None
+    except Exception as e:
+        print(f"live_page {ev.get('page_id')}: {type(e).__name__}: {e}")
+        ev["live_page"] = None
     return ev
 
 @router.get("/prompts/search")
@@ -100,13 +105,25 @@ def status(sid: str, repo=Depends(deps.get_suggestions), reads=Depends(deps.get_
     if s is None:
         raise HTTPException(404, "Unknown suggestion")
     if s["state"] == "published":
-        s.update(reads.before_after(s["prompt_ids"]) or {})
+        ba = reads.before_after(s["prompt_ids"])
+        s.update(ba or {})
         s["summary"] = reads.cluster_before_after(s["prompt_ids"])
+        if ba:
+            try:  # proof is a nice-to-have: never fail the poll over it
+                row = repo.get(sid) or {}
+                repo.save_proof(sid, row.get("title") or sid, row.get("reviewer"), ba, s["summary"])
+            except Exception as e:
+                print(f"save_proof {sid}: {type(e).__name__}: {e}")
     return s
 
 @router.get("/impact")
 def impact(reads=Depends(deps.get_reads), repo=Depends(deps.get_suggestions)):
-    return {"weekly": reads.weekly(), "health": repo.health()}
+    try:
+        proof = repo.latest_proof()
+    except Exception as e:  # proof_results missing on an old Lakebase: show the empty state
+        print(f"latest_proof: {type(e).__name__}: {e}")
+        proof = None
+    return {"weekly": reads.weekly(), "health": repo.health(), "proof": proof}
 
 class Ask(BaseModel):
     question: str

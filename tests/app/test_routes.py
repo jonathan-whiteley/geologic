@@ -110,3 +110,45 @@ def test_prompt_inventory_route():
 def test_evidence_route():
     assert c.get("/api/opportunities/nope/evidence").status_code == 404
     assert c.get("/api/opportunities/opp_1/evidence").json()["opp_id"] == "opp_1"
+
+
+class ProofSuggestions(FakeSuggestions):
+    def __init__(self, fail=False):
+        super().__init__(); self.saved = []; self.fail = fail
+        self.rows["p1"] = {"suggestion_id": "p1", "state": "published", "tier": "T1", "title": "Fix price", "prompt_ids": ["q001"]}
+    def status(self, sid):
+        r = self.rows[sid]; return {"state": r["state"], "publish_step": 5, "error": None, "prompt_ids": r.get("prompt_ids", [])}
+    def get(self, sid): return self.rows.get(sid)
+    def save_proof(self, *a):
+        if self.fail: raise RuntimeError("lakebase down")
+        self.saved.append(a)
+    def latest_proof(self): return {"title": "Fix price"} if self.saved else None
+    def live_page(self, page_id): return {"version": 2, "published_by": "jw", "published_at": "t"}
+    def health(self): return {"t0_auto": 0, "t1_approved_no_edit_pct": None, "t2_reviews": 0, "blocked": 0}
+
+FakeReads.before_after = lambda self, ids: {"before": {"answer": "a", "cited": []}, "after": {"answer": "b", "cited": []}}
+FakeReads.cluster_before_after = lambda self, ids: {"share_before": 0.1, "share_after": 0.4, "accuracy_before": 50.0, "accuracy_after": 100.0}
+FakeReads.weekly = lambda self: []
+
+def _with_repo(repo, fn):
+    app.dependency_overrides[deps.get_suggestions] = lambda: repo
+    try:
+        return fn()
+    finally:
+        app.dependency_overrides[deps.get_suggestions] = lambda: S
+
+def test_published_status_saves_proof_and_impact_returns_it():
+    repo = ProofSuggestions()
+    def run():
+        assert c.get("/api/suggestions/p1/status").json()["state"] == "published"
+        return c.get("/api/impact").json()
+    imp = _with_repo(repo, run)
+    assert repo.saved and repo.saved[0][0] == "p1" and imp["proof"] == {"title": "Fix price"}
+
+def test_proof_save_failure_does_not_break_status():  # Review Focus 3
+    r = _with_repo(ProofSuggestions(fail=True), lambda: c.get("/api/suggestions/p1/status"))
+    assert r.status_code == 200 and r.json()["before"]["answer"] == "a"
+
+def test_evidence_route_adds_live_page():
+    ev = _with_repo(ProofSuggestions(), lambda: c.get("/api/opportunities/opp_1/evidence").json())
+    assert ev["live_page"]["version"] == 2

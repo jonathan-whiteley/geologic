@@ -44,3 +44,21 @@ CREATE TABLE IF NOT EXISTS cms_page_versions (
 );
 CREATE TABLE IF NOT EXISTS demo_state (id INT PRIMARY KEY CHECK (id = 1), epoch INT NOT NULL);
 INSERT INTO demo_state VALUES (1, 1) ON CONFLICT DO NOTHING;
+
+-- Proof of a published fix. Written by the app when a publish completes; Reset does not clear it,
+-- so a rehearsal pre-bakes the Prove tab.
+CREATE TABLE IF NOT EXISTS proof_results (
+  suggestion_id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  engine TEXT NOT NULL DEFAULT 'Claude',
+  before_answer TEXT,
+  after_answer TEXT,
+  before_cited TEXT[] NOT NULL DEFAULT '{}',
+  after_cited TEXT[] NOT NULL DEFAULT '{}',
+  share_before DOUBLE PRECISION,
+  share_after DOUBLE PRECISION,
+  accuracy_before DOUBLE PRECISION,
+  accuracy_after DOUBLE PRECISION,
+  reviewer TEXT,
+  saved_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
