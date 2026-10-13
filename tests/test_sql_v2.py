@@ -18,7 +18,7 @@ def test_prompt_status_exposes_branded():
 def test_metric_view_uses_share_of_model_name():
     s = (ROOT / "sql/metric_views.sql").read_text()
     assert "name: Share of Model" in s and "name: Answer Share" not in s
-    assert "name: Owned Citation Share" in s
+    assert "Owned Citation Share" not in s
 
 def test_genie_space_says_share_of_model():
     d = json.loads((ROOT / "genie/space.json").read_text())

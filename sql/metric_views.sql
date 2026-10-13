@@ -13,9 +13,6 @@ measures:
     comment: "Unbranded prompts only, like v_kpis. Citation Rate and Fact Accuracy use all prompts."
   - name: Citation Rate
     expr: AVG(CASE WHEN cites_official THEN 1 ELSE 0 END)
-  - name: Owned Citation Share
-    expr: AVG(CASE WHEN cites_official THEN 1 ELSE 0 END)
-    comment: "Answer-level proxy: share of ok answers citing an official LCE page. The KPI card uses citation-level v_kpis.owned_citation_share."
   - name: Fact Accuracy
     expr: SUM(size(filter(claims, c -> c.verdict = 'correct'))) / NULLIF(SUM(size(filter(claims, c -> c.verdict IN ('correct','wrong')))), 0)
   - name: Answers
