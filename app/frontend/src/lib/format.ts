@@ -34,8 +34,18 @@ export function fx(n: number | null | undefined, digits = 2, suffix = ''): strin
 
 /** Answer text for display: drop inline citation tokens like [comp_dominos_party_guide] or [blog_a, lce_pg_deals];
  *  the sources are listed under the answer instead. */
+/** Engine answers arrive as light markdown with inline citation tokens: show them as plain sentences. */
 export function cleanAnswer(text: string): string {
-  return text.replace(/\s*\[[\w ,.-]+\]/g, '').trim()
+  return text
+    .replace(/\s*\[[\w ,.-]+\]/g, '')               // [lce_pg_order], [a, b]
+    .replace(/\*\*\s*(.+?)\s*\*\*/g, '$1')          // **bold**
+    .replace(/__(.+?)__/g, '$1')                    // __bold__
+    .replace(/(^|[\s(])\*(\S[^*\n]*?)\*(?=[\s).,;:!?]|$)/g, '$1$2') // *italic*
+    .replace(/\*\*/g, '')                           // unpaired markers
+    .replace(/^\s*[-*]\s+/gm, '')                   // list bullets
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s+([.,;:!?])/g, '$1')
+    .trim()
 }
 
 export type MetricMove = { share_before: number | null; share_after: number | null; accuracy_before: number | null; accuracy_after: number | null }

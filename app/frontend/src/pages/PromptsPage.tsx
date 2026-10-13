@@ -14,7 +14,7 @@ import { useToast } from '../components/Toast'
 import { Button } from '../components/ui/Button'
 import { CLUSTERS } from '../components/Heatmap'
 import QuestionInventory from '../components/QuestionInventory'
-import { formatDate, formatK1 } from '../lib/format'
+import { cleanAnswer, formatDate, formatK1 } from '../lib/format'
 import { useGeniePanel } from '../state/genie-panel'
 
 const CLUSTER_LABEL = new Map(CLUSTERS)
@@ -36,7 +36,8 @@ function highlightTruth(text: string): ReactNode[] {
   return parts.map((p, i) => /^\$\d/.test(p) ? <b key={i} className="font-mono text-text-primary">{p}</b> : <span key={i}>{p}</span>)
 }
 
-function renderAnswer(answer: string, claims: Claim[]): ReactNode[] {
+function renderAnswer(raw: string, claims: Claim[]): ReactNode[] {
+  const answer = cleanAnswer(raw)
   type Seg = { start: number; end: number; verdict: Claim['verdict'] }
   const segs: Seg[] = []
   for (const c of claims) {

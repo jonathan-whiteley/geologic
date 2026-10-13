@@ -123,8 +123,8 @@ body {
 .code .del { @apply block bg-red-50 text-red-700 -mx-4 px-4 line-through; }
 
 /* Inline claim markers */
-mark.bad { @apply bg-red-50 text-red-700 px-1 rounded; }
-mark.ok { @apply bg-green-50 text-green-700 px-1 rounded; }
+mark.bad { @apply bg-red-50 text-red-700 font-medium px-0.5 rounded; }
+mark.ok { @apply bg-green-50 text-green-700 font-medium px-0.5 rounded; }
 
 /* Signal thumbnail placeholder (no real images, no faces) */
 .thumb {
