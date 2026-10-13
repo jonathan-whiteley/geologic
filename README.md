@@ -1,8 +1,11 @@
 # GEOlogic
 
-Generative Engine Optimization demo for Little Caesars on Databricks. GEOlogic probes AI answer
-engines with a prompt bank, measures **Answer Share** (rank-weighted mention rate), finds wrong
-claims and content gaps, drafts fixes, and publishes approved content through a governed flow.
+Generative Engine Optimization demo for Little Caesars on Databricks, in three tabs: **Measure**,
+**Fix**, **Prove**. GEOlogic probes four AI answer engines (Claude, ChatGPT, Gemini and Meta AI, all
+through AI Gateway) with a prompt bank, measures **Share of Model** (rank-weighted mention score;
+the column is still `answer_share`), finds wrong claims and content gaps, drafts fixes, publishes
+approved content through a governed flow, and proves the lift with a Lakebase proof card and Genie.
+Demo talk tracks: `docs/demo-script.md` (2 minutes) and `docs/demo-script-3min.md` (3 minutes).
 
 Everything deploys as one Declarative Automation Bundle (`databricks.yml` plus `resources/*.yml`)
 to the `DEFAULT` CLI profile (`fe-vm-jdub-vm-serverless`), catalog `jdub_demo`, schema `geologic`.
@@ -39,7 +42,8 @@ principal and secret scope. The Vector Search endpoint and indexes are created b
 - A serverless SQL warehouse id (bundle variable `warehouse_id`)
 - Lakebase instance `geologic` and its host (`read_write_dns`, bundle variable `lakebase_host`)
 - Zerobus ingest secrets for `geologic_produce`
-- Supervisor agent endpoint name (bundle variable `supervisor_endpoint`)
+- Genie space id (bundle variable `genie_space_id`, passed to the app as `GENIE_SPACE_ID`)
+- Supervisor agent endpoint name (bundle variable `supervisor_endpoint`; the fallback for Ask)
 
 Bundle variable defaults in `databricks.yml` hold the live values for this workspace. Override any
 of them with `WAREHOUSE_ID`, `LAKEBASE_HOST`, `APP_SP_CLIENT_ID` or `SUPERVISOR_ENDPOINT` when running
@@ -73,7 +77,10 @@ runtime never tries an npm build.
 Do these in order.
 
 1. **Lakebase.** Create the Lakebase instance `geologic` and apply `sql/lakebase_schema.sql` to its
-   `geologic` database. Note its `read_write_dns`.
+   `geologic` database. Note its `read_write_dns`. The schema includes `proof_results`, the Prove
+   tab's proof card: the app writes a row when a publish completes, and Reset does not clear it.
+   On an existing instance, re-apply the file (it is idempotent) to add it, then grant the app SP
+   `SELECT, INSERT, UPDATE, DELETE` on the new table (step 5).
 2. **Zerobus.** Create a service principal for Zerobus ingest, grant it access to
    `jdub_demo.geologic.bronze_signals`, and store `zb_endpoint`, `zb_client_id` and
    `zb_client_secret` in the secret scope `geologic` (read by `src/geologic/producer.py`).
@@ -107,9 +114,13 @@ Do these in order.
 8. `databricks bundle run geologic_deploy_strategist --profile DEFAULT` (serves
    `geologic-content-strategist`; `supervisor_tools.sql` depends on it at call time).
 9. **Genie and Supervisor.** Create the Genie space from `genie/space.json`, then the Supervisor
-   per `docs/supervisor.md`. Grant the app SP `CAN_RUN` on the Genie space, set the `supervisor_endpoint`
-   variable (or `SUPERVISOR_ENDPOINT=... bash scripts/deploy.sh`) and redeploy; the bundle binds the
-   endpoint to the app with `CAN_QUERY`.
+   per `docs/supervisor.md`. Grant the app SP `CAN_RUN` on the Genie space and set the
+   `genie_space_id` bundle variable to the space id (the app reads it as the `GENIE_SPACE_ID` env in
+   `resources/app.yml`). The Ask Genie panel calls the Genie Conversation API on that space
+   directly (live phases, SQL, follow-ups in one conversation); the Supervisor is the fallback path
+   (`/api/ask`, text only, no follow-ups). Set the `supervisor_endpoint` variable (or
+   `SUPERVISOR_ENDPOINT=... bash scripts/deploy.sh`) and redeploy; the bundle binds the endpoint to
+   the app with `CAN_QUERY`.
 
 Note: S1/S2 improve-after-publish checks in the answer-key test only run when `accuracy_by_run` /
 `share_by_run` are supplied.
@@ -133,12 +144,15 @@ reason) and the dashboard `parent_path` equal to its live folder. Always read `b
 
 ## Demo-day checklist
 
-1. Click **Reset** in the app to return to the baseline.
-2. Run the demo (see `docs/`). The rehearsed path keeps `geologic_refresh` paused.
-3. OPTIONAL, only if showing the live Signals stream: unpause `geologic_refresh` (Jobs UI, or set
+1. Rehearse once: in **Fix**, approve and publish the Classic Pepperoni fix, wait for the before
+   and after, then click **Reset** to return to the baseline. The Prove proof card keeps that result
+   (`proof_results` survives Reset).
+2. Run the demo (see `docs/demo-script.md` and `docs/demo-script-3min.md`). The rehearsed path keeps
+   `geologic_refresh` paused.
+3. OPTIONAL, only if streaming live signals: unpause `geologic_refresh` (Jobs UI, or set
    `pause_status: UNPAUSED` and redeploy) and stream background signals with
    `databricks bundle run geologic_produce --params minutes=15 --profile DEFAULT`.
-   Warning: refresh rebuilds `gold_opportunities` every minute, so Prioritize ranks can reshuffle,
+   Warning: refresh rebuilds `gold_opportunities` every minute, so Fix ranks can reshuffle,
    Reset does not restore `gold_opportunities`, and the next `scripts/deploy.sh` re-pauses refresh.
 4. If you unpaused refresh, pause it again afterwards.
 
