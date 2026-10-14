@@ -7,3 +7,12 @@ node_modules/
 app/frontend/dist/
 app/src/
 .databricks/
+
+# Kept locally, not published: talk tracks, design docs, mockups, and photos without a redistribution license
+docs/demo-script*.md
+docs/superpowers/
+mockups/
+assets/photos/barkley_press.jpg
+assets/photos/goff_slices_n_stix.jpg
+assets/photos/jefferson_press.jpg
+assets/photos/kittle_radio_row.jpg
