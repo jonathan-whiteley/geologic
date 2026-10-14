@@ -11,7 +11,7 @@ WITH r AS (SELECT * FROM jdub_demo.geologic.v_latest_responses WHERE status = 'o
 v AS (SELECT prompt_id, avg(est_volume) AS avg_monthly_volume FROM jdub_demo.geologic.question_volume_monthly GROUP BY prompt_id),
 ft AS (SELECT prompt_id, min(started_at) AS first_tracked, max(finished_at) AS updated_at
        FROM jdub_demo.geologic.probe_runs pr LATERAL VIEW explode(pr.prompt_ids) t AS prompt_id GROUP BY prompt_id)
-SELECT p.prompt_id, p.prompt_text, p.cluster, p.tracked, round(v.avg_monthly_volume) AS avg_monthly_volume,
+SELECT p.prompt_id, p.prompt_text, p.cluster, p.tracked, p.branded, round(v.avg_monthly_volume) AS avg_monthly_volume,
        CASE WHEN v.avg_monthly_volume >= 8000 THEN 'High' WHEN v.avg_monthly_volume >= 3000 THEN 'Medium' ELSE 'Low' END AS volume_tier,
        AVG(CASE WHEN r.lce_mentioned AND r.lce_rank > 0 THEN 1.0 / r.lce_rank ELSE 0 END) AS answer_share,
        SUM(CASE WHEN r.lce_mentioned THEN 1 ELSE 0 END) AS engines_naming,
@@ -19,7 +19,7 @@ SELECT p.prompt_id, p.prompt_text, p.cluster, p.tracked, round(v.avg_monthly_vol
        MAX(size(filter(r.claims, x -> x.verdict = 'wrong'))) > 0 AS has_wrong_claim,
        ft.first_tracked, ft.updated_at
 FROM jdub_demo.geologic.v_prompts p LEFT JOIN v USING (prompt_id) LEFT JOIN r USING (prompt_id) LEFT JOIN ft USING (prompt_id)
-GROUP BY p.prompt_id, p.prompt_text, p.cluster, p.tracked, v.avg_monthly_volume, ft.first_tracked, ft.updated_at;
+GROUP BY p.prompt_id, p.prompt_text, p.cluster, p.tracked, p.branded, v.avg_monthly_volume, ft.first_tracked, ft.updated_at;
 
 CREATE OR REPLACE VIEW jdub_demo.geologic.v_theme_sentiment AS
 SELECT theme, count(*) AS answers,

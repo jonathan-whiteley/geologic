@@ -1,8 +1,8 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  Search, ChevronDown, BookmarkPlus, Download, MessageSquareQuote,
+  Search, ChevronDown, BookmarkPlus, Download, MessageSquareQuote, Sparkles,
 } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
@@ -13,7 +13,9 @@ import { PageSkeleton, ErrorRetry } from '../components/PageState'
 import { useToast } from '../components/Toast'
 import { Button } from '../components/ui/Button'
 import { CLUSTERS } from '../components/Heatmap'
-import { formatDate, formatK1 } from '../lib/format'
+import QuestionInventory from '../components/QuestionInventory'
+import { cleanAnswer, formatDate, formatK1 } from '../lib/format'
+import { useGeniePanel } from '../state/genie-panel'
 
 const CLUSTER_LABEL = new Map(CLUSTERS)
 
@@ -34,7 +36,8 @@ function highlightTruth(text: string): ReactNode[] {
   return parts.map((p, i) => /^\$\d/.test(p) ? <b key={i} className="font-mono text-text-primary">{p}</b> : <span key={i}>{p}</span>)
 }
 
-function renderAnswer(answer: string, claims: Claim[]): ReactNode[] {
+function renderAnswer(raw: string, claims: Claim[]): ReactNode[] {
+  const answer = cleanAnswer(raw)
   type Seg = { start: number; end: number; verdict: Claim['verdict'] }
   const segs: Seg[] = []
   for (const c of claims) {
@@ -90,8 +93,7 @@ export default function PromptsPage() {
   const [tracked, setTracked] = useState<boolean | null>(null)
   const [trackingSelf, setTrackingSelf] = useState(false)
 
-  const { data: model } = useQuery({ queryKey: ['model'], queryFn: api.modelSummary })
-  const promptId = routePromptId ?? model?.drill_prompt_id
+  const promptId = routePromptId
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['prompt', promptId],
@@ -100,6 +102,13 @@ export default function PromptsPage() {
   })
 
   const isTracked = tracked ?? data?.tracked ?? false
+
+  // The open question is the Ask Genie focus item while the deep dive is showing.
+  const { ask, setFocus } = useGeniePanel()
+  useEffect(() => {
+    setFocus(data?.prompt_text ?? null)
+    return () => setFocus(null)
+  }, [data?.prompt_text])
 
   const chartData = useMemo(() => (data?.series ?? []).map(s => ({
     month: s.month,
@@ -120,7 +129,7 @@ export default function PromptsPage() {
     setSearchError(null)
     try {
       const res = await api.promptSearch(q)
-      navigate(`/monitor/prompts/${res.prompt_id}`)
+      navigate(`/measure/questions/${res.prompt_id}`)
       toast('Probed 4 engines')
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : 'Something went wrong.')
@@ -178,7 +187,20 @@ export default function PromptsPage() {
       </form>
       {searchError && <p className="text-sm text-red-600">{searchError}</p>}
 
-      {isLoading || !data ? (
+      {promptId && (
+        <button className="text-sm text-text-secondary hover:text-text-primary" onClick={() => navigate('/measure/questions')}>← All questions</button>
+      )}
+
+      {!promptId ? (
+        <>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-lce-orange-dark mb-1">Measure</p>
+            <h2 className="text-2xl font-semibold">Questions</h2>
+            <p className="text-text-secondary text-sm mt-1">Search any consumer question, or pick one we already track</p>
+          </div>
+          <QuestionInventory clusterLabel={c => CLUSTER_LABEL.get(c) ?? c} />
+        </>
+      ) : isLoading || !data ? (
         isError ? <ErrorRetry message="Couldn't load this question." onRetry={() => refetch()} /> : <PageSkeleton statCards={4} />
       ) : (
         <>
@@ -191,6 +213,9 @@ export default function PromptsPage() {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <button className="btn btn-ghost !text-xs" onClick={() => ask('How do the engines answer this question, and has it changed over time?')}>
+                <Sparkles className="w-3.5 h-3.5" />Ask Genie about this
+              </button>
               <div className="inline-flex items-center gap-2 rounded-xl border border-lce-orange/40 bg-lce-cream px-3 py-2 text-sm">
                 <span className="text-text-secondary">Engine:</span>
                 <select
@@ -229,7 +254,7 @@ export default function PromptsPage() {
               <p className={`text-3xl font-semibold tabular-nums mt-1 ${data.kpis.volume_tier === 'High' ? 'text-green-700' : 'text-amber-700'}`}>{data.kpis.volume_tier}</p>
             </div>
             <div className="p-5">
-              <p className="text-sm text-text-secondary">Answer Share</p>
+              <p className="text-sm text-text-secondary">Share of Model</p>
               <p className="text-3xl font-semibold tabular-nums mt-1">{data.kpis.answer_share !== null ? data.kpis.answer_share.toFixed(2) : 'N/A'}</p>
             </div>
             <div className="p-5">
@@ -301,7 +326,7 @@ export default function PromptsPage() {
                   const tracking = trackingOverride[r.prompt_id] ?? r.status === 'tracking'
                   return (
                     <div key={r.prompt_id} className="py-2.5 flex items-center gap-3">
-                      <button className="flex-1 min-w-0 text-left" onClick={() => navigate(`/monitor/prompts/${r.prompt_id}`)}>
+                      <button className="flex-1 min-w-0 text-left" onClick={() => navigate(`/measure/questions/${r.prompt_id}`)}>
                         <p className="text-sm leading-snug">{r.prompt_text}</p>
                         <p className="text-xs text-text-tertiary mt-0.5">{formatK1(r.avg_monthly_volume)} / mo</p>
                       </button>

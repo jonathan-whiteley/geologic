@@ -20,3 +20,17 @@ def get_jobs():
 def get_supervisor():
     from backend.supervisor import Supervisor
     return Supervisor(_w())
+
+_genie = None
+
+def get_genie():
+    import os
+    from fastapi import HTTPException
+    global _genie
+    space = os.environ.get("GENIE_SPACE_ID")
+    if not space:
+        raise HTTPException(503, "Genie is not configured.")
+    if _genie is None:
+        from backend.genie import GenieService
+        _genie = GenieService(_w(), space)
+    return _genie

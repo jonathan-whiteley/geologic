@@ -2,12 +2,12 @@ import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
-  PieChart, Medal, Link as LinkIcon, BadgeCheck, Grid3x3, Link2, HeartPulse, Download,
+  PieChart, Eye, Link as LinkIcon, BadgeCheck, ShieldCheck, Grid3x3, Link2, HeartPulse, Download,
   PiggyBank, Timer, ChefHat, Smartphone, Trophy, MessageCircle,
 } from 'lucide-react'
 import { api } from '../api/client'
 import type { Kpis, ThemeRow } from '../api/types'
-import { fx } from '../lib/format'
+import { engineRank, fx } from '../lib/format'
 import Heatmap from '../components/Heatmap'
 import { PageSkeleton, ErrorRetry } from '../components/PageState'
 
@@ -21,6 +21,11 @@ const THEME_ICONS: Record<string, typeof PiggyBank> = {
 
 function themeIcon(label: string) {
   return THEME_ICONS[label.toLowerCase()] ?? MessageCircle
+}
+
+function cleanQuote(q: string) {
+  const s = q.replace(/^\s*(based on|according to) (the )?(provided |available )?(sources|information|context)[^,:]*[,:]\s*/i, '')
+  return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
 function StatCard({ icon, label, value, sub, subClassName = '' }: { icon: ReactNode; label: string; value: string; sub?: ReactNode; subClassName?: string }) {
@@ -46,7 +51,7 @@ export default function AnswersPage() {
   if (isLoading) return <PageSkeleton />
   if (isError || !data) return <ErrorRetry message="Couldn't load Share of Model." onRetry={() => refetch()} />
 
-  const { heatmap, leaderboard, citation_sources, themes, prompt_ids_by_cluster } = data
+  const { heatmap, leaderboard, citation_sources, themes, prompt_ids_by_cluster, gateway } = data
   const kpis: Partial<Kpis> = data.kpis ?? {}
   const lceRow = leaderboard.find(b => b.brand.toLowerCase().includes('caesar'))
   const topCompetitor = leaderboard.find(b => !b.brand.toLowerCase().includes('caesar'))
@@ -71,7 +76,7 @@ export default function AnswersPage() {
   if (remainder > 0.5) typeBars.push({ label: 'Reviews and other', value: remainder, color: 'bg-gray-200' })
 
   function exportLeaderboardCsv() {
-    const header = 'Brand,Answer Share,Citation Share\n'
+    const header = 'Brand,Share of Model,Citation Share\n'
     const rows = leaderboard.map(r => `${r.brand},${fx(r.answer_share)},${fx(r.citation_share, 0, '%')}`).join('\n')
     const blob = new Blob([header + rows], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
@@ -86,7 +91,7 @@ export default function AnswersPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-lce-orange-dark mb-1">Monitor</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-lce-orange-dark mb-1">Measure</p>
           <h2 className="text-2xl font-semibold">Share of Model</h2>
           <p className="text-text-secondary">How AI engines answer 150 consumer pizza questions today</p>
         </div>
@@ -96,6 +101,17 @@ export default function AnswersPage() {
         </div>
       </div>
 
+      {gateway && gateway.engines.length > 0 && (
+        <div className="card px-5 py-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+          <span className="font-semibold flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-lce-orange" />Engines served through AI Gateway</span>
+          <span className="text-text-secondary">{[...gateway.engines].sort((x, y) => engineRank(x.engine) - engineRank(y.engine)).map(e => e.engine).join(' · ')}</span>
+          <span><b className="tabular-nums">{gateway.answers}</b> <span className="text-text-secondary">answers this probe</span></span>
+          {gateway.logged !== null && gateway.logged > 0 && (
+            <span><b className="tabular-nums">{gateway.logged.toLocaleString()}</b> <span className="text-text-secondary">probe requests tracked by AI Gateway</span></span>
+          )}
+        </div>
+      )}
+
       {kpis.answers != null && kpis.answers < 570 && (
         <div className="badge b-warning !text-sm !px-3 !py-2 w-fit">
           <span className="dot" />
@@ -104,30 +120,14 @@ export default function AnswersPage() {
       )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          icon={<PieChart className="w-5 h-5" />}
-          label="Answer Share"
-          value={fx(kpis.answer_share)}
-          sub={topCompetitor && <span>{topCompetitor.brand} {fx(topCompetitor.answer_share)} · named in {fx(kpis.mention_rate, 0, '%')}</span>}
-        />
-        <StatCard
-          icon={<Medal className="w-5 h-5" />}
-          label="Average rank"
-          value={fx(kpis.avg_rank, 1)}
-          sub="when LCE is mentioned"
-        />
-        <StatCard
-          icon={<LinkIcon className="w-5 h-5" />}
-          label="Citation rate"
-          value={fx(kpis.citation_rate, 0, '%')}
-          sub="cites an official LCE page"
-        />
-        <StatCard
-          icon={<BadgeCheck className="w-5 h-5" />}
-          label="Fact accuracy"
-          value={fx(kpis.fact_accuracy, 0, '%')}
-          sub={<span className="text-red-600 bg-red-50 px-2 py-0.5 rounded-full font-medium">{kpis.wrong_claims ?? 'N/A'} wrong</span>}
-        />
+        <StatCard icon={<PieChart className="w-5 h-5" />} label="Share of Model" value={fx(kpis.answer_share)}
+          sub={topCompetitor && <span>{topCompetitor.brand} {fx(topCompetitor.answer_share)}</span>} />
+        <StatCard icon={<Eye className="w-5 h-5" />} label="Visibility" value={fx(kpis.mention_rate, 0, '%')}
+          sub="of unbranded answers name LCE" />
+        <StatCard icon={<LinkIcon className="w-5 h-5" />} label="Owned citation share" value={fx(kpis.owned_citation_share, 0, '%')}
+          sub="of citations point to LCE pages" />
+        <StatCard icon={<BadgeCheck className="w-5 h-5" />} label="Fact accuracy" value={fx(kpis.fact_accuracy, 0, '%')}
+          sub={<span className="text-red-600 bg-red-50 px-2 py-0.5 rounded-full font-medium">{kpis.wrong_claims ?? 'N/A'} wrong</span>} />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -136,7 +136,7 @@ export default function AnswersPage() {
             <div className="flex items-center gap-3">
               <div className="icon-tile"><Grid3x3 className="w-5 h-5" /></div>
               <div>
-                <h3 className="font-semibold">Answer Share by question cluster</h3>
+                <h3 className="font-semibold">Share of Model by question cluster</h3>
                 <p className="text-sm text-text-secondary">Rank-weighted mention rate per engine</p>
               </div>
             </div>
@@ -144,7 +144,7 @@ export default function AnswersPage() {
           <div className="overflow-x-auto">
             <Heatmap data={heatmap} onCellClick={cluster => {
               const pid = prompt_ids_by_cluster[cluster]
-              if (pid) navigate(`/monitor/prompts/${pid}`)
+              if (pid) navigate(`/measure/questions/${pid}`)
             }} />
           </div>
         </div>
@@ -265,7 +265,7 @@ export default function AnswersPage() {
                       <div className="bg-gray-300" style={{ width: `${rest}%` }} />
                       <div className="bg-red-400" style={{ width: `${t.pct_negative}%` }} />
                     </div>
-                    <p className="text-xs text-text-tertiary mt-1.5 truncate">&quot;{t.sample_quote}&quot; · {t.answers} answers</p>
+                    <p className="text-xs text-text-tertiary mt-1.5 truncate">&quot;{cleanQuote(t.sample_quote)}&quot; · {t.answers} answers</p>
                   </div>
                   <span className={`text-right font-semibold tabular-nums ${t.pct_positive < 60 ? 'text-amber-700' : ''}`}>{fx(t.pct_positive, 0, '%')}</span>
                 </div>

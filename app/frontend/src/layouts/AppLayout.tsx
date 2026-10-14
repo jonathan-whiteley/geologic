@@ -1,20 +1,22 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Sparkles, Radar, Target, FileCheck2, TrendingUp, RotateCcw, Megaphone, Network, Loader2 } from 'lucide-react'
+import { Sparkles, Radar, FileCheck2, TrendingUp, RotateCcw, Megaphone, Network, Loader2 } from 'lucide-react'
 import { api } from '../api/client'
 import { ToastProvider, useToast } from '../components/Toast'
+import GeniePanel from '../components/genie/GeniePanel'
+import { GeniePanelProvider, useGeniePanel } from '../state/genie-panel'
 
 const navItems = [
-  { to: '/monitor', label: 'Monitor', icon: Radar },
-  { to: '/prioritize', label: 'Prioritize', icon: Target },
-  { to: '/act', label: 'Act', icon: FileCheck2 },
+  { to: '/measure', label: 'Measure', icon: Radar },
+  { to: '/fix', label: 'Fix', icon: FileCheck2 },
   { to: '/impact', label: 'Impact', icon: TrendingUp },
 ]
 
 function Shell() {
   const queryClient = useQueryClient()
   const toast = useToast()
+  const { toggle, openPanel } = useGeniePanel()
   const { data: suggestions } = useQuery({ queryKey: ['suggestions'], queryFn: api.suggestions })
   const pendingCount = suggestions?.filter(s => s.state === 'pending_review').length ?? 0
 
@@ -30,6 +32,19 @@ function Shell() {
       toast(err instanceof Error ? err.message : "Couldn't start the reset. Try again.")
     }
   }
+
+  // "/" opens Ask Genie (the panel focuses its composer) unless the user is typing somewhere.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
+      const t = e.target as HTMLElement | null
+      if (t && (['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) || t.isContentEditable)) return
+      e.preventDefault()
+      openPanel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [openPanel])
 
   // Poll the reset job until it finishes, then refresh every screen.
   useEffect(() => {
@@ -85,7 +100,7 @@ function Shell() {
               >
                 <item.icon className="w-4 h-4" />
                 <span>{item.label}</span>
-                {item.to === '/act' && pendingCount > 0 && (
+                {item.to === '/fix' && pendingCount > 0 && (
                   <span className="ml-1 text-[11px] font-semibold bg-lce-orange text-white rounded-full px-1.5">{pendingCount}</span>
                 )}
               </NavLink>
@@ -93,6 +108,10 @@ function Shell() {
           </nav>
 
           <div className="flex items-center gap-1">
+            <button className="btn btn-primary" onClick={toggle} title="Ask Genie (/)" aria-label="Ask Genie">
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">Ask Genie</span>
+            </button>
             <NavLink to="/architecture" title="Architecture"
               className={({ isActive }) => `btn btn-ghost ${isActive ? 'text-lce-orange' : ''}`}>
               <Network className="w-4 h-4" />
@@ -118,7 +137,7 @@ function Shell() {
             >
               <item.icon className="w-4 h-4" />
               <span>{item.label}</span>
-              {item.to === '/act' && pendingCount > 0 && (
+              {item.to === '/fix' && pendingCount > 0 && (
                 <span className="ml-1 text-[11px] font-semibold bg-lce-orange text-white rounded-full px-1.5">{pendingCount}</span>
               )}
             </NavLink>
@@ -145,7 +164,7 @@ function Shell() {
       </main>
 
       <p className="text-center text-xs text-text-tertiary mt-10 pb-6">
-        Built on Databricks · Zerobus · Lakeflow · Agent Bricks · Vector Search · Lakebase · AI/BI · Genie
+        Built on Databricks · Zerobus · Lakeflow · AI Gateway · Agent Bricks · Vector Search · Lakebase · AI/BI · Genie
       </p>
     </div>
   )
@@ -154,7 +173,10 @@ function Shell() {
 export default function AppLayout() {
   return (
     <ToastProvider>
-      <Shell />
+      <GeniePanelProvider>
+        <Shell />
+        <GeniePanel />
+      </GeniePanelProvider>
     </ToastProvider>
   )
 }

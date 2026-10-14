@@ -6,13 +6,26 @@ from geologic.probe.engine import Doc
 class FmapiChat:
     def __init__(self, openai_client):
         self._c = openai_client
+        self._no_temperature = set()  # endpoints that only accept the default temperature (Claude 5.5, GPT-5.5, Gemini 3.8)
 
     @classmethod
     def from_workspace(cls, w):
         return cls(w.serving_endpoints.get_open_ai_client())
 
-    def complete(self, endpoint, messages, max_tokens=600):
-        r = self._c.chat.completions.create(model=endpoint, messages=messages, max_tokens=max_tokens, temperature=0.2)
+    def complete(self, endpoint, messages, max_tokens=600, usage_context=None):
+        kw = {"extra_body": {"usage_context": usage_context}} if usage_context else {}
+        if endpoint not in self._no_temperature:
+            try:
+                return self._text(self._c.chat.completions.create(model=endpoint, messages=messages, max_tokens=max_tokens,
+                                                                  temperature=0.2, **kw))
+            except Exception as e:
+                if "temperature" not in str(e):
+                    raise
+                self._no_temperature.add(endpoint)
+        return self._text(self._c.chat.completions.create(model=endpoint, messages=messages, max_tokens=max_tokens, **kw))
+
+    @staticmethod
+    def _text(r):
         content = r.choices[0].message.content
         if isinstance(content, list):  # reasoning models return typed parts
             return "".join(p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text")

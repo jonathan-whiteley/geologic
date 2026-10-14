@@ -130,3 +130,12 @@ def test_final_state_never_overwrites_a_row_no_longer_publishing():  # finding 9
     st = FakeStore(); st.states["s1"] = ("publishing", None)
     st.reprobe = lambda ids: st.states.__setitem__("s1", ("rejected", None))
     assert publish(SG, st, RULES, 1) == "published" and st.states["s1"] == ("rejected", None)
+
+def test_baseline_source_uses_the_baseline_runs_own_epoch():
+    """The baseline may be re-recorded at any epoch (v2 re-baseline ran at epoch 7), so Reset must not hard-code epoch 1."""
+    from geologic.publish_flow import baseline_source_sql
+    sql = " ".join(baseline_source_sql("c.s.probe_runs", "run_X").split())
+    assert "epoch = 1" not in sql
+    assert "epoch = (SELECT epoch FROM c.s.probe_runs WHERE run_id = 'run_X')" in sql
+    # plus later setup runs of the same epoch (e.g. a post-T0 re-probe), never earlier ones or reset copies
+    assert "run_id = 'run_X' OR (trigger = 'setup' AND started_at >= (SELECT started_at FROM c.s.probe_runs WHERE run_id = 'run_X'))" in sql

@@ -13,6 +13,17 @@ def test_chat_list_content_joins_text_parts():
     parts = [{"type": "reasoning", "summary": []}, {"type": "text", "text": "a"}, {"type": "text", "text": "b"}]
     assert FmapiChat(FakeOpenAI(parts)).complete("ep", []) == "ab"
 
+def test_chat_usage_context_sent_as_extra_body_only_when_given():
+    seen = []
+    def create(**kw):
+        seen.append(kw)
+        return NS(choices=[NS(message=NS(content="x"))])
+    c = FmapiChat(NS(chat=NS(completions=NS(create=create))))
+    c.complete("ep", [], usage_context={"app": "geologic"})
+    c.complete("ep", [])
+    assert seen[0]["extra_body"] == {"usage_context": {"app": "geologic"}}
+    assert "extra_body" not in seen[1]
+
 class FakeIndex:
     def __init__(self, cols, rows): self.cols, self.rows = cols, rows
     def similarity_search(self, **kw):
@@ -46,3 +57,31 @@ def test_menu_candidates_returns_triples():
 
 def test_menu_candidates_empty():
     assert menu_candidates(FakeIndex(["item_id", "search_text", "score"], []), "x") == []
+
+
+class TempRejected(Exception):
+    """Shape of openai.BadRequestError for models that only accept the default temperature."""
+
+
+def test_chat_retries_without_temperature_when_model_rejects_it_and_remembers():
+    seen = []
+    def create(**kw):
+        seen.append(kw)
+        if "temperature" in kw:
+            raise TempRejected("Error code: 400 - Model us.anthropic.claude-sonnet-5-5 does not support the temperature parameter.")
+        return NS(choices=[NS(message=NS(content="ok"))])
+    c = FmapiChat(NS(chat=NS(completions=NS(create=create))))
+    assert c.complete("ep", []) == "ok"
+    assert c.complete("ep", []) == "ok"
+    assert [("temperature" in kw) for kw in seen] == [True, False, False]  # second call skips the doomed attempt
+
+
+def test_chat_other_errors_still_raise():
+    def create(**kw):
+        raise TempRejected("Error code: 429 - rate limited")
+    c = FmapiChat(NS(chat=NS(completions=NS(create=create))))
+    try:
+        c.complete("ep", [])
+        assert False, "expected raise"
+    except TempRejected:
+        pass
