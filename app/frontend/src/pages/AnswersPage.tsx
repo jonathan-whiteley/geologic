@@ -9,6 +9,7 @@ import { api } from '../api/client'
 import type { Kpis, ThemeRow } from '../api/types'
 import { engineRank, fx } from '../lib/format'
 import Heatmap from '../components/Heatmap'
+import CitationPizza from '../components/CitationPizza'
 import { PageSkeleton, ErrorRetry } from '../components/PageState'
 
 const THEME_ICONS: Record<string, typeof PiggyBank> = {
@@ -62,7 +63,6 @@ export default function AnswersPage() {
     : null
 
   const maxSourceShare = Math.max(1, ...citation_sources.map(s => s.share))
-  const typeColors = ['bg-orange-300', 'bg-amber-300', 'bg-gray-400', 'bg-blue-300', 'bg-purple-300', 'bg-teal-300']
   const byType = new Map<string, { label: string; value: number; official: boolean }>()
   for (const s of citation_sources) {
     const cur = byType.get(s.source_type) ?? { label: s.is_official ? 'Official' : s.source_type, value: 0, official: s.is_official }
@@ -72,8 +72,8 @@ export default function AnswersPage() {
   const typeEntries = [...byType.values()]
   const typeTotal = typeEntries.reduce((a, b) => a + b.value, 0)
   const remainder = Math.max(0, 100 - typeTotal)
-  const typeBars = typeEntries.map((e, i) => ({ label: e.label, value: e.value, color: e.official ? 'bg-lce-orange' : typeColors[i % typeColors.length] }))
-  if (remainder > 0.5) typeBars.push({ label: 'Reviews and other', value: remainder, color: 'bg-gray-200' })
+  const typeBars = typeEntries.map(e => ({ label: e.label, value: e.value, official: e.official }))
+  if (remainder > 0.5) typeBars.push({ label: 'Other', value: remainder, official: false })
 
   function exportLeaderboardCsv() {
     const header = 'Brand,Share of Model,Citation Share\n'
@@ -219,20 +219,8 @@ export default function AnswersPage() {
               </div>
             ))}
           </div>
-          <div className="mt-auto pt-5">
-            <div className="flex h-2.5 rounded-full overflow-hidden">
-              {typeBars.map(t => (
-                <div key={t.label} className={t.color} style={{ width: `${t.value}%` }} title={`${t.label} ${fx(t.value, 0, '%')}`} />
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-text-secondary">
-              {typeBars.map(t => (
-                <span key={t.label} className="flex items-center gap-1.5">
-                  <i className={`w-2 h-2 rounded-full block ${t.color}`} />
-                  {t.label} {fx(t.value, 0, '%')}
-                </span>
-              ))}
-            </div>
+          <div className="mt-auto pt-5 border-t border-gray-100">
+            <CitationPizza slices={typeBars} />
           </div>
         </div>
 
