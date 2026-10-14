@@ -5,7 +5,7 @@
 <h1 align="center">GEOlogic</h1>
 
 <p align="center">
-  <b>When a guest asks an AI "how many pizzas for 12 people?", make sure the answer is Little Caesars, with the right facts.</b><br>
+  <b>When a guest asks an AI "what's the best bang for my buck pizza?", make sure the answer is Little Caesars, with the right facts.</b><br>
   A Generative Engine Optimization (GEO) demo on Databricks: measure what four AI answer engines say about the brand, fix the gaps with governed content, and prove the lift.
 </p>
 
