@@ -1,6 +1,6 @@
 import type { HeatCell } from '../api/types'
 
-const CLUSTERS: [string, string][] = [
+export const CLUSTERS: [string, string][] = [
   ['product', 'Product questions'],
   ['value', 'Value and deals'],
   ['comparison', 'Comparisons'],
@@ -82,4 +82,3 @@ export default function Heatmap({ data, onCellClick }: HeatmapProps) {
   )
 }
 
-export { CLUSTERS }

@@ -1,13 +1,12 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import AppLayout from './layouts/AppLayout'
-import MeasureLayout from './layouts/MeasureLayout'
-import AnswersPage from './pages/AnswersPage'
-import PromptsPage from './pages/PromptsPage'
+import MeasurePage from './pages/MeasurePage'
+import PromptDetailPage from './pages/PromptDetailPage'
 import FixPage from './pages/FixPage'
 import ImpactPage from './pages/ImpactPage'
 import ArchitecturePage from './pages/ArchitecturePage'
-import { ActRedirect, MonitorRedirect } from './pages/Redirects'
+import { MonitorRedirect, QuestionRedirect } from './pages/Redirects'
 
 const qc = new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: 1 } } })
 
@@ -17,21 +16,21 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route element={<AppLayout />}>
-            <Route index element={<Navigate to="/measure/answers" replace />} />
-            <Route path="measure" element={<MeasureLayout />}>
-              <Route index element={<Navigate to="answers" replace />} />
-              <Route path="answers" element={<AnswersPage />} />
-              <Route path="questions" element={<PromptsPage />} />
-              <Route path="questions/:promptId" element={<PromptsPage />} />
-            </Route>
+            <Route index element={<Navigate to="/measure" replace />} />
+            <Route path="measure" element={<MeasurePage />} />
+            <Route path="measure/prompts/:promptId" element={<PromptDetailPage />} />
             <Route path="fix" element={<FixPage />} />
             <Route path="impact" element={<ImpactPage />} />
             <Route path="architecture" element={<ArchitecturePage />} />
-            {/* v1 bookmarks */}
+            {/* v1 and v2 bookmarks */}
+            <Route path="measure/answers" element={<Navigate to="/measure" replace />} />
+            <Route path="measure/questions" element={<Navigate to="/measure" replace />} />
+            <Route path="measure/questions/:promptId" element={<QuestionRedirect />} />
             <Route path="monitor/*" element={<MonitorRedirect />} />
             <Route path="prioritize" element={<Navigate to="/fix" replace />} />
-            <Route path="act" element={<ActRedirect />} />
+            <Route path="act" element={<Navigate to="/fix" replace />} />
             <Route path="prove" element={<Navigate to="/impact" replace />} />
+            <Route path="signals" element={<Navigate to="/fix" replace />} />
           </Route>
         </Routes>
       </BrowserRouter>

@@ -1,15 +1,14 @@
-import { Navigate, useParams, useSearchParams } from 'react-router-dom'
+import { Navigate, useParams } from 'react-router-dom'
 
+/** v1 and v2 bookmarks: /monitor/prompts/:id → the prompt detail, anything else under /monitor → Measure. */
 export function MonitorRedirect() {
   const { '*': rest = '' } = useParams()
   const m = rest.match(/^prompts\/([^/]+)/)
-  if (m) return <Navigate to={`/measure/questions/${m[1]}`} replace />
-  if (rest.startsWith('prompts')) return <Navigate to="/measure/questions" replace />
-  return <Navigate to="/measure/answers" replace />
+  return <Navigate to={m ? `/measure/prompts/${m[1]}` : '/measure'} replace />
 }
 
-export function ActRedirect() {
-  const [params] = useSearchParams()
-  const opp = params.get('opp')
-  return <Navigate to={opp ? `/fix?opp=${encodeURIComponent(opp)}` : '/fix'} replace />
+/** /measure/questions/:id → /measure/prompts/:id */
+export function QuestionRedirect() {
+  const { promptId = '' } = useParams()
+  return <Navigate to={`/measure/prompts/${promptId}`} replace />
 }

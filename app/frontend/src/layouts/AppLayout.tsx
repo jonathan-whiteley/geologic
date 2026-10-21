@@ -21,8 +21,8 @@ function Shell() {
   const queryClient = useQueryClient()
   const toast = useToast()
   const { toggle, openPanel } = useGeniePanel()
-  const { data: suggestions } = useQuery({ queryKey: ['suggestions'], queryFn: api.suggestions })
-  const pendingCount = suggestions?.filter(s => s.state === 'pending_review').length ?? 0
+  const { data: fixes } = useQuery({ queryKey: ['fixes'], queryFn: api.fixes })
+  const pendingCount = fixes?.filter(f => f.state === 'pending_review').length ?? 0
 
   const [resetRunId, setResetRunId] = useState<number | null>(null)
   const [showSettings, setShowSettings] = useState(false)
@@ -50,7 +50,7 @@ function Shell() {
   const handleReset = async () => {
     setShowSettings(false)
     if (resetRunId) return
-    if (!window.confirm('Reset the demo? This restores the starting pages, suggestions and probe results.')) return
+    if (!window.confirm('Reset the demo? This restores the starting pages, fixes and probe results.')) return
     try {
       const { run_id } = await api.reset()
       setResetRunId(run_id)
@@ -112,7 +112,7 @@ function Shell() {
               </div>
               <div className="leading-tight">
                 <p className="text-lg font-bold tracking-tight"><span className="text-lce-orange">GEO</span>logic</p>
-                <p className="text-xs text-text-secondary hidden md:block">littlecaesars.com · 62 pages</p>
+                <p className="text-xs text-text-secondary hidden md:block">littlecaesars.com · simulated web</p>
               </div>
             </div>
           </div>
