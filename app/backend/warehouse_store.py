@@ -147,7 +147,9 @@ class WarehouseStore:
         claims = self.q(f"SELECT * FROM {S.fq('v_latest_claims')} WHERE prompt_id IN ({ids})")
         return answer_map(answers, claims, {a["prompt_id"]: a["prompt_text"] for a in answers})
 
-    def reask(self, prompt_ids):
+    def reask(self, prompt_ids, epoch=None):
+        """Re-ask under `epoch` (the fix's epoch; the current epoch for Track and run). If a Reset moved the epoch while the
+        engines answered, nothing is written."""
         from geologic.clients import FmapiChat
         from geologic.reask import answer_map, make_context, make_engines, reask
         ids = _in_list(prompt_ids)
@@ -158,12 +160,17 @@ class WarehouseStore:
         owned = [r["doc_id"] for r in self.q(f"SELECT doc_id FROM {S.fq('web_corpus')} WHERE owner_class = 'Owned'")]
         chat = FmapiChat.from_workspace(self.w)
         engines = make_engines(self.w, chat, self.embedder, S.sources_index, S.engines)
+        epoch = self.repo.epoch() if epoch is None else epoch
         run, answers, claims = reask(prompts, engines, make_context(chat, S.judge_endpoint, facts, owned, date.today()),
-                                     self.repo.epoch(), self.trigger)
+                                     epoch, self.trigger)
+        self._chips(answers)
+        texts = {p["prompt_id"]: p["prompt_text"] for p in prompts}
+        if self.repo.epoch() != epoch:
+            print(f"re-ask {run['run_id']}: epoch moved from {epoch}; results not written")
+            return answer_map(answers, claims, texts)
         for sql, params in (insert_batches(S.fq("probe_responses"), answers, ANSWER_ARRAYS)
                             + insert_batches(S.fq("claims"), claims, set())
                             + insert_batches(S.fq("probe_runs"), [run], {"prompt_ids"}, ts_cols={"started_at", "finished_at"})):
             self.q(sql, params)
         self.q(f"UPDATE {S.fq('probe_state')} SET latest_run_id = :r WHERE id = 1", {"r": run["run_id"]})
-        self._chips(answers)
-        return answer_map(answers, claims, {p["prompt_id"]: p["prompt_text"] for p in prompts})
+        return answer_map(answers, claims, texts)

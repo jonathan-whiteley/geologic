@@ -101,9 +101,18 @@ def test_published_status_carries_only_this_runs_entry(fakes):
            "measured_at": NOW - timedelta(hours=5), "status": "ok", "before_mentioned": False, "after_mentioned": False,
            "before_owned_cited": False, "after_owned_cited": False, "before_claim_tags": [], "after_claim_tags": [],
            "before_answer": "b", "after_answer": "a", "before_cited": [], "after_cited": []}
-    R.prev = [old, {**old, "epoch": 2, "measured_at": NOW - timedelta(seconds=5), "after_mentioned": True}]
+    old["approved_at"] = NOW - timedelta(hours=5)
+    # This run's rows carry approved_at == reviewed_at. Its measured_at (app clock) is a little earlier than reviewed_at
+    # (Postgres now()): clock skew must not drop them.
+    R.prev = [old, {**old, "epoch": 2, "approved_at": R.rows["fx_a"]["reviewed_at"], "measured_at": NOW - timedelta(seconds=41),
+                    "after_mentioned": True}]
     e = c.get("/api/fixes/fx_a/status").json()["entry"]
     assert e["rehearsal"] is False and e["prompts"][0]["after"]["mentioned"] == 1
+    R.rows["fx_a"]["state"] = "publishing"
+    R.rows["fx_a"]["reviewed_at"] = NOW - timedelta(seconds=95)
+    R.prev[1]["approved_at"] = R.rows["fx_a"]["reviewed_at"]
+    fb = c.get("/api/fixes/fx_a/status").json()["fallback"]
+    assert fb["entry"]["epoch"] == 1 and fb["rehearsed_at"].startswith("2026-10-22T08:00")   # only the rehearsal stands in
 
 def test_fast_publish_exception_releases():  # Review Focus 1
     class BoomRepo(Repo):
@@ -128,3 +137,23 @@ def test_edit_regrounds_unchanged_and_edited_sentences():  # spec 5.4: edits sta
     assert [x["fact_ids"] for x in sents] == [["F12", "F14"], ["F12"], []]
     assert [x["kind"] for x in sents] == ["fact", "fact", "copy"]
     assert final["tier"] == "T1" and all(c["ok"] for c in final["checks"])
+
+
+def test_approve_releases_when_the_publisher_cannot_start(fakes):   # fix round 1
+    R, P, J = fakes
+    class Dead:
+        def start(self, fid): raise RuntimeError("cannot start thread")
+    app.dependency_overrides[deps.get_publisher] = lambda: Dead()
+    r = c.post("/api/fixes/fx_a/approve")
+    assert r.status_code == 502 and R.released == [("fx_a", FRIENDLY_ERROR)] and R.rows["fx_a"]["state"] == "pending_review"
+
+
+def test_status_releases_a_stuck_publishing_row(fakes):   # fix round 1: a dead thread never leaves a row publishing
+    R, P, J = fakes
+    R.rows["fx_a"].update(state="publishing", reviewed_at=NOW - timedelta(minutes=6))
+    s = c.get("/api/fixes/fx_a/status").json()
+    assert R.released == [("fx_a", FRIENDLY_ERROR)] and s["state"] == "pending_review" and s["error"] == FRIENDLY_ERROR
+    assert s["fallback"] is None
+    R.released.clear()
+    R.rows["fx_a"].update(state="publishing", reviewed_at=NOW - timedelta(minutes=4))
+    assert c.get("/api/fixes/fx_a/status").json()["state"] == "publishing" and R.released == []

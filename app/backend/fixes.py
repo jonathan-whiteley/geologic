@@ -103,7 +103,7 @@ class FixRepo:
         self._exec("UPDATE fixes SET state = %s, error = %s WHERE fix_id = %s AND state = 'publishing'", (state, error, fix_id))
 
     def set_step(self, fix_id, n):
-        self._exec("UPDATE fixes SET publish_step = %s WHERE fix_id = %s", (n, fix_id))
+        self._exec("UPDATE fixes SET publish_step = %s WHERE fix_id = %s AND state = 'publishing'", (n, fix_id))
 
     def audit(self, actor, action, ref, rule, point):
         self._exec("INSERT INTO audit_events (actor, action, object_ref, exclusion_rule_id, enforcement_point) "

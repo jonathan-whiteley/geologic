@@ -12,6 +12,7 @@ from geologic.publish_flow import FRIENDLY_ERROR, STEP_LABELS
 from geologic.results import summarize
 
 router = APIRouter()
+STUCK_S = 300   # a row 'publishing' longer than this is released (the publisher thread or job died without releasing it)
 _REASONS = {r["rule_id"]: r["reason"] for r in exclusion_rules()}
 
 
@@ -101,7 +102,12 @@ def approve_t0(req: Request, repo=Depends(deps.get_fix_repo), jobs=Depends(deps.
 def approve(fix_id: str, req: Request, repo=Depends(deps.get_fix_repo), publisher=Depends(deps.get_publisher)):
     if not repo.claim(fix_id, _user(req)):
         raise HTTPException(409, "This fix is already publishing or no longer needs review.")
-    publisher.start(fix_id)
+    try:
+        publisher.start(fix_id)
+    except Exception as e:
+        print(f"approve {fix_id}: could not start the publisher: {type(e).__name__}: {e}")
+        repo.release(fix_id, FRIENDLY_ERROR)
+        raise HTTPException(502, "Couldn't start publishing. Try again.")
     return {"started": True}
 
 
@@ -146,14 +152,20 @@ def fix_status(fix_id: str, repo=Depends(deps.get_fix_repo), clock=Depends(deps.
         raise HTTPException(404, "Unknown fix")
     rv = s.get("reviewed_at")
     elapsed = int((clock() - rv).total_seconds()) if rv else None
+    if s["state"] == "publishing" and elapsed is not None and elapsed > STUCK_S:
+        print(f"status {fix_id}: publishing for {elapsed}s, releasing")
+        repo.release(fix_id, FRIENDLY_ERROR)
+        s = {**s, "state": "pending_review", "error": FRIENDLY_ERROR}
     entry = fallback = None
     if s["state"] == "published" or (s["state"] == "publishing" and elapsed is not None and elapsed > settings.reask_fallback_s):
         epoch, rows = repo.epoch(), repo.results(fix_id)
+        # This approval's rows carry approved_at == the fix's reviewed_at (results_rows stores it); any other approved_at is a
+        # rehearsal. No clock comparison: measured_at is the app clock, reviewed_at is Postgres now().
+        mine = lambda r: rv is not None and r.get("approved_at") == rv
         if s["state"] == "published":
-            fresh = [r for r in rows if rv is None or r["measured_at"] >= rv]
-            entry = (summarize(fresh, epoch) or [None])[0]
-        else:   # still re-asking past the fallback window: a rehearsal (results measured before this approval) may stand in
-            prev = [r for r in rows if r["measured_at"] < rv]
+            entry = (summarize([r for r in rows if mine(r)], epoch) or [None])[0]
+        else:   # still re-asking past the fallback window: a rehearsal may stand in
+            prev = [r for r in rows if not mine(r)]
             if prev:
                 fallback = {"rehearsed_at": max(r["measured_at"] for r in prev).isoformat(), "entry": summarize(prev, epoch)[0]}
     return {"state": s["state"], "publish_step": s["publish_step"], "step_labels": list(STEP_LABELS), "error": s.get("error"),

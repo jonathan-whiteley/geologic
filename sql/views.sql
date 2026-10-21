@@ -3,7 +3,8 @@
 CREATE OR REPLACE VIEW {{schema}}.v_prompts AS
 SELECT prompt_id, prompt_text, cluster, priority, branded, base_volume, true AS tracked FROM {{schema}}.prompts;
 
--- Only runs with status 'ok' are ranked: a degraded run (probe health gate) never shadows an earlier ok run.
+-- Only ok answers of ok runs are ranked: a degraded run (probe health gate) or a failed engine in a targeted re-ask
+-- never shadows the earlier ok answer for that prompt and engine (fix_results still records engine_error).
 CREATE OR REPLACE VIEW {{schema}}.v_latest_responses AS
 SELECT r.* EXCEPT (rn) FROM (
   SELECT pr.*, runs.started_at AS run_started_at, runs.finished_at AS run_finished_at,
@@ -12,7 +13,7 @@ SELECT r.* EXCEPT (rn) FROM (
   JOIN {{schema}}.probe_runs runs USING (run_id)
   JOIN {{schema}}.probe_state st ON st.id = 1 AND pr.epoch = st.current_epoch
   JOIN {{schema}}.prompts p ON p.prompt_id = pr.prompt_id
-  WHERE runs.status = 'ok'
+  WHERE runs.status = 'ok' AND pr.status = 'ok'
 ) r WHERE rn = 1;
 
 CREATE OR REPLACE VIEW {{schema}}.v_latest_claims AS

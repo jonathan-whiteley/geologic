@@ -128,7 +128,7 @@ def publish_fix(fix, store, rules, *, now, clock=None, focus=None) -> str:
         store.set_step(fix["fix_id"], 4)
         pids = list(fix["prompt_ids"])
         before = store.latest(pids)
-        after = store.reask(pids)
+        after = store.reask(pids, epoch=fix["epoch"])
         _record(fix, store, before, after, now, clock, focus)
     except _Stale:
         return _stale(fix, store)
@@ -161,7 +161,7 @@ def publish_batch(fixes, store, rules, *, now, focus_by_issue=None, clock=None) 
             store.set_step(fix["fix_id"], 4)
         pids = sorted({p for fix in going for p in fix["prompt_ids"]})
         before = store.latest(pids)
-        after = store.reask(pids)
+        after = store.reask(pids, epoch=going[0]["epoch"])
     except Exception as e:
         return {**outcomes, **{fix["fix_id"]: _failed(fix, store, e) for fix in going}}
     for fix in going:
@@ -272,7 +272,9 @@ class DeltaJobStore:
         claims = self._rows(f"SELECT * FROM {S.fq('v_latest_claims')} WHERE prompt_id IN ({ids})")
         return answer_map(answers, claims, {a["prompt_id"]: a["prompt_text"] for a in answers})
 
-    def reask(self, prompt_ids):
+    def reask(self, prompt_ids, epoch=None):
+        """Re-ask under `epoch` (the fix's epoch). If a Reset moved the epoch while the engines answered, nothing is written:
+        the caller sees the stale epoch and returns the row to review."""
         from datetime import date
         from geologic.clients import FmapiChat
         from geologic.probe.runner import ANSWER_SCHEMA, CLAIM_SCHEMA
@@ -283,7 +285,8 @@ class DeltaJobStore:
         prompts = self._rows(f"SELECT * FROM {S.fq('prompts')} WHERE prompt_id IN ({ids})")
         facts = self._rows(f"SELECT * FROM {S.fq('brand_facts')}")
         owned = [r["doc_id"] for r in self._rows(f"SELECT doc_id FROM {S.fq('web_corpus')} WHERE owner_class = 'Owned'")]
-        epoch = sp.table(S.fq("probe_state")).first()["current_epoch"]
+        current = lambda: sp.table(S.fq("probe_state")).first()["current_epoch"]
+        epoch = current() if epoch is None else epoch
         chat = FmapiChat.from_workspace(self.w)
         engines = make_engines(self.w, chat, self.embedder, S.sources_index, S.engines)
         run, answers, claims = reask(prompts, engines, make_context(chat, S.judge_endpoint, facts, owned, date.today()), epoch, "publish")
@@ -292,6 +295,10 @@ class DeltaJobStore:
             cols = [c.split()[0] for c in schema.split(", ")]
             sp.createDataFrame([tuple(r[k] for k in cols) for r in rows], schema).write.mode("append").saveAsTable(S.fq(table))
 
+        texts = {p["prompt_id"]: p["prompt_text"] for p in prompts}
+        if current() != epoch:
+            print(f"re-ask {run['run_id']}: epoch moved from {epoch}; results not written")
+            return answer_map(answers, claims, texts)
         if answers:
             write(answers, ANSWER_SCHEMA, "probe_responses")
         if claims:
@@ -311,7 +318,7 @@ class DeltaJobStore:
         self._lake("UPDATE fixes SET state = %s, error = %s WHERE fix_id = %s AND state = 'publishing'", (state, error, fid))
 
     def set_step(self, fid, n):
-        self._lake("UPDATE fixes SET publish_step = %s WHERE fix_id = %s", (n, fid))
+        self._lake("UPDATE fixes SET publish_step = %s WHERE fix_id = %s AND state = 'publishing'", (n, fid))
 
     def audit(self, actor, action, ref, rule, point):
         self._lake("INSERT INTO audit_events (actor, action, object_ref, exclusion_rule_id, enforcement_point) "

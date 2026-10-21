@@ -69,20 +69,26 @@ class Tracker:
         if not _NEW_ID.match(prompt_id or ""):
             raise ValueError("Tracked prompt limit reached.")
         sug = self.reads.suggestion(suggestion_id) if suggestion_id else None
-        cluster = (sug or {}).get("cluster")
-        if not cluster:
-            try:
-                cluster = (self.nearest(text) or {}).get("cluster")
-            except Exception as e:
-                print(f"track: nearest failed: {type(e).__name__}: {e}")
-                raise SearchUnavailable("Search is unavailable right now.") from e
-        cluster = cluster or "product"
+        try:   # embed first: Vector Search or the embedding endpoint being down fails before any write
+            near = self.nearest(text)
+        except Exception as e:
+            print(f"track: nearest failed: {type(e).__name__}: {e}")
+            raise SearchUnavailable("Search is unavailable right now.") from e
+        cluster = (sug or {}).get("cluster") or (near or {}).get("cluster") or "product"
         self.reads.insert_prompt({"prompt_id": prompt_id, "prompt_text": text, "cluster": cluster, "priority": "Bronze",
                                   "branded": is_branded(text), "base_volume": 300, "calendar_tags": [], "source": "tracked",
                                   "tracked_by": user})
+        try:   # the re-ask reads the new prompts row; the vector goes in only once the answers exist
+            answers = self.store_factory().reask([prompt_id])
+            self.index_writer({"prompt_id": prompt_id, "prompt_text": text, "kind": "tracked", "cluster": cluster}, delete=suggestion_id)
+        except Exception as e:
+            print(f"track {prompt_id} failed: {type(e).__name__}: {e}; removing the prompt")
+            try:
+                self.reads.delete_prompt(prompt_id)
+            except Exception as e2:
+                print(f"track {prompt_id}: could not remove the prompt: {type(e2).__name__}: {e2}")
+            raise SearchUnavailable("Search is unavailable right now.") from e
         if suggestion_id:
             self.reads.mark_suggestion_tracked(suggestion_id)
-        self.index_writer({"prompt_id": prompt_id, "prompt_text": text, "kind": "tracked", "cluster": cluster}, delete=suggestion_id)
-        answers = self.store_factory().reask([prompt_id])
         return {"prompt_id": prompt_id, "prompt_text": text, "scorecard": scorecard_from(answers, prompt_id),
                 "elapsed_s": round(self.clock() - start, 1)}

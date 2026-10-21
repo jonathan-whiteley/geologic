@@ -77,3 +77,5 @@ def test_store_state_writes_only_touch_publishing_rows():
     log = []
     repo(log).set_state("fx_a", "published")
     assert "AND state = 'publishing'" in log[-1][0]
+    repo(log).set_step("fx_a", 3)
+    assert "AND state = 'publishing'" in log[-1][0] and log[-1][1] == (3, "fx_a")

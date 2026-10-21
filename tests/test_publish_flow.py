@@ -10,6 +10,7 @@ class Store:
         self.epoch, self.engines, self.fail_reask = epoch, engines, fail_reask
         self.pages = {"pg_deals_game_day": {"page_id": "pg_deals_game_day", "url": "u", "body": "## Game Day Deals\nx", "jsonld": None, "version": 1}}
         self.states, self.steps, self.audits, self.docs, self.versions, self.results, self.reasked = {}, [], [], [], [], [], []
+        self.reask_epochs = []
     def current_epoch(self): return self.epoch
     def get_page(self, pid): return dict(self.pages[pid]) if pid in self.pages else None
     def write_page(self, p): self.pages[p["page_id"]] = p
@@ -18,8 +19,8 @@ class Store:
     def latest(self, pids): return {(p, e): {"answer": {"engine": e, "prompt_id": p, "status": "ok", "lce_mentioned": False, "lce_rank": None,
                                                          "cited_doc_ids": [], "retrieved_doc_ids": [], "answer": "b"}, "claims": []}
                                     for p in pids for e in self.engines}
-    def reask(self, pids):
-        self.reasked.append(list(pids))
+    def reask(self, pids, epoch=None):
+        self.reasked.append(list(pids)); self.reask_epochs.append(epoch)
         if self.fail_reask: raise RuntimeError("gateway down")
         out = {}
         for p in pids:
@@ -124,3 +125,11 @@ def test_baseline_row_reparses_lists_under_the_new_epoch():
                           "checks": '[{"key": "grounded"}]', "sentences": "[]", "created_at": "t"}, 7)
     assert r["epoch"] == 7 and r["prompt_ids"] == ["q201"] and r["grounding_fact_ids"] == ["F12"] and "created_at" not in r
     assert r["checks"] == '[{"key": "grounded"}]'
+
+
+def test_reask_runs_under_the_fix_epoch():   # fix round 1: probe rows are written under the fix's epoch
+    st = Store()
+    publish_fix(FIX, st, RULES, now=NOW)
+    a = {**FIX, "fix_id": "fx_a", "asset_type": "jsonld", "section_id": "jsonld", "op": "replace", "patch_text": '{"@type":"Organization"}'}
+    publish_batch([a], st, RULES, now=NOW)
+    assert st.reask_epochs == [1, 1]

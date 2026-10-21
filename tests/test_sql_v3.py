@@ -102,3 +102,8 @@ def test_genie_space_v3_instructions():
                    "v_public_signals", "Claude, ChatGPT, Gemini, Meta AI"):
         assert needle in text, needle
     assert "gold_opportunities" not in text and "verdict" not in text
+
+
+def test_latest_responses_ranks_only_ok_answers():   # a failed engine in a targeted re-ask keeps its earlier ok answer
+    latest = _view("sql/views.sql", "v_latest_responses")
+    assert "pr.status = 'ok'" in latest and latest.index("pr.status = 'ok'") < latest.index("WHERE rn = 1")

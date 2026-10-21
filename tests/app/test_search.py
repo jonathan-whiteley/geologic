@@ -55,3 +55,38 @@ def test_track_refuses_an_id_outside_q3xx():
         def next_prompt_id(self): return "q400"
     with pytest.raises(ValueError, match="limit"):
         Tracker(Reads(), None, None, clock=lambda: 0.0, nearest=None).track("pizza for 20", None, "me")
+
+
+class TrackReads:
+    def __init__(self): self.inserted, self.deleted, self.marked = [], [], []
+    def next_prompt_id(self): return "q301"
+    def insert_prompt(self, row): self.inserted.append(row)
+    def delete_prompt(self, pid): self.deleted.append(pid)
+    def suggestion(self, sid): return {"cluster": "value"}
+    def mark_suggestion_tracked(self, sid): self.marked.append(sid)
+
+
+def test_track_fails_before_any_write_when_embedding_is_down():   # fix round 1
+    reads = TrackReads()
+    def down(text): raise RuntimeError("embeddings down")
+    t = Tracker(reads, None, None, clock=lambda: 0.0, nearest=down)
+    with pytest.raises(SearchUnavailable):
+        t.track("pizza for 20 people", "c004", "me")
+    assert reads.inserted == [] and reads.marked == []
+
+
+def test_track_rolls_back_the_prompt_when_the_reask_or_index_fails():   # fix round 1
+    near = lambda text: {"cluster": "game_day_party"}
+    class Down:
+        def reask(self, pids): raise RuntimeError("gateway down")
+    reads = TrackReads()
+    with pytest.raises(SearchUnavailable):
+        Tracker(reads, lambda: Down(), lambda row, delete=None: None, clock=lambda: 0.0, nearest=near).track("pizza for 20", "c004", "me")
+    assert reads.inserted[0]["cluster"] == "value" and reads.deleted == ["q301"] and reads.marked == []
+    class Up:
+        def reask(self, pids): return {}
+    def no_index(row, delete=None): raise RuntimeError("vs down")
+    reads = TrackReads()
+    with pytest.raises(SearchUnavailable):
+        Tracker(reads, lambda: Up(), no_index, clock=lambda: 0.0, nearest=near).track("pizza for 20", None, "me")
+    assert reads.deleted == ["q301"]

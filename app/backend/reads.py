@@ -196,6 +196,12 @@ class Reads:
             params[f"m{i}"], params[f"v{i}"] = v["month"].isoformat(), v["est_volume"]
         query(f"INSERT INTO {T('question_volume_monthly')} (prompt_id, month, est_volume) VALUES {values}", params)
 
+    def delete_prompt(self, prompt_id):
+        """Undo insert_prompt when Track and run fails part way (only server-generated q3xx ids)."""
+        if re.fullmatch(r"q3\d{2}", prompt_id or ""):
+            query(f"DELETE FROM {T('question_volume_monthly')} WHERE prompt_id = :p", {"p": prompt_id})
+            query(f"DELETE FROM {T('prompts')} WHERE prompt_id = :p", {"p": prompt_id})
+
     def suggestion(self, suggestion_id):
         if not _SAFE_ID.match(suggestion_id or ""):
             return None
