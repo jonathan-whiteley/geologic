@@ -48,6 +48,40 @@ def fix_summary(repo=Depends(deps.get_fix_repo)):
             "quarantined": repo.quarantine_points()["count"], "review_mode": True}
 
 
+def _fix_lite(f):
+    return {k: f.get(k) for k in ("fix_id", "tier", "asset_type", "state")}
+
+
+def _fixes_by_issue(repo):
+    try:
+        rows = repo.list()
+    except Exception as e:   # Lakebase down: the issue queue still renders, without fix chips
+        print(f"fixes for issues: {type(e).__name__}: {e}")
+        rows = []
+    out = {}
+    for f in rows:
+        out.setdefault(f["issue_id"], []).append(f)
+    return out
+
+
+@router.get("/issues")
+def issues(type: str | None = None, cluster: str | None = None, reads=Depends(deps.get_reads), repo=Depends(deps.get_fix_repo)):
+    by = _fixes_by_issue(repo)
+    return [{**i, "fixes": [_fix_lite(f) for f in by.get(i["issue_id"], [])]} for i in reads.issues(type or None, cluster or None)]
+
+
+@router.get("/issues/{issue_id}")
+def issue_detail(issue_id: str, reads=Depends(deps.get_reads), repo=Depends(deps.get_fix_repo)):
+    d = reads.issue_detail(issue_id)
+    if d is None:
+        raise HTTPException(404, "Unknown issue")
+    mine = _fixes_by_issue(repo).get(issue_id, [])
+    mine.sort(key=lambda f: (f.get("tier") == "T2", f.get("tier") or "", f.get("asset_type") or ""))   # T2 last
+    d["issue"]["fixes"] = [_fix_lite(f) for f in mine]
+    d["fixes"] = mine
+    return d
+
+
 @router.post("/fixes/approve-t0", status_code=202)
 def approve_t0(req: Request, repo=Depends(deps.get_fix_repo), jobs=Depends(deps.get_jobs)):
     ids = repo.claim_t0(_user(req))

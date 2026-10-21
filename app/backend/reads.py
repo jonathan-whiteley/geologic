@@ -6,12 +6,18 @@ import re
 from datetime import date
 from backend.warehouse import query
 from geologic.brands import LOGOS
+from geologic.claims import is_current, split_sentences
 from geologic.datagen.prompts_ext import monthly_volume
+from geologic.fixes import relevant_facts
 from geologic.issues import claim_key
+from geologic.photos import credit_for
 
 T = lambda n: f"{os.environ.get('CATALOG_NAME', 'jdub_demo')}.{os.environ.get('SCHEMA_NAME', 'geologic')}.{n}"
 _PID = re.compile(r"^q\d{3}$")
 _SAFE_ID = re.compile(r"^[A-Za-z0-9_]+$")
+_ISSUE_ID = re.compile(r"^is_[0-9a-f]{10}$")
+ISSUE_FIELDS = "issue_id, rank, issue_type, title, cluster, action_lane, prompt_ids, missed_answers, moment_id"
+EXCERPT_CHARS = 300
 ENGINE_ORDER = ("Claude", "ChatGPT", "Gemini", "Meta AI")
 CLAIM_FIELDS = ("claim_id", "text", "subject", "attribute", "stated_value", "tag", "fact_id", "source_doc_id")
 DOC_FIELDS = "doc_id, domain, owner_class, title, url, last_updated"
@@ -38,6 +44,21 @@ def _engine_key(engine):
 def _unknown_doc(doc_id):
     return {"doc_id": doc_id, "domain": None, "owner_class": "Owned" if str(doc_id).startswith("lce_") else None,
             "title": doc_id, "url": None, "last_updated": None}
+
+
+def excerpt(body, stated_value):
+    """The sentence of a source that states the value (the quote shown in Fix), else the first EXCERPT_CHARS characters."""
+    body = body or ""
+    if stated_value:
+        hit = next((t for t in split_sentences(body) if stated_value in t), None)
+        if hit:
+            return hit
+    return body[:EXCERPT_CHARS]
+
+
+def _fact_row(f, today):
+    return {"fact_id": f["fact_id"], "subject_name": f.get("subject_name"), "attribute": f["attribute"], "value": f["value"],
+            "valid_from": f["valid_from"], "valid_to": f.get("valid_to"), "current": is_current(f, today)}
 
 
 class Reads:
@@ -180,3 +201,75 @@ class Reads:
             return None
         r = query(f"SELECT subject, attribute FROM {T('issues')} WHERE issue_id = :i", {"i": issue_id})
         return (r[0]["subject"], r[0]["attribute"]) if r and r[0]["subject"] and r[0]["attribute"] else None
+
+    # Fix
+    def issues(self, issue_type=None, cluster=None):
+        where, params = [], {}
+        if issue_type:
+            where.append("issue_type = :t"); params["t"] = issue_type
+        if cluster:
+            where.append("cluster = :c"); params["c"] = cluster
+        cond = f" WHERE {' AND '.join(where)}" if where else ""
+        return query(f"SELECT {ISSUE_FIELDS} FROM {T('issues')}{cond} ORDER BY rank", params or None)
+
+    def _moment(self, moment_id):
+        m = query(f"SELECT * FROM {T('moments')} WHERE moment_id = :m", {"m": moment_id})
+        if not m:
+            return None
+        m = m[0]
+        # Public signals only: a quarantined post (the sportsbook repost) never reaches the UI.
+        sids = _in_list(m.get("signal_ids"))
+        sig = query(f"""SELECT signal_id, author, image_uri, image_match_score FROM {T('v_public_signals')}
+                        WHERE signal_id IN ({sids}) ORDER BY (image_uri IS NULL), reach DESC LIMIT 1""") if sids else []
+        sig = sig[0] if sig else {}
+        person = query(f"SELECT display_name FROM {T('personas')} WHERE persona_id = :p", {"p": m["persona_id"]}) if m.get("persona_id") else []
+        item = query(f"SELECT name FROM {T('menu_items')} WHERE item_id = :i", {"i": m["item_id"]}) if m.get("item_id") else []
+        uri = sig.get("image_uri")
+        return {"moment_id": m["moment_id"], "title": m["title"], "kind": m.get("kind"), "author": sig.get("author"),
+                "persona_name": person[0]["display_name"] if person else None, "reach": m.get("reach"), "velocity": m.get("velocity"),
+                "item_name": item[0]["name"] if item else m.get("item_id"),
+                "image_url": f"/api/signals/{sig['signal_id']}/image" if uri else None, "image_credit": credit_for(uri),
+                "image_match": m.get("image_match") if m.get("image_match") is not None else sig.get("image_match_score")}
+
+    def issue_detail(self, issue_id, today=None):
+        """Three blocks (spec 5.3): what AI said, what is true (brand_facts in Unity Catalog), and the fixes (added by the route)."""
+        if not _ISSUE_ID.match(issue_id or ""):
+            return None
+        rows = query(f"SELECT * FROM {T('issues')} WHERE issue_id = :i", {"i": issue_id})
+        if not rows:
+            return None
+        i, today = rows[0], today or date.today()
+        pids = _in_list(i.get("prompt_ids"))
+        texts = {r["prompt_id"]: r["prompt_text"] for r in query(f"SELECT prompt_id, prompt_text FROM {T('prompts')} "
+                                                                 f"WHERE prompt_id IN ({pids})")} if pids else {}
+        keys = set(i.get("claim_keys") or [])
+        raw = query(f"SELECT engine, prompt_id, text, stated_value, tag, source_doc_id, subject, attribute FROM {T('v_latest_claims')} "
+                    f"WHERE prompt_id IN ({pids})") if pids and keys else []
+        claims = sorted(({"engine": c["engine"], "prompt_id": c["prompt_id"], "prompt_text": texts.get(c["prompt_id"]),
+                          "text": c.get("text"), "stated_value": c.get("stated_value"), "tag": c["tag"]}
+                         for c in raw if claim_key(c["tag"], c.get("source_doc_id"), c["subject"], c["attribute"]) in keys),
+                        key=lambda c: (_engine_key(c["engine"]), c["prompt_id"]))
+        passage = None
+        if i.get("source_doc_id") and _SAFE_ID.match(i["source_doc_id"]):
+            d = query(f"SELECT doc_id, domain, owner_class, last_updated, title, url, body FROM {T('web_corpus')} WHERE doc_id = :d",
+                      {"d": i["source_doc_id"]})
+            if d:
+                d = d[0]
+                passage = {k: d.get(k) for k in ("doc_id", "domain", "owner_class", "last_updated", "title", "url")}
+                passage["excerpt"] = excerpt(d.get("body"), i.get("stated_value"))
+        moment = self._moment(i["moment_id"]) if i.get("moment_id") else None
+        scorecards = ([{"prompt_id": p, "prompt_text": texts.get(p), "answers": self.scorecard(p)} for p in i.get("prompt_ids") or []]
+                      if i.get("issue_type") == "moment_gap" else [])
+        facts = self.facts()
+        subj, attr = i.get("subject"), i.get("attribute")
+        if subj and attr:
+            picked = [f for f in facts if f["subject"] == subj and f["attribute"] == attr]
+        else:
+            cur, old = relevant_facts(i, facts, today)
+            picked = cur + old
+        truth = sorted((_fact_row(f, today) for f in picked), key=lambda f: (not f["current"], f["fact_id"]))
+        issue = {k: i.get(k) for k in ISSUE_FIELDS.split(", ")} | {k: i.get(k) for k in ("source_doc_id", "subject", "attribute", "stated_value")}
+        return {"issue": issue,
+                "said": {"claims": claims, "passage": passage, "memory": not i.get("source_doc_id") and i.get("issue_type") != "moment_gap",
+                         "moment": moment, "scorecards": scorecards},
+                "truth": {"facts": truth, "uc_table": T("brand_facts")}}
