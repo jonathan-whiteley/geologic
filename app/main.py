@@ -4,7 +4,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "src"))          # bundled copy of src/geologic (deployed app)
 sys.path.insert(0, os.path.join(HERE, "..", "src"))    # repo layout (local runs and tests)
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from backend.routes import router
@@ -17,5 +17,9 @@ if os.path.isdir(DIST):
 
     @app.get("/{path:path}")
     def spa(path: str):
-        f = os.path.join(DIST, path)
-        return FileResponse(f if path and os.path.isfile(f) else os.path.join(DIST, "index.html"))
+        if path == "api" or path.startswith("api/"):
+            raise HTTPException(404)        # unknown API routes stay 404, never the SPA shell
+        root = os.path.realpath(DIST)
+        f = os.path.realpath(os.path.join(root, path))
+        inside = f.startswith(root + os.sep)
+        return FileResponse(f if path and inside and os.path.isfile(f) else os.path.join(root, "index.html"))
