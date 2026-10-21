@@ -25,6 +25,6 @@ export function ownerClass(owner: string): string {
 }
 
 /** Soft chip classes (-50 background, -700 text) for an owner class. */
-export function ownerChip(owner: string): string {
-  return CHIP[owner as OwnerClass] ?? 'bg-gray-50 text-gray-700'
+export function ownerChip(owner: string | null): string {
+  return (owner && CHIP[owner as OwnerClass]) || 'bg-gray-50 text-gray-700'
 }

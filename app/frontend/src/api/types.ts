@@ -14,7 +14,7 @@ export type ModelSummary = { kpis: Kpis; brands: BrandRow[]; heatmap: HeatCell[]
 export type PromptRow = { prompt_id: string; prompt_text: string; cluster: string; priority: 'Gold' | 'Silver' | 'Bronze'; branded: boolean;
   est_monthly_searches: number | null; engines_naming: number; engines_owned_cited: number; engines_answered: number; answer_share: number | null;
   wrong_claims: number; outdated_claims: number; moment_id: string | null; moment_title: string | null }
-export type CitedDoc = { doc_id: string; domain: string; owner_class: OwnerClass; title: string; url: string; last_updated: string | null }
+export type CitedDoc = { doc_id: string; domain: string | null; owner_class: OwnerClass | null; title: string; url: string | null; last_updated: string | null }
 export type ClaimT = { claim_id: string; text: string | null; subject: string; attribute: string; stated_value: string | null; tag: Tag;
   fact_id: string | null; source_doc_id: string | null; issue_id: string | null }
 export type AnswerT = { engine: string; status: string; answer: string | null; lce_mentioned: boolean | null; lce_rank: number | null;
@@ -31,14 +31,14 @@ export type FixLite = { fix_id: string; tier: 'T0' | 'T1' | 'T2'; asset_type: st
 export type IssueRow = { issue_id: string; rank: number; issue_type: IssueType; title: string; cluster: string; action_lane: string;
   prompt_ids: string[]; missed_answers: number; moment_id: string | null; fixes: FixLite[] }
 export type Check = { key: string; ok: boolean; label: string }
-export type Sentence = { text: string; fact_ids: string[]; kind: 'fact' | 'copy' }
+export type Sentence = { text: string; fact_ids: string[]; kind: 'fact' | 'copy' | 'heading' }
 export type Fix = FixLite & { issue_id: string; title: string; lane: string; page_id: string | null; section_id: string | null; op: 'insert' | 'replace' | null;
   section_before: string | null; patch_text: string; sentences: Sentence[]; grounding_fact_ids: string[]; checks: Check[]; rationale: string | null;
   recipient: string | null; publish_step: number; error: string | null; reviewer: string | null }
 export type FactRow = { fact_id: string; subject_name: string; attribute: string; value: string; valid_from: string; valid_to: string | null; current: boolean }
 export type Passage = { doc_id: string; domain: string; owner_class: OwnerClass; last_updated: string | null; title: string; url: string; excerpt: string }
 export type MomentT = { moment_id: string; title: string; kind: 'persona' | 'trend'; author: string | null; persona_name: string | null; reach: number | null;
-  velocity: number | null; item_name: string; image_url: string | null; image_credit: string | null; image_match: number | null }
+  velocity: number | null; item_name: string | null; image_url: string | null; image_credit: string | null; image_match: number | null }
 export type IssueDetailT = { issue: IssueRow & { source_doc_id: string | null; subject: string | null; attribute: string | null; stated_value: string | null };
   said: { claims: { engine: string; prompt_id: string; prompt_text: string; text: string | null; stated_value: string | null; tag: Tag }[];
           passage: Passage | null; memory: boolean; moment: MomentT | null;
