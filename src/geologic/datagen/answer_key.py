@@ -1,10 +1,16 @@
-"""Expected outcomes asserted by jobs/answer_key_check.py (Task 20)."""
+"""v3 planted stories: the issues, sources and fixes the build must surface (data only; the harness is Task 7)."""
 ANSWER_KEY = {
-    "S1": {"opp_type": "accuracy_fix", "page_id": "pg_item_classic_pepperoni", "tiers": ["T0", "T1"], "cluster": "value", "improves_after_publish": "accuracy"},
-    "S2": {"opp_type": "content_gap", "page_id": "pg_deals_game_day", "tiers": ["T1"], "cluster": "game_day_party", "improves_after_publish": "answer_share"},
-    "S3": {"opp_type": "persona_moment", "persona_id": "p_goff", "item_id": "detroit_pepperoni", "tiers": ["T2"]},
-    "S4": {"quarantined": True, "rule_id": "EX-01", "enforcement_points": ["ingest", "suggest", "publish"], "in_feed": False},
-    "S5": {"higher_item": "crazy_puffs_pepperoni", "lower_item": "pretzel_crust"},
-    "S6": {"opp_type": "citation_gap", "cluster": "sponsorship", "tiers": ["T0", "T1"]},
-    "S7": {"opp_type": "crawler_gap", "page_id": "pg_order", "tiers": ["T0"]},
+    "party_pack": {"issue_type": "outdated", "subject": "party_pack", "attribute": "price",
+                   "source_doc_id": "editorial_superbowl_roundup_2024", "stated_fact_id": "F13", "truth_fact_id": "F12",
+                   "fixes": {"correction_email": "T2", "owned_patch": "T1"}},
+    "gameday_listicle": {"issue_type": "missing_us", "source_doc_id": "review_pizzahut_gameday_top", "fixes": {"answer_page": "T1"}},
+    "classic_pepperoni": {"issue_type": "outdated", "source_doc_id": "lce_pg_item_classic_pepperoni", "fixes": {"jsonld": "T0"}},
+    "reddit_price": {"issue_type": "wrong", "subject": "classic_pepperoni", "source_doc_id": "reddit_pizza_hnr",
+                     "fixes": {"community_reply": "T2"}},
+    "comparison_memory": {"issue_type": "no_answer_page", "cluster": "comparison", "fixes": {"answer_page": "T1"}},
+    "goff_moment": {"issue_type": "moment_gap", "persona_id": "p_goff", "item_id": "detroit_pepperoni", "prompt_id": "q202",
+                    "fixes": {"moment_page": "T1", "association": "T2"}},
+    "sportsbook_repost": {"author": "@sidelinebets", "rule_id": "EX-03", "enforcement_points": ["ingest", "suggest", "publish"]},
 }
+TRACKED_COUNT = 30
+ENGINE_COUNT = 4

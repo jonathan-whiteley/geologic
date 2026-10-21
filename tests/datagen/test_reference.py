@@ -40,9 +40,9 @@ def test_pages_seeded_gaps():
 def test_personas_real_never_excluded():
     ps = r.personas()
     real = {p["display_name"] for p in ps if p["is_real"]}
-    assert real == {"Justin Jefferson", "George Kittle", "Jared Goff", "Saquon Barkley"}
+    assert real == {"Jared Goff"}
     assert not any(p["is_real"] and p["is_excluded"] for p in ps)
-    assert sum(p["is_excluded"] for p in ps) == 1
+    assert sum(p["is_excluded"] for p in ps) == 0
 
 def test_prompt_bank_shape():
     pb = r.prompt_bank()

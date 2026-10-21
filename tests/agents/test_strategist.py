@@ -25,6 +25,7 @@ def test_finalize_t1_and_checks():
     assert f["tier"] == "T1" and f["exclusion_rule_id"] is None
     assert any(c["label"].startswith("No exclusion") and c["ok"] for c in f["checks"])
 
+@pytest.mark.skip(reason="replaced in v3 Task 6")
 def test_finalize_blocks_exclusion_in_draft_text():
     d = {"asset_type": "faq", "diff_before": "a", "diff_after": "Dax Merriwether arrest special", "rationale": "r"}
     f = finalize(d, {**OPP, "persona_id": "p_fictional_dax"}, exclusion_rules(), menu_items())

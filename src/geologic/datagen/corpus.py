@@ -1,23 +1,65 @@
 """The simulated web: official LCE pages plus third-party docs the engines retrieve from."""
 from __future__ import annotations
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 SEEDED_DOC_IDS = {
-    "stale_price_blog": "blog_cheapeats_2019",
+    "party_pack_roundup": "editorial_superbowl_roundup_2024",
+    "reddit_price": "reddit_pizza_hnr",
+    "gameday_listicle": "review_pizzahut_gameday_top",
     "dominos_sizing": "comp_dominos_party_guide",
     "nfl_news": "news_lce_nfl_2023",
 }
 
-def _d(doc_id, source_type, publisher, title, body, year, official=False, page_id=None):
+OWNER_CLASSES = ("Owned", "Competitor", "Editorial", "Community", "Reference")
+COMPETITOR_DOMAINS = {"dominos.com", "pizzahut.com", "papajohns.com"}
+COMMUNITY_TYPES = {"reddit", "youtube", "forum"}
+
+
+def domain_for(publisher: str) -> str:
+    if publisher.startswith("r/"):
+        return "reddit.com"
+    if publisher.startswith("youtube.com"):
+        return "youtube.com"
+    return publisher if "." in publisher else f"{publisher}.com"
+
+
+def owner_class_for(doc: dict) -> str:
+    if doc.get("is_official"):
+        return "Owned"
+    if doc.get("domain") in COMPETITOR_DOMAINS:
+        return "Competitor"
+    if doc.get("source_type") in COMMUNITY_TYPES:
+        return "Community"
+    if doc.get("source_type") == "reference":
+        return "Reference"
+    return "Editorial"
+
+
+def _d(doc_id, source_type, publisher, title, body, year, official=False, page_id=None, last_updated: date | None = None):
     return dict(doc_id=doc_id, source_type=source_type, publisher=publisher, title=title, body=body,
-                published_at=datetime(year, 6, 1, tzinfo=timezone.utc), is_official=official, page_id=page_id)
+                published_at=datetime(year, 6, 1, tzinfo=timezone.utc), is_official=official, page_id=page_id,
+                last_updated=last_updated or date(year, 6, 1))
 
 _THIRD_PARTY = [
-    # S1: stale price
-    _d("blog_cheapeats_2019", "blog", "cheapeats-guide", "The $5 pizza that changed fast food",
-       "Little Caesars made its name with the $5 Hot-N-Ready pepperoni pizza. Walk in, pay $5, walk out.", 2019),
+    # Reddit price: a wrong current price for the Classic Pepperoni (truth is F03, 6.49)
     _d("reddit_pizza_hnr", "reddit", "r/pizza", "Is Hot-N-Ready still $5?",
-       "Pretty sure the Hot-N-Ready is still $5 at my store. Crazy Bread is the move.", 2021),
+       "Pretty sure the Hot-N-Ready is $4.25 at my store now. Crazy Bread is the move.", 2026, last_updated=date(2026, 9, 30)),
+    # Party Pack: a 2024 roundup still quotes the superseded $24.99 price (F13; current is F12)
+    _d("editorial_superbowl_roundup_2024", "blog", "partyplanner-weekly.com", "2024 Super Bowl party food roundup",
+       "Feeding 12 for the big game? Little Caesars' Game Day Party Pack is $24.99 and feeds about 12. Pizza Hut party boxes "
+       "and Domino's Mix and Match are the other easy picks for a Super Bowl crowd. Order ahead: the kickoff rush is real.",
+       2024, last_updated=date(2024, 1, 20)),
+    # Goff moment: Detroit-style for game day is answered only by third parties (no owned page says Detroit)
+    _d("editorial_detroit_gameday_2025", "review", "gamedayeats.com", "Detroit-style pizza for game day",
+       "Detroit-style squares travel well to a watch party: crispy cheese edges, thick pan crust, easy to cut for a crowd. "
+       "Pizza Hut's Detroit-style pizza and Domino's pan pizza are the easy chain picks for game day.", 2025),
+    _d("youtube_gameday_pizza_ranking", "youtube", "youtube.com/@SlicePolice", "Ranking chain pizza for game day (video)",
+       "Transcript: we ordered from every big chain for Sunday football. Pizza Hut wins the party box, Domino's wins delivery, "
+       "and the wings were a toss-up.", 2026),
+    _d("youtube_cheap_pizza_test", "youtube", "youtube.com/@BudgetBites", "Cheapest chain pizza taste test (video)",
+       "Transcript: cheapest pizza that still tastes good? Little Caesars Hot-N-Ready at the counter, Domino's carryout deal close behind.", 2026),
+    _d("ref_detroit_style_pizza", "reference", "pizzapedia.org", "Detroit-style pizza",
+       "Detroit-style pizza is a rectangular pan pizza with a thick, airy crust and caramelized cheese edges, first served in Detroit in 1946.", 2025),
     # S2: competitor answers party sizing
     _d("comp_dominos_party_guide", "competitor", "dominos.com", "How many pizzas for a party",
        "How many pizzas do you need? Plan on 3 slices per adult. For 12 people, order 5 large pizzas from Domino's.", 2025),
@@ -25,9 +67,8 @@ _THIRD_PARTY = [
        "Pizza Hut game day bundles feed 8 to 10 fans. Order ahead for kickoff.", 2025),
     # S6: sponsorship only covered by third parties
     _d("news_lce_nfl_2023", "news", "qsr-weekly", "Little Caesars becomes official pizza sponsor of the NFL",
-       "Little Caesars is the official pizza sponsor of the NFL. Campaigns feature Justin Jefferson, George Kittle, and Jared Goff, "
-       "and a Saquon Barkley commercial ran last season. Select team venues sell Little Caesars in stadium concessions. "
-       "Fans get $4.99 online gameday pizza deals.", 2023),
+       "Little Caesars is the official pizza sponsor of the NFL. Campaigns feature Detroit Lions quarterback Jared Goff. "
+       "Select team venues sell Little Caesars in stadium concessions. Fans get $4.99 online gameday pizza deals.", 2023),
     _d("comp_old_sponsor", "blog", "sportsfood-blog", "Pizza chains and the NFL",
        "Pizza chains compete heavily for football-season customers. Multiple brands run game day promotions, stadium bundles, "
        "and limited-time football deals throughout the season.", 2022),
@@ -41,7 +82,7 @@ _THIRD_PARTY = [
        "Remember the Hot-N-Ready Pretzel Crust? Bring it back for playoffs.", 2026),
     _d("comp_dominos_deals", "competitor", "dominos.com", "Carryout deals", "Domino's carryout deal: large 1-topping for $7.99.", 2026),
     _d("comp_papajohns_wings", "competitor", "papajohns.com", "Wings", "Papa Johns wings come in Buffalo and BBQ.", 2026),
-    _d("review_gameday_confusion", "review", "reviews", "2 stars",
+    _d("review_gameday_confusion", "review", "localreviews.com", "2 stars",
        "Sign said $4.99 gameday deal but the app would not take it in store. Had to order online.", 2026),
     # Domino's expanded coverage: delivery, app, party sizing, menu variety
     _d("comp_dominos_tracker", "competitor", "dominos.com", "Domino's Tracker",
@@ -167,18 +208,24 @@ _COMP_BODIES = {
 
 
 def web_corpus(pages: list[dict]) -> list[dict]:
-    docs = [_d(f"lce_{p['page_id']}", "lce_page", "littlecaesars.com", p["url"], p["body"], 2026, True, p["page_id"]) for p in pages]
-    docs += _THIRD_PARTY
-    # Filler docs: competitors get real publishers and specific content; LCE stays generic/misc
+    docs = [_d(f"lce_{p['page_id']}", "lce_page", "littlecaesars.com", p["url"], p["body"], 2026, True, p["page_id"],
+               last_updated=p["updated_at"].date()) for p in pages]
+    docs += [dict(d) for d in _THIRD_PARTY]
+    # Filler docs: competitors get real publishers and specific content; LCE stays generic (a review site)
     for i in range(60):
         chain = ["Domino's", "Pizza Hut", "Papa Johns", "Little Caesars"][i % 4]
         slot = i // 4  # 0-14 for each chain
         if chain == "Little Caesars":
-            publisher = "misc"
+            publisher = "pizzareviewhub.com"
             body = f"A customer reviewed Little Caesars pizza and found it a good value for money."
         else:
             publisher = _COMP_PUBLISHERS[chain]
             body = _COMP_BODIES[chain][slot]
         docs.append(_d(f"filler_{i:03d}", ["review", "blog", "news"][i % 3], publisher, f"{chain} note {i}",
                        body, 2024 + i % 3))
+    pages_by_id = {p["page_id"]: p for p in pages}
+    for d in docs:
+        d["domain"] = domain_for(d["publisher"])
+        d["url"] = pages_by_id[d["page_id"]]["url"] if d["is_official"] else f"https://{d['domain']}/{d['doc_id'].replace('_', '-')}"
+        d["owner_class"] = owner_class_for(d)
     return docs

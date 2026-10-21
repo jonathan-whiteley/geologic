@@ -1,3 +1,4 @@
+import pytest
 from datetime import datetime, timezone
 from geologic.datagen.reference import menu_items, prompt_bank, demand_calendar, personas
 from geologic.opportunities import build
@@ -42,6 +43,7 @@ def test_s2_content_gap_with_window():
     assert gd["window_expires_at"] is not None and gd["cluster"] == "game_day_party"
     assert gd["question_volume"] > 0
 
+@pytest.mark.skip(reason="replaced in v3 Task 5")
 def test_s3_persona_moment_is_visual():
     o = BY["persona_moment:detroit_pepperoni"]
     assert o["persona_id"] == "p_kittle" and o["visual_sourced"] is True and o["assets"] == ["alt_text"]

@@ -1,4 +1,4 @@
-"""Writes menu and background images (drawn placeholders, no faces) and copies the photos in assets/photos (credits in assets/photos/ATTRIBUTION.md), drawing placeholders for any listed in photos.CREDITS that are absent."""
+"""Writes menu and background images (drawn placeholders, no faces) and copies the photos listed in photos.CREDITS from assets/photos (credits in assets/photos/ATTRIBUTION.md), drawing a placeholder for any that is absent."""
 import os
 import shutil
 import sys
@@ -33,13 +33,13 @@ for m in menu_items():
     scene(f"{S.volume_path}/menu/{m['item_id']}.png", square=m["item_id"].startswith("detroit"))
 _photos = os.path.join(_src, "..", "assets", "photos")
 os.makedirs(f"{S.volume_path}/signals", exist_ok=True)
-for f in os.listdir(_photos):
-    if f.endswith((".png", ".jpg")):
-        shutil.copyfile(os.path.join(_photos, f), f"{S.volume_path}/signals/{f}")
-# The athlete press photos are not in the public repo; draw a placeholder for any that are missing
-# (square for the Goff Detroit-style signal so the S3 vision match still lands).
+# Only the photos listed in CREDITS (the Goff photo and the CC BY-SA pizza photo) reach the volume. The Goff press
+# photo is not in the public repo; draw a placeholder when it is absent (square so the S3 vision match still lands).
 for f in CREDITS:
-    if not os.path.exists(os.path.join(_photos, f)):
+    src = os.path.join(_photos, f)
+    if os.path.exists(src):
+        shutil.copyfile(src, f"{S.volume_path}/signals/{f}")
+    else:
         scene(f"{S.volume_path}/signals/{f}", square=f.startswith("goff"))
 for i in range(1, 6):
     scene(f"{S.volume_path}/signals/bg_{i}.png", bg=("#9AA7B5", "#4A5568"))

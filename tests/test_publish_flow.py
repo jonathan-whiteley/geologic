@@ -1,3 +1,4 @@
+import pytest
 from geologic.datagen.reference import exclusion_rules
 from geologic.publish_flow import publish, reset, FRIENDLY_ERROR
 
@@ -30,6 +31,7 @@ def test_publish_happy_path():
     assert st.synced == 1 and st.reprobed == [["q001"]] and st.versions == [("p", 2, "s1")]
     assert st.steps == [1, 2, 3, 5]
 
+@pytest.mark.skip(reason="replaced in v3 Task 8")
 def test_publish_recheck_blocks_exclusion():
     st = FakeStore()
     assert publish({**SG, "diff_after": "Dax Merriwether deal", "persona_id": "p_fictional_dax"}, st, RULES, 1) == "blocked"

@@ -5,7 +5,7 @@ from geologic.datagen.prompts_ext import prompt_candidates, monthly_volume, THEM
 def test_candidates_are_new_and_unique():
     bank = {p["prompt_text"].lower() for p in prompt_bank()}
     c = prompt_candidates()
-    assert len(c) >= 20 and len({x["prompt_id"] for x in c}) == len(c)
+    assert len(c) >= 19 and len({x["prompt_id"] for x in c}) == len(c)
     assert all(x["prompt_id"].startswith("c") for x in c)
     assert not any(x["prompt_text"].lower() in bank for x in c)
 

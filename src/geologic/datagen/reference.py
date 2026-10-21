@@ -1,6 +1,6 @@
 """Reference data for GEOlogic. Product names are real LCE items; prices and margins are synthetic."""
 from __future__ import annotations
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 CLUSTERS = ["product", "value", "comparison", "ordering", "dietary", "game_day_party", "sponsorship"]
 # Human labels for cluster keys, same as the UI (app/frontend/src/components/Heatmap.tsx CLUSTERS).
@@ -17,7 +17,7 @@ SEEDED_PAGE_IDS = {
 }
 
 # item_id, name, category, price, margin_pct, available, is_lto, dietary_flags, aliases, visual
-# visual: how the item looks (shape, crust, toppings only, no setting words)
+# visual: how the item looks (shape, crust and toppings only, no setting words)
 _MENU = [
     ("classic_pepperoni", "Classic Pepperoni Hot-N-Ready", "pizza", 6.49, 0.34, True, False, [], ["hot-n-ready", "hot n ready", "classic pepperoni"], "round pizza, pepperoni toppings"),
     ("classic_cheese", "Classic Cheese Hot-N-Ready", "pizza", 6.49, 0.36, True, False, ["vegetarian"], ["classic cheese"], "round pizza, cheese topping"),
@@ -55,9 +55,10 @@ _MENU = [
 
 
 def menu_items() -> list[dict]:
+    from geologic.config import settings
     return [
         dict(item_id=i, name=n, category=c, price=p, margin_pct=m, available=a, is_lto=l,
-             dietary_flags=list(d), image_uri=f"/Volumes/jdub_demo/geologic/assets/menu/{i}.png",
+             dietary_flags=list(d), image_uri=f"{settings.volume_path}/menu/{i}.png",
              aliases=list(al), visual=v)
         for (i, n, c, p, m, a, l, d, al, v) in _MENU
     ]
@@ -71,11 +72,26 @@ def deals() -> list[dict]:
 
 
 _UPDATED = datetime(2026, 8, 1, tzinfo=timezone.utc)
+_STALE = datetime(2025, 6, 1, tzinfo=timezone.utc)
 
 
-def _page(page_id, url, page_type, item_id, body, jsonld=None):
+def _page(page_id, url, page_type, item_id, body, jsonld=None, primary_subject=None, updated_at=_UPDATED):
     return dict(page_id=page_id, url=url, page_type=page_type, primary_item_id=item_id, body=body,
-                jsonld=jsonld, has_valid_jsonld=jsonld is not None, version=1, updated_at=_UPDATED)
+                jsonld=jsonld, has_valid_jsonld=jsonld is not None, version=1, updated_at=updated_at,
+                primary_subject=primary_subject)
+
+
+# v3 overrides for owned item pages; a key that is absent keeps the generated value.
+# No owned page may say "Detroit" at baseline, so the Goff moment gap on q202 stays real.
+_PARTY_PACK_JSONLD = ('{"@context":"https://schema.org","@type":"MenuItem","name":"Game Day Party Pack",'
+                      '"offers":{"@type":"Offer","price":"24.99","priceCurrency":"USD"}}')   # stale: F13, not F12
+_ITEM_OVERRIDES = {
+    "party_pack": dict(body="## Game Day Party Pack\nA bundle for groups. See the app for today's price.",
+                       jsonld=_PARTY_PACK_JSONLD, updated_at=datetime(2025, 3, 1, tzinfo=timezone.utc)),
+    "detroit_pepperoni": dict(body="## Deep!Deep! Dish Pepperoni\nSquare deep dish, pepperoni to the edge.",
+                              jsonld=None, updated_at=_STALE),
+    "detroit_cheese": dict(body="## Deep!Deep! Dish Cheese\nSquare deep dish, cheese to the edge."),
+}
 
 
 def site_pages() -> list[dict]:
@@ -84,7 +100,8 @@ def site_pages() -> list[dict]:
         if m["item_id"] == "classic_pepperoni":
             # S1: no price text, no JSON-LD
             body = "## Classic Hot-N-Ready\nPepperoni pizza, ready when you walk in."
-            pages.append(_page("pg_item_classic_pepperoni", "https://littlecaesars.com/menu/hot-n-ready", "item", m["item_id"], body))
+            pages.append(_page("pg_item_classic_pepperoni", "https://littlecaesars.com/menu/hot-n-ready", "item", m["item_id"], body,
+                               primary_subject=m["item_id"], updated_at=_STALE))
             continue
         body = f"## {m['name']}\n{m['name']} from Little Caesars. ${m['price']:.2f} at most locations."
         if not m["available"]:
@@ -93,13 +110,16 @@ def site_pages() -> list[dict]:
             '{"@context":"https://schema.org","@type":"MenuItem","name":"%s","offers":{"@type":"Offer","price":"%.2f","priceCurrency":"USD"}}'
             % (m["name"], m["price"]) if m["available"] and m["category"] != "dips" else None
         )
-        pages.append(_page(f"pg_item_{m['item_id']}", f"https://littlecaesars.com/menu/{m['item_id'].replace('_', '-')}", "item", m["item_id"], body, jsonld))
+        o = _ITEM_OVERRIDES.get(m["item_id"], {})
+        body, jsonld, updated = o.get("body", body), o.get("jsonld", jsonld), o.get("updated_at", _UPDATED)
+        pages.append(_page(f"pg_item_{m['item_id']}", f"https://littlecaesars.com/menu/{m['item_id'].replace('_', '-')}", "item",
+                           m["item_id"], body, jsonld, primary_subject=m["item_id"], updated_at=updated))
     fixed = [
         ("pg_menu", "https://littlecaesars.com/menu", "menu", None, "## Menu\nPizza, sides, wings, dips, and combos."),
         ("pg_deals", "https://littlecaesars.com/deals", "deals", None, "## Deals\nSee current deals in the app."),
         # S2 + S6: thin game-day page, no sizing answer, sponsorship mentioned once
         ("pg_deals_game_day", "https://littlecaesars.com/deals/game-day", "deals", None,
-         "## Game Day Deals\n$4.99 online during NFL games.\nOfficial Pizza Sponsor of the NFL."),
+         "## Game Day Deals\n$4.99 online during NFL games.\nOfficial Pizza Sponsor of the NFL.", None, "gameday_499", _STALE),
         # S7: ordering page exists but is orphaned (crawlers never reach it)
         ("pg_order", "https://littlecaesars.com/order", "ordering", None, "## Order\nPick up with Pizza Portal."),
         ("pg_about", "https://littlecaesars.com/about", "about", None, "## About Little Caesars\nFounded in 1959 in Garden City, Michigan."),
@@ -109,7 +129,8 @@ def site_pages() -> list[dict]:
     ]
     pages += [_page(*f) for f in fixed]
     # Store-locator style pages to reach ~62 total
-    for i, city in enumerate(["Detroit", "Chicago", "Dallas", "Phoenix", "Atlanta", "Denver", "Houston",
+    # pg_loc_00 is Grand Rapids, not Detroit: no owned page may say "Detroit" at baseline (q202 gap).
+    for i, city in enumerate(["Grand Rapids", "Chicago", "Dallas", "Phoenix", "Atlanta", "Denver", "Houston",
                               "Orlando", "Columbus", "Charlotte", "Minneapolis", "San Antonio", "Tampa",
                               "Las Vegas", "Nashville", "Kansas City", "Cleveland", "Indianapolis",
                               "Memphis", "Tucson", "Omaha", "Louisville"]):
@@ -119,22 +140,18 @@ def site_pages() -> list[dict]:
 
 
 def personas() -> list[dict]:
+    # Jared Goff is the only athlete; no persona is excluded (exclusions attach to topics, never to a person).
     rows = [
-        ("p_jefferson", "Justin Jefferson", True, "athlete", 3_400_000, False),
-        ("p_kittle", "George Kittle", True, "athlete", 2_100_000, False),
-        ("p_goff", "Jared Goff", True, "athlete", 1_600_000, False),
-        ("p_barkley", "Saquon Barkley", True, "athlete", 4_200_000, False),
-        ("p_creator_slicequeen", "SliceQueen", False, "creator", 480_000, False),
-        ("p_creator_gridirongrub", "Gridiron Grub", False, "creator", 260_000, False),
-        # S4: fictional athlete in an off-field controversy
-        ("p_fictional_dax", "Dax Merriwether", False, "athlete", 900_000, True),
+        ("p_goff", "Jared Goff", True, "athlete", 1_600_000, False, True),
+        ("p_creator_slicequeen", "SliceQueen", False, "creator", 480_000, False, False),
+        ("p_creator_gridirongrub", "Gridiron Grub", False, "creator", 260_000, False, False),
     ]
-    return [dict(persona_id=a, display_name=b, is_real=c, persona_type=d, reach=e, is_excluded=f) for a, b, c, d, e, f in rows]
+    return [dict(persona_id=a, display_name=b, is_real=c, persona_type=d, reach=e, is_excluded=f, approved_for_association=g)
+            for a, b, c, d, e, f, g in rows]
 
 
 def exclusion_rules() -> list[dict]:
     rows = [
-        ("EX-01", "persona", "p_fictional_dax", "Off-field controversy"),
         ("EX-02", "topic", "politics", "No political association"),
         ("EX-03", "topic", "gambling", "No sports betting association"),
         ("EX-07", "topic", "arrest", "No association with legal incidents"),
@@ -175,9 +192,9 @@ _PROMPTS = {
     "game_day_party": ["How many pizzas for 12 people?", "How many pizzas do I need for a fantasy draft party?",
                        "Best pizza for a Super Bowl party", "Game day food ideas for a crowd", "How much pizza per person for a party?",
                        "Cheapest way to feed 20 people on game day", "Best pizza for a tailgate", "What to order for Thursday Night Football?"],
-    "sponsorship": ["What is the official pizza of the NFL?", "What pizza does Saquon Barkley advertise?", "Which pizza chain sponsors the NFL?",
+    "sponsorship": ["What is the official pizza of the NFL?", "Which pizza brand advertises during NFL games?", "Which pizza chain sponsors the NFL?",
                     "Can you get Little Caesars at NFL stadiums?", "What pizza commercials feature NFL players?",
-                    "Does Justin Jefferson do pizza commercials?"],
+                    "Which pizza chains run football commercials?"],
 }
 _VARIANTS = ["{p}", "{p} 2026", "Quick question: {p}", "{p} Please be specific."]
 _BASE_VOLUME = {"product": 900, "value": 1400, "comparison": 700, "ordering": 500, "dietary": 400, "game_day_party": 800, "sponsorship": 300}
@@ -218,3 +235,95 @@ def prompt_bank() -> list[dict]:
     return [dict(prompt_id=f"q{n:03d}", prompt_text=t, cluster=c, base_volume=_BASE_VOLUME[c], calendar_tags=_TAGS.get(c, []),
                  branded=is_branded(t))
             for n, (c, t) in enumerate(rows, start=1)]
+
+
+# 30 tracked prompts for v3 (spec section 3). Base wording from prompt_bank() (no "2026", "Quick question:" or
+# "Please be specific." variants), every cluster kept, no athlete other than Jared Goff (q035, q147 are untracked).
+# Section 9 stories: Party Pack (q062, q201, q006), game-day listicle (q062, q090, q143), Classic Pepperoni and the
+# Reddit price (q002), comparison answer page (q059, q115), Goff moment (q202). q201 and q202 are new prompts.
+TRACKED_V3 = [
+    ("q002", "Gold"), ("q006", "Gold"), ("q062", "Gold"), ("q090", "Gold"), ("q146", "Gold"), ("q201", "Gold"),
+    ("q202", "Gold"), ("q030", "Gold"),
+    ("q034", "Silver"), ("q118", "Silver"), ("q058", "Silver"), ("q142", "Silver"), ("q059", "Silver"), ("q115", "Silver"),
+    ("q143", "Silver"), ("q003", "Silver"), ("q007", "Silver"), ("q063", "Silver"), ("q086", "Silver"),
+    ("q001", "Bronze"), ("q029", "Bronze"), ("q057", "Bronze"), ("q085", "Bronze"), ("q031", "Bronze"), ("q004", "Bronze"),
+    ("q032", "Bronze"), ("q116", "Bronze"), ("q005", "Bronze"), ("q033", "Bronze"), ("q119", "Bronze"),
+]
+NEW_PROMPTS = {
+    "q201": ("game_day_party", "What should I order for a Super Bowl party for 12 people?"),
+    "q202": ("game_day_party", "Best Detroit-style pizza for game day"),
+}
+
+
+def tracked_prompts() -> list[dict]:
+    bank = {p["prompt_id"]: p for p in prompt_bank()}
+    out = []
+    for pid, priority in TRACKED_V3:
+        if pid in NEW_PROMPTS:
+            cluster, text = NEW_PROMPTS[pid]
+            base = dict(prompt_id=pid, prompt_text=text, cluster=cluster, base_volume=_BASE_VOLUME[cluster],
+                        calendar_tags=_TAGS.get(cluster, []), branded=is_branded(text))
+        else:
+            base = dict(bank[pid])
+        out.append({**base, "priority": priority, "source": "seed"})
+    return out
+
+
+# Brand facts: the ground truth claims are checked against, each with a validity window (valid_to None = current).
+_D = date
+_CURATED = [  # fact_id, subject, attribute, value, applies_to, valid_from, valid_to, page_id
+    ("F01", "brand", "founded", "1959, Garden City, Michigan", None, _D(1959, 5, 8), None, "pg_about"),
+    ("F02", "brand", "nfl_sponsor", "Official Pizza Sponsor of the NFL", None, _D(2023, 6, 1), None, "pg_about"),
+    ("F03", "classic_pepperoni", "price", "6.49", None, _D(2026, 1, 1), None, "pg_item_classic_pepperoni"),
+    ("F04", "classic_pepperoni", "price", "5.00", None, _D(2004, 1, 1), _D(2025, 12, 31), "pg_item_classic_pepperoni"),
+    ("F05", "classic_pepperoni", "ready", "Hot-N-Ready: ready when you walk in", None, _D(2004, 1, 1), None, "pg_item_classic_pepperoni"),
+    ("F06", "gameday_499", "price", "4.99", "category:pizza", _D(2025, 9, 1), None, "pg_deals_game_day"),
+    ("F07", "lunch_combo", "price", "5.99", None, _D(2026, 1, 1), None, "pg_item_lunch_combo"),
+    ("F08", "detroit_pepperoni", "price", "11.99", None, _D(2026, 1, 1), None, "pg_item_detroit_pepperoni"),
+    ("F09", "detroit_pepperoni", "style", "Detroit-style square deep dish with crispy cheese edges", None, _D(2024, 1, 1), None, "pg_item_detroit_pepperoni"),
+    ("F10", "crazy_bread", "price", "3.99", None, _D(2026, 1, 1), None, "pg_item_crazy_bread"),
+    ("F11", "brand", "ordering", "Pizza Portal pickup: order ahead and skip the line", None, _D(2020, 1, 1), None, "pg_order"),
+    ("F12", "party_pack", "price", "29.99", None, _D(2025, 9, 1), None, "pg_item_party_pack"),
+    ("F13", "party_pack", "price", "24.99", None, _D(2024, 1, 1), _D(2025, 8, 31), "pg_item_party_pack"),
+    ("F14", "party_pack", "serves", "12", None, _D(2024, 1, 1), None, "pg_item_party_pack"),
+    ("F15", "party_pack", "contents", "3 large pizzas and 2 orders of Crazy Bread", None, _D(2025, 9, 1), None, "pg_item_party_pack"),
+    ("F16", "brand", "delivery", "Delivery through the Little Caesars app in most areas", None, _D(2021, 1, 1), None, "pg_app"),
+]
+_CURRENT_FROM = _D(2026, 1, 1)          # current menu prices start 2026-01-01
+_DISCONTINUED_FROM = _D(2024, 1, 1)     # a discontinued item's last price ran 2024-01-01 to 2025-12-31
+_DISCONTINUED_TO = _D(2025, 12, 31)
+_NUMERIC = {"price", "serves", "founded"}
+
+SUBJECTS: tuple[str, ...] = tuple(row[0] for row in _MENU) + ("gameday_499", "brand")
+
+
+def categories() -> dict[str, str]:
+    return {**{row[0]: row[2] for row in _MENU}, "gameday_499": "deal", "brand": "brand"}
+
+
+def _fact_rows() -> list[tuple]:
+    rows = list(_CURATED)
+    curated_price = {r[1] for r in _CURATED if r[2] == "price"}
+    n = len(_CURATED) + 1
+    for item_id, _name, _cat, price, _m, available, *_ in _MENU:
+        if item_id in curated_price:
+            continue
+        page_id = f"pg_item_{item_id}"
+        if available:
+            rows.append((f"F{n:02d}", item_id, "price", f"{price:.2f}", None, _CURRENT_FROM, None, page_id))
+            n += 1
+        else:
+            rows.append((f"F{n:02d}", item_id, "price", f"{price:.2f}", None, _DISCONTINUED_FROM, _DISCONTINUED_TO, page_id))
+            rows.append((f"F{n + 1:02d}", item_id, "available", "no", None, _CURRENT_FROM, None, page_id))
+            n += 2
+    return rows
+
+
+def brand_facts() -> list[dict]:
+    from geologic.facts import parse_price
+    names = {row[0]: row[1] for row in _MENU} | {"gameday_499": "$4.99 Online Gameday Deal", "brand": "Little Caesars"}
+    urls = {p["page_id"]: p["url"] for p in site_pages()}
+    return [dict(fact_id=fid, subject=subj, subject_name=names[subj], attribute=attr, value=val,
+                 value_num=parse_price(val) if attr in _NUMERIC else None, applies_to=applies,
+                 valid_from=vf, valid_to=vt, source_url=urls[page_id], page_id=page_id)
+            for fid, subj, attr, val, applies, vf, vt, page_id in _fact_rows()]

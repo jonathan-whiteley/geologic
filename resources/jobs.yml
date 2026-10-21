@@ -31,13 +31,13 @@ resources:
           environment_key: default
           spark_python_task: { python_file: ../jobs/run_probe.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}", "--mode", "full", "--trigger", "setup", "--set-baseline", "true"] }
         - task_key: views
-          depends_on: [{ task_key: baseline_probe }]
+          depends_on: [{ task_key: baseline_probe }, { task_key: pipeline_2 }]   # views read silver_signals
           environment_key: default
           spark_python_task: { python_file: ../jobs/run_views.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"] }
         - task_key: seed_signals
           depends_on: [{ task_key: data }]
           environment_key: default
-          spark_python_task: { python_file: ../jobs/produce_signals.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}", "--minutes", "2", "--inject", "S3_goff,S4_exclusion,S5_pretzel,S5_puffs,S7_crawler"] }
+          spark_python_task: { python_file: ../jobs/produce_signals.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}", "--minutes", "2", "--inject", "S3_goff,S4_repost,S5_pretzel,S5_puffs"] }
         - task_key: pipeline_1
           depends_on: [{ task_key: seed_signals }, { task_key: images }]
           pipeline_task: { pipeline_id: "${resources.pipelines.geologic_signals.id}" }
@@ -48,26 +48,6 @@ resources:
         - task_key: pipeline_2
           depends_on: [{ task_key: describe }]
           pipeline_task: { pipeline_id: "${resources.pipelines.geologic_signals.id}" }
-        - task_key: prompt_explorer
-          depends_on: [{ task_key: vector_search }]
-          environment_key: default
-          spark_python_task: { python_file: ../jobs/setup_prompt_explorer.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"] }
-        - task_key: themes
-          depends_on: [{ task_key: baseline_probe }, { task_key: views }]
-          environment_key: default
-          spark_python_task: { python_file: ../jobs/build_themes.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"] }
-        - task_key: opportunities
-          depends_on: [{ task_key: pipeline_2 }, { task_key: baseline_probe }, { task_key: views }]
-          environment_key: default
-          spark_python_task: { python_file: ../jobs/build_opportunities.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"] }
-        - task_key: draft
-          depends_on: [{ task_key: opportunities }]
-          environment_key: default
-          spark_python_task: { python_file: ../jobs/draft_suggestions.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"] }
-        - task_key: answer_key
-          depends_on: [{ task_key: draft }]
-          environment_key: default
-          spark_python_task: { python_file: ../jobs/answer_key_check.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"] }
 
     geologic_publish:
       name: ${var.name_prefix}_publish

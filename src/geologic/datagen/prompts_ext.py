@@ -13,7 +13,7 @@ _CANDIDATES = {
               "Is Hot-N-Ready available late at night?"],
     "game_day_party": ["Pizza for a fantasy draft party", "How many pizzas for 30 people?", "Best game day food delivery",
                        "How much pizza for a Super Bowl party of 15?"],
-    "sponsorship": ["Who sponsors the NFL for pizza?", "Little Caesars NFL commercial", "George Kittle pizza ad"],
+    "sponsorship": ["Who sponsors the NFL for pizza?", "Little Caesars NFL commercial"],
     "product": ["What do Crazy Puffs taste like?", "Little Caesars Detroit style review", "Best Little Caesars pizza to order"],
     "ordering": ["How does Little Caesars Pizza Portal work?", "Little Caesars order ahead app"],
     "dietary": ["Little Caesars vegan options", "Little Caesars calories per slice"],

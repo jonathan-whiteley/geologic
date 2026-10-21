@@ -1,4 +1,7 @@
+import pytest
 from geologic.harness import check
+
+pytestmark = pytest.mark.skip(reason="replaced in v3 Task 7")
 
 
 def good_state():
