@@ -29,3 +29,9 @@ def test_usage_context_follows_schema(monkeypatch):
     from geologic.config import Settings
     monkeypatch.setattr(E, "settings", Settings(schema="geologic_v3"))
     assert E.usage_context() == {"app": "geologic_v3", "role": "probe"}
+
+def test_answer_keeps_retrieved_docs():
+    r = FakeRetriever()
+    a = EngineProxy("Claude", "ep", r, FakeChat("It is $5 [blog_x].")).answer("price?")
+    assert a.retrieved_doc_ids == ["lce_pg_deals", "blog_x"]
+    assert a.docs == tuple(r.search("price?", 6)) and isinstance(a.docs, tuple)

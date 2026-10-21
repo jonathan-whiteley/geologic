@@ -37,13 +37,61 @@ def _rows(res):
     return [dict(zip(cols, r)) for r in res.get("result", {}).get("data_array", []) or []]
 
 
-class VsRetriever:
-    def __init__(self, index, columns=("doc_id", "title", "body", "is_official")):
-        self.index, self.columns = index, list(columns)
+class Embedder:
+    """Query and row embeddings from a Foundation Model API embeddings endpoint (databricks-gte-large-en, 1024 dims)."""
 
-    def search(self, query, k):
-        res = self.index.similarity_search(query_text=query, columns=self.columns, num_results=k)
-        return [Doc(r["doc_id"], r["title"], r["body"], bool(r["is_official"])) for r in _rows(res)]
+    def __init__(self, openai_client, endpoint, batch=16):
+        self._c, self.endpoint, self.batch = openai_client, endpoint, batch
+
+    @classmethod
+    def from_workspace(cls, w, endpoint):
+        return cls(w.serving_endpoints.get_open_ai_client(), endpoint)
+
+    def embed(self, texts) -> list[list[float]]:
+        texts, out = list(texts), []
+        for i in range(0, len(texts), self.batch):
+            r = self._c.embeddings.create(model=self.endpoint, input=texts[i:i + self.batch])
+            out += [list(d.embedding) for d in sorted(r.data, key=lambda d: getattr(d, "index", 0) or 0)]
+        return out
+
+
+def _sdk_rows(res) -> list[dict]:
+    """Rows of a WorkspaceClient vector_search_indexes.query_index response (score is appended by Vector Search)."""
+    manifest, result = getattr(res, "manifest", None), getattr(res, "result", None)
+    if manifest is None or result is None:
+        return []
+    cols = [c.name for c in manifest.columns or []]
+    return [dict(zip(cols, r)) for r in result.data_array or []]
+
+
+class DvaRetriever:
+    """Engine retrieval from the Direct Vector Access sources index: embeds the prompt, then queries by vector."""
+
+    def __init__(self, w, index_name, embedder, columns=("doc_id", "title", "body", "owner_class")):
+        self.w, self.index_name, self.embedder, self.columns = w, index_name, embedder, list(columns)
+
+    def search(self, query, k) -> list[Doc]:
+        vec = self.embedder.embed([query])[0]
+        res = self.w.vector_search_indexes.query_index(index_name=self.index_name, columns=self.columns, query_vector=vec,
+                                                       num_results=k)
+        return [Doc(r["doc_id"], r.get("title") or "", r.get("body") or "", r.get("owner_class") == "Owned")
+                for r in _sdk_rows(res)]
+
+
+class PromptIndex:
+    """Nearest tracked or suggested prompts from the Direct Vector Access prompt index."""
+
+    COLUMNS = ["prompt_id", "prompt_text", "kind", "cluster"]
+
+    def __init__(self, w, index_name, embedder):
+        self.w, self.index_name, self.embedder = w, index_name, embedder
+
+    def nearest(self, text, k=3) -> list[dict]:
+        vec = self.embedder.embed([text])[0]
+        res = self.w.vector_search_indexes.query_index(index_name=self.index_name, columns=list(self.COLUMNS),
+                                                       query_vector=vec, num_results=k)
+        return [{"id": r["prompt_id"], "prompt_text": r["prompt_text"], "kind": r["kind"], "cluster": r["cluster"],
+                 "score": float(r["score"])} for r in _sdk_rows(res)]
 
 
 def menu_match(index, text):

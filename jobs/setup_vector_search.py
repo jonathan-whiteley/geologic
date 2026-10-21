@@ -1,4 +1,6 @@
-"""Creates the VS endpoint and two Delta Sync indexes with managed embeddings, then waits until online."""
+"""Vector Search for v3: the menu Delta Sync index (managed embeddings) and two Direct Vector Access indexes, the
+simulated web (sources_idx, what the engines retrieve from) and the prompt search (prompt_idx). The endpoint is created
+only if missing and never modified."""
 import sys
 import os
 import time
@@ -12,8 +14,12 @@ sys.path.insert(0, _src)
 
 from geologic import jobargs; jobargs.apply()
 
+from pyspark.sql import SparkSession
+from databricks.sdk import WorkspaceClient
 from databricks.vector_search.client import VectorSearchClient
 from geologic.config import settings as S
+from geologic.clients import Embedder
+from geologic import vectors as V
 
 vsc = VectorSearchClient(disable_notice=True)
 if S.vs_endpoint not in [e["name"] for e in vsc.list_endpoints().get("endpoints", [])]:
@@ -36,6 +42,22 @@ def ensure(index, source, pk, col):
     raise TimeoutError(f"{index} not ready: {st}")
 
 
-ensure(S.corpus_index, S.fq("web_corpus"), "doc_id", "body")
 ensure(S.menu_index, S.fq("menu_search"), "item_id", "search_text")
-print("vector search ready")
+
+w = WorkspaceClient()
+V.ensure_direct_index(w, S.sources_index, S.vs_endpoint, "doc_id", V.SOURCE_SCHEMA, S.embedding_dim)
+V.ensure_direct_index(w, S.prompt_index, S.vs_endpoint, "prompt_id", V.PROMPT_SCHEMA, S.embedding_dim)
+V.wait_ready(w, S.sources_index)
+V.wait_ready(w, S.prompt_index)
+
+spark = SparkSession.builder.getOrCreate()
+embed = Embedder.from_workspace(w, S.embedding_endpoint).embed
+docs = [r.asDict() for r in spark.table(S.fq("web_corpus")).select("doc_id", "title", "body", "owner_class", "domain").collect()]
+prompts = [r.asDict() for r in spark.table(S.fq("prompts")).select("prompt_id", "prompt_text", "cluster").collect()]
+suggestions = [r.asDict() for r in spark.table(S.fq("prompt_suggestions"))
+               .select("suggestion_id", "prompt_text", "cluster", "status").collect()]
+sources = V.source_rows(docs, embed)
+prompt_rows = V.prompt_rows(prompts, suggestions, embed)
+V.upsert(w, S.sources_index, sources)
+V.upsert(w, S.prompt_index, prompt_rows)
+print(f"sources_idx: {len(sources)} rows, prompt_idx: {len(prompt_rows)} rows")

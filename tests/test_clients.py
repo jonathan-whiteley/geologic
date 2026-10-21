@@ -1,6 +1,6 @@
 # tests/test_clients.py
 from types import SimpleNamespace as NS
-from geologic.clients import FmapiChat, VsRetriever, menu_match, menu_candidates
+from geologic.clients import DvaRetriever, Embedder, FmapiChat, PromptIndex, menu_match, menu_candidates
 
 class FakeOpenAI:
     def __init__(self, content):
@@ -28,11 +28,6 @@ class FakeIndex:
     def __init__(self, cols, rows): self.cols, self.rows = cols, rows
     def similarity_search(self, **kw):
         return {"manifest": {"columns": [{"name": c} for c in self.cols]}, "result": {"data_array": self.rows}}
-
-def test_retriever_maps_rows():
-    idx = FakeIndex(["doc_id", "title", "body", "is_official", "score"], [["lce_pg_deals", "Deals", "$4.99", True, 0.9]])
-    docs = VsRetriever(idx).search("deals", 3)
-    assert docs[0].doc_id == "lce_pg_deals" and docs[0].is_official is True
 
 def test_menu_match_empty():
     assert menu_match(FakeIndex(["item_id", "search_text", "score"], []), "pizza") == (None, 0.0)
@@ -85,3 +80,73 @@ def test_chat_other_errors_still_raise():
         assert False, "expected raise"
     except TempRejected:
         pass
+
+
+class FakeEmbeddings:
+    def __init__(self): self.calls = []
+    def create(self, model, input):
+        self.calls.append((model, list(input)))
+        # out of order on purpose: the embedder must reorder by index
+        return NS(data=[NS(index=i, embedding=[float(len(t))]) for i, t in reversed(list(enumerate(input)))])
+
+
+def test_embedder_batches():
+    fake = NS(embeddings=FakeEmbeddings())
+    texts = [f"t{'x' * i}" for i in range(20)]
+    vecs = Embedder(fake, "databricks-gte-large-en", batch=16).embed(texts)
+    assert [len(b) for _, b in fake.embeddings.calls] == [16, 4]
+    assert {m for m, _ in fake.embeddings.calls} == {"databricks-gte-large-en"}
+    assert vecs == [[float(len(t))] for t in texts]
+    assert Embedder(fake, "ep").embed([]) == []
+
+
+def test_embedder_from_workspace():
+    oa = NS(embeddings=FakeEmbeddings())
+    e = Embedder.from_workspace(NS(serving_endpoints=NS(get_open_ai_client=lambda: oa)), "ep")
+    assert e.endpoint == "ep" and e.embed(["a"]) == [[1.0]]
+
+
+class FakeVsIndexes:
+    def __init__(self, cols, rows): self.cols, self.rows, self.calls = cols, rows, []
+    def query_index(self, **kw):
+        self.calls.append(kw)
+        return NS(manifest=NS(columns=[NS(name=c) for c in self.cols]), result=NS(data_array=self.rows))
+
+
+class FixedEmbedder:
+    def __init__(self): self.seen = []
+    def embed(self, texts):
+        self.seen += list(texts)
+        return [[0.5, 0.25] for _ in texts]
+
+
+def test_dva_retriever_queries_by_vector():
+    idx = FakeVsIndexes(["doc_id", "title", "body", "owner_class", "score"],
+                        [["lce_pg_deals", "Deals", "$4.99", "Owned", 0.9], ["comp_x", "Dominos", "$7.99", "Competitor", 0.7]])
+    emb = FixedEmbedder()
+    docs = DvaRetriever(NS(vector_search_indexes=idx), "jdub_demo.geologic_v3.sources_idx", emb).search("deals", 3)
+    kw = idx.calls[0]
+    assert kw["query_vector"] == [0.5, 0.25] and "query_text" not in kw and kw["num_results"] == 3
+    assert kw["index_name"] == "jdub_demo.geologic_v3.sources_idx" and kw["columns"] == ["doc_id", "title", "body", "owner_class"]
+    assert [(d.doc_id, d.is_official) for d in docs] == [("lce_pg_deals", True), ("comp_x", False)]
+    assert docs[0].body == "$4.99" and emb.seen == ["deals"]
+
+
+def test_dva_retriever_empty_result():
+    idx = FakeVsIndexes(["doc_id", "title", "body", "owner_class", "score"], None)
+    assert DvaRetriever(NS(vector_search_indexes=idx), "i", FixedEmbedder()).search("x", 3) == []
+    idx2 = NS(query_index=lambda **kw: NS(manifest=None, result=None))
+    assert DvaRetriever(NS(vector_search_indexes=idx2), "i", FixedEmbedder()).search("x", 3) == []
+
+
+def test_prompt_index_nearest():
+    idx = FakeVsIndexes(["prompt_id", "prompt_text", "kind", "cluster", "score"],
+                        [["q201", "Super Bowl party for 12", "tracked", "game_day_party", "0.91"],
+                         ["c004", "party pizza", "suggested", "game_day_party", 0.82]])
+    out = PromptIndex(NS(vector_search_indexes=idx), "jdub_demo.geologic_v3.prompt_idx", FixedEmbedder()).nearest("party")
+    kw = idx.calls[0]
+    assert kw["columns"] == ["prompt_id", "prompt_text", "kind", "cluster"] and kw["num_results"] == 3
+    assert "query_vector" in kw and "query_text" not in kw
+    assert out == [{"id": "q201", "prompt_text": "Super Bowl party for 12", "kind": "tracked", "cluster": "game_day_party", "score": 0.91},
+                   {"id": "c004", "prompt_text": "party pizza", "kind": "suggested", "cluster": "game_day_party", "score": 0.82}]
+    assert all(isinstance(r["score"], float) for r in out)

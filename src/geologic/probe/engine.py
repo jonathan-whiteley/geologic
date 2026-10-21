@@ -17,6 +17,7 @@ class EngineAnswer:
     answer: str
     cited_doc_ids: list[str]
     retrieved_doc_ids: list[str]
+    docs: tuple[Doc, ...] = ()   # retrieved docs in rank order (claims.source_for reads their bodies)
 
 class Retriever(Protocol):
     def search(self, query: str, k: int) -> list[Doc]: ...
@@ -53,4 +54,4 @@ class EngineProxy:
         for m in _CITE.findall(text or ""):
             if m in allowed and m not in cited:
                 cited.append(m)
-        return EngineAnswer(text or "", cited, allowed)
+        return EngineAnswer(text or "", cited, allowed, tuple(docs))

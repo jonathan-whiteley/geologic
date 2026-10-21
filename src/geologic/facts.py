@@ -1,4 +1,4 @@
-"""Checks LCE claims in engine answers against the menu ground truth."""
+"""Price parsing and menu item resolution. Claim tagging lives in geologic.claims."""
 from __future__ import annotations
 import re
 
@@ -40,25 +40,3 @@ def resolve_item(name: str, menu: list[dict]) -> dict | None:
         matches.sort(key=lambda x: x[1], reverse=True)
         return matches[0][0]
     return None
-
-def verify_claims(claims: list[dict], menu: list[dict], deals: list[dict]) -> list[dict]:
-    deal_prices = {round(d["price"], 2) for d in deals if d["active"]}
-    out = []
-    for c in claims:
-        item = resolve_item(str(c.get("item", "")), menu)
-        price = parse_price(c.get("price"))
-        if item is None or price is None:
-            verdict = "unverifiable"
-        elif abs(price - item["price"]) < 0.01:
-            verdict = "correct"
-        elif price in deal_prices and item.get("category") == "pizza":
-            verdict = "correct"
-        else:
-            verdict = "wrong"
-        out.append({**c, "verdict": verdict})
-    return out
-
-def accuracy_score(verdicts: list[dict]) -> float | None:
-    correct = sum(v["verdict"] == "correct" for v in verdicts)
-    wrong = sum(v["verdict"] == "wrong" for v in verdicts)
-    return None if correct + wrong == 0 else correct / (correct + wrong)

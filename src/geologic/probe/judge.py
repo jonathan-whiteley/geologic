@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from geologic.claims import ATTRIBUTES
 
 class JudgeParseError(ValueError):
     pass
@@ -13,12 +14,15 @@ class JudgeResult:
     lce_rank: int | None
     brands_mentioned: list[str]
     sentiment: str
-    claims: list[dict]
+    claims: list[dict]   # each {text, subject, attribute, stated_value}; tagged later by geologic.claims
 
 _INSTR = ("Read the AI answer below. Return only JSON with keys: lce_mentioned (bool, true if Little Caesars is named), "
           "lce_rank (int, 1-based position of Little Caesars among pizza brands in order of first mention, or null), "
-          "brands_mentioned (list of pizza brand names in order), sentiment toward Little Caesars (positive|neutral|negative), "
-          "claims (list of {item, price} for every price stated for a Little Caesars item or deal).")
+          "brands_mentioned (list of pizza brand names in order of first mention), sentiment toward Little Caesars "
+          "(positive|neutral|negative), claims (list of every factual statement about a Little Caesars menu item, deal or the "
+          "company; each {text: the sentence that states it, subject: one of SUBJECTS, attribute: one of ATTRIBUTES, "
+          "stated_value: the value as written, for example $24.99 or 12}). Use subject brand for company facts and attribute "
+          "other when none fits. Do not include claims about other brands.\nSUBJECTS: {subjects}\nATTRIBUTES: {attributes}")
 
 # Canonical brand names and their variant spellings (lowercase keys).
 CANONICAL_BRANDS = ["Little Caesars", "Domino's", "Pizza Hut", "Papa Johns"]
@@ -66,14 +70,32 @@ def _normalize_brands(brands: list) -> list[str]:
     return out
 
 
-def judge_messages(prompt: str, answer: str, strict: bool = False) -> list[dict]:
+def judge_messages(prompt: str, answer: str, strict: bool = False, subjects=()) -> list[dict]:
+    # str.replace, not str.format: the instructions contain literal braces ({text: ...}).
+    instr = _INSTR.replace("{subjects}", ", ".join(subjects)).replace("{attributes}", ", ".join(ATTRIBUTES))
     extra = " Output a single JSON object and nothing else. No markdown fences." if strict else ""
-    return [{"role": "system", "content": _INSTR + extra},
+    return [{"role": "system", "content": instr + extra},
             {"role": "user", "content": f"Question: {prompt}\n\nAnswer: {answer}"}]
+
+
+def _normalize_claims(claims, subjects) -> list[dict]:
+    """Keep the judge inside the vocabulary: unknown subjects become "unknown", unknown attributes "other"."""
+    out = []
+    for c in claims if isinstance(claims, list) else []:
+        if not isinstance(c, dict):
+            continue
+        subj = str(c.get("subject") or "").strip().lower()
+        attr = str(c.get("attribute") or "").strip().lower()
+        v = c.get("stated_value")
+        out.append({"text": "" if c.get("text") is None else str(c["text"]),
+                    "subject": subj if subj in subjects else "unknown",
+                    "attribute": attr if attr in ATTRIBUTES else "other",
+                    "stated_value": None if v is None else str(v)})
+    return out
 
 _FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
 
-def parse_judge_output(text: str) -> JudgeResult:
+def parse_judge_output(text: str, subjects=()) -> JudgeResult:
     raw = _FENCE.sub("", (text or "").strip())
     try:
         obj = json.loads(raw)
@@ -86,4 +108,4 @@ def parse_judge_output(text: str) -> JudgeResult:
     rank = int(rank) if mentioned and isinstance(rank, (int, float)) and rank >= 1 else (1 if mentioned else None)
     brands = _normalize_brands(obj.get("brands_mentioned") or [])
     return JudgeResult(mentioned, rank, brands,
-                       str(obj.get("sentiment") or "neutral"), list(obj.get("claims") or []))
+                       str(obj.get("sentiment") or "neutral"), _normalize_claims(obj.get("claims") or [], subjects))
