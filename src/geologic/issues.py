@@ -185,10 +185,13 @@ def build_issues(answers, claims, prompts, sources, pages, facts, moments, perso
              cluster=cluster, source_doc_id=ranked[0], source_doc_ids=ranked, engines=engines)
 
     # (4) Moment gap: a moment linked to a tracked prompt where at most 1 of 4 engines names LCE or no answer cites an
-    # owned page. Links to suggestions only (not tracked yet) make no issue.
+    # owned page. Links to suggestions only (not tracked yet) and discontinued items make no issue.
     people = {p["persona_id"]: p for p in personas}
     for m in sorted(moments, key=lambda m: m["moment_id"]):
-        linked = [p for p in dict.fromkeys(m.get("prompt_ids") or []) if p in tracked]
+        gone = _current_fact(facts, m.get("item_id"), "available", today)
+        if gone and str(gone.get("value")).strip().lower() == "no":
+            continue   # a discontinued item never gets a moment page (its stale claims still surface in rule 1)
+        linked =[p for p in dict.fromkeys(m.get("prompt_ids") or []) if p in tracked]
         gaps = sorted(p for p in linked if by_prompt[p] and (named(p) <= 1 or not any(
             is_owned(d) for a in by_prompt[p] for d in a.get("cited_doc_ids") or [])))
         if not gaps:

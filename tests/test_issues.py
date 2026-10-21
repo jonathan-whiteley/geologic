@@ -130,3 +130,14 @@ def test_owned_competitor_and_memory_claims_pick_their_lanes():
 def test_moment_on_a_prompt_we_already_win_makes_no_issue():
     won = [a for a in ANS if a["prompt_id"] != "q202"] + [ans("q202", e, True, ["lce_pg_deals_game_day"]) for e in ENG]
     assert not [x for x in build(answers=won) if x["issue_type"] == "moment_gap"]
+
+def test_discontinued_item_moment_makes_no_moment_gap_but_its_stale_claim_still_does():  # fix round 1
+    old_price = next(f["fact_id"] for f in brand_facts() if f["subject"] == "pretzel_crust" and f["attribute"] == "price")
+    pretzel = dict(moment_id="mo_pretzel", kind="trend", title="Pretzel Crust Pepperoni is trending", persona_id=None,
+                   item_id="pretzel_crust", prompt_ids=["q115"], signal_ids=["p1"])
+    claims = CLAIMS + [cl("q115", "Claude", "pretzel_crust", "$8.99", "Outdated", old_price, None)]
+    issues = build(moments=MOMENTS + [pretzel], claims=claims)
+    assert not [x for x in issues if x["issue_type"] == "moment_gap" and x["moment_id"] == "mo_pretzel"]
+    i = one(issues, issue_type="outdated", subject="pretzel_crust")
+    assert i["prompt_ids"] == ["q115"] and i["stated_fact_id"] == old_price
+    assert one(issues, issue_type="moment_gap")["moment_id"] == "mo_goff"   # available items keep their moment gap
