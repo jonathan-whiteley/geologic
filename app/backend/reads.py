@@ -3,7 +3,8 @@ inlined, and every user value goes through :named parameters."""
 import json
 import os
 import re
-from datetime import date
+from datetime import date, datetime, timedelta
+from urllib.parse import urlparse
 from backend.warehouse import query
 from geologic.brands import LOGOS
 from geologic.claims import is_current, split_sentences
@@ -11,6 +12,7 @@ from geologic.datagen.prompts_ext import monthly_volume
 from geologic.fixes import relevant_facts
 from geologic.issues import claim_key
 from geologic.photos import credit_for
+from geologic.results import summarize
 
 T = lambda n: f"{os.environ.get('CATALOG_NAME', 'jdub_demo')}.{os.environ.get('SCHEMA_NAME', 'geologic')}.{n}"
 _PID = re.compile(r"^q\d{3}$")
@@ -59,6 +61,30 @@ def excerpt(body, stated_value):
 def _fact_row(f, today):
     return {"fact_id": f["fact_id"], "subject_name": f.get("subject_name"), "attribute": f["attribute"], "value": f["value"],
             "valid_from": f["valid_from"], "valid_to": f.get("valid_to"), "current": is_current(f, today)}
+
+
+PHASES = ("before", "after")
+TOP_MOVERS = 5
+
+
+def _monday(v):
+    d = v.date() if isinstance(v, datetime) else date.fromisoformat(str(v)[:10])
+    return d - timedelta(days=d.weekday())
+
+
+def _mover(r):
+    na, nb = r.get("naming_after") or 0, r.get("naming_before") or 0
+    oa, ob = r.get("owned_cited_after") or 0, r.get("owned_cited_before") or 0
+    return {"prompt_id": r["prompt_id"], "prompt_text": r.get("prompt_text"), "cluster": r.get("cluster"), "delta": (na - nb) + (oa - ob),
+            "naming_before": nb, "naming_after": na, "owned_cited_before": ob, "owned_cited_after": oa}
+
+
+def _safe(fn, default, what):
+    try:
+        return fn()
+    except Exception as e:   # Lakebase blip or a missing fix_results table: the rest of Impact still renders
+        print(f"impact {what}: {type(e).__name__}: {e}")
+        return default
 
 
 class Reads:
@@ -273,3 +299,74 @@ class Reads:
                 "said": {"claims": claims, "passage": passage, "memory": not i.get("source_doc_id") and i.get("issue_type") != "moment_gap",
                          "moment": moment, "scorecards": scorecards},
                 "truth": {"facts": truth, "uc_table": T("brand_facts")}}
+
+    # Impact
+    def impact(self, repo):
+        """Every Impact block. Rates are fractions 0..1 (Share of Model a decimal); counts are ints."""
+        pm = {r["phase"]: r for r in query(f"SELECT * FROM {T('v_phase_metrics')}")}
+        pc = {r["phase"]: r for r in query(f"SELECT * FROM {T('v_phase_claims')}")}
+        n = lambda d, k: int(d.get(k) or 0)
+        funnel = {ph: {k: n(pm.get(ph, {}), k) for k in ("answers", "mention_lce", "cite_lce", "pick_lce_first")} for ph in PHASES}
+        leading = {ph: {"owned_retrieved": n(pm.get(ph, {}), "owned_retrieved"), "cite_lce": n(pm.get(ph, {}), "cite_lce"),
+                        "wrong_or_outdated": n(pc.get(ph, {}), "wrong_or_outdated")} for ph in PHASES}
+        lagging = {ph: {k: pm.get(ph, {}).get(k) for k in ("answer_share", "mention_rate", "avg_rank")} for ph in PHASES}
+        weekly = query(f"SELECT week_start, brand, answer_share FROM {T('v_answer_share_weekly')} ORDER BY week_start, brand")
+
+        epoch = _safe(repo.epoch, None, "epoch")
+        results = _safe(repo.all_results, [], "fix_results")
+        ledger = summarize(results, epoch) if results else []
+        fixes = _safe(repo.list, [], "fixes")
+        markers = [{"week_start": _monday(e["approved_at"]).isoformat(), "fix_id": e["fix_id"], "title": e["title"],
+                    "approved_at": e["approved_at"], "rehearsal": e["rehearsal"]} for e in ledger if e.get("approved_at")]
+
+        movers = [_mover(r) for r in query(f"SELECT * FROM {T('v_movers')}")]
+        gains = sorted((m for m in movers if m["delta"] > 0), key=lambda m: (-m["delta"], m["prompt_id"]))[:TOP_MOVERS]
+        drops = sorted((m for m in movers if m["delta"] < 0), key=lambda m: (m["delta"], m["prompt_id"]))[:TOP_MOVERS]
+
+        status = query(f"SELECT prompt_id, cluster, engines_answered, engines_naming FROM {T('v_prompt_status')}")
+        missed = {}
+        for r in status:
+            missed[r["cluster"]] = missed.get(r["cluster"], 0) + (r.get("engines_answered") or 0) - (r.get("engines_naming") or 0)
+        missed_by_cluster = sorted(({"cluster": c, "missed": m} for c, m in missed.items() if m > 0), key=lambda x: (-x["missed"], x["cluster"]))
+
+        tracked = {r["prompt_id"] for r in status}
+        captured = {f["issue_id"] for f in fixes if f.get("state") == "published"}
+        issue_of = {r["moment_id"]: r["issue_id"] for r in query(f"SELECT issue_id, moment_id FROM {T('issues')} WHERE moment_id IS NOT NULL")}
+        live = [{"moment_id": m["moment_id"], "title": m["title"], "issue_id": issue_of.get(m["moment_id"]),
+                 "prompt_ids": list(m.get("prompt_ids") or []), "tracked": any(p in tracked for p in m.get("prompt_ids") or [])}
+                for m in query(f"SELECT moment_id, title, prompt_ids FROM {T('moments')} ORDER BY moment_id")
+                if issue_of.get(m["moment_id"]) not in captured]
+
+        return {"ledger": ledger, "funnel": funnel, "leading": leading, "lagging": lagging, "weekly": weekly, "markers": markers,
+                "movers": {"gains": gains, "drops": drops}, "missed_by_cluster": missed_by_cluster, "live_moments": live,
+                "patched_pages": self._patched_pages(fixes, ledger)}
+
+    def _patched_pages(self, fixes, ledger):
+        """lce_<page_id> of every published fix and every ledger entry with a page, most recently approved first (the UI
+        defaults the citation tracker to the first one)."""
+        page_of = {f["fix_id"]: f.get("page_id") for f in fixes if f.get("page_id")}
+        latest = {}
+        def seen(page_id, at):
+            if page_id and _SAFE_ID.match(page_id):
+                latest[page_id] = max(latest.get(page_id, ""), str(at or ""))
+        for f in fixes:
+            if f.get("state") == "published":
+                seen(f.get("page_id"), f.get("reviewed_at"))
+        for e in ledger:
+            seen(page_of.get(e["fix_id"]), e.get("approved_at") or e.get("measured_at"))
+        if not latest:
+            return []
+        ids = _in_list(sorted(latest))
+        urls = {r["page_id"]: r["url"] for r in query(f"SELECT page_id, url FROM {T('site_pages')} WHERE page_id IN ({ids})")}
+        def label(pid):
+            if urls.get(pid):
+                return urlparse(urls[pid]).path or urls[pid]
+            return "/answers/" + pid.removeprefix("pg_").replace("_", "-")
+        order = sorted(latest, key=lambda p: (latest[p], p), reverse=True)
+        return [{"doc_id": f"lce_{p}", "label": label(p)} for p in order]
+
+    def doc_citations(self, doc_id):
+        if not _SAFE_ID.match(doc_id or ""):
+            return None
+        return query(f"SELECT started_at, citations, prompts, prompt_ids FROM {T('v_doc_citations')} WHERE doc_id = :d "
+                     "ORDER BY started_at", {"d": doc_id})

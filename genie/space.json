@@ -5,19 +5,19 @@
       {
         "id": "10000000000000000000000000000001",
         "question": [
-          "Which question cluster has the lowest Share of Model?"
+          "Which engine still states the old Party Pack price?"
         ]
       },
       {
         "id": "10000000000000000000000000000002",
         "question": [
-          "Which engine still gets our prices wrong?"
+          "What is our Share of Model vs Domino's on game-day prompts?"
         ]
       },
       {
         "id": "10000000000000000000000000000003",
         "question": [
-          "What are the top 3 opportunities and why?"
+          "Which unowned domains are cited most on our Gold prompts?"
         ]
       }
     ]
@@ -25,16 +25,19 @@
   "data_sources": {
     "tables": [
       {
-        "identifier": "{{schema}}.gold_opportunities"
+        "identifier": "{{schema}}.brand_facts"
       },
       {
-        "identifier": "{{schema}}.menu_items"
+        "identifier": "{{schema}}.issues"
       },
       {
         "identifier": "{{schema}}.mv_answer_share"
       },
       {
-        "identifier": "{{schema}}.prompt_bank"
+        "identifier": "{{schema}}.prompts"
+      },
+      {
+        "identifier": "{{schema}}.sources"
       },
       {
         "identifier": "{{schema}}.v_answer_share_weekly"
@@ -43,22 +46,25 @@
         "identifier": "{{schema}}.v_brand_share"
       },
       {
-        "identifier": "{{schema}}.v_citation_sources"
+        "identifier": "{{schema}}.v_kpis"
       },
       {
-        "identifier": "{{schema}}.v_kpis"
+        "identifier": "{{schema}}.v_latest_claims"
       },
       {
         "identifier": "{{schema}}.v_latest_responses"
       },
       {
+        "identifier": "{{schema}}.v_prompt_status"
+      },
+      {
         "identifier": "{{schema}}.v_prompts"
       },
       {
-        "identifier": "{{schema}}.v_public_signals"
+        "identifier": "{{schema}}.v_source_types"
       },
       {
-        "identifier": "{{schema}}.v_question_volume"
+        "identifier": "{{schema}}.v_top_domains"
       }
     ]
   },
@@ -67,14 +73,17 @@
       {
         "id": "30000000000000000000000000000001",
         "content": [
-          "You analyze how AI answer engines talk about Little Caesars.\n",
-          "Share of Model = average of 1/lce_rank when Little Caesars is mentioned, else 0, over answers with status 'ok' to unbranded questions (questions that do not name Little Caesars). Use the mv_answer_share metric view for it. Citation Rate and Fact Accuracy in mv_answer_share cover all questions. The column is answer_share and the metric view measure is named Share of Model. Report it as a decimal with two places (for example 0.07). Owned citation share is the share of all citations that point to an official Little Caesars page: use v_kpis.owned_citation_share (citation level). Citation Rate is different: the share of answers that cite at least one official page.\n",
+          "You analyze how AI answer engines talk about Little Caesars, on 30 tracked prompts across 4 engines.\n",
+          "Share of Model = average of 1/lce_rank when Little Caesars is mentioned, else 0, over answers with status 'ok' to unbranded tracked prompts (prompts that do not name Little Caesars). Use the mv_answer_share metric view for it. The column is answer_share and the metric view measure is named Share of Model. Report it as a decimal with two places (for example 0.07). Owned citation share is the share of all citations that point to an owned Little Caesars page: use v_kpis.owned_citation_share.\n",
+          "Share of Model is Share of Voice, weighted by rank: being named first counts most.\n",
           "\"Engines\" means the engine column: Claude, ChatGPT, Gemini, Meta AI.\n",
-          "Competitor Share of Model by brand (Domino's, Pizza Hut, Papa Johns, Little Caesars) comes from v_brand_share (columns brand, answer_share): for example SELECT brand, answer_share FROM v_brand_share ORDER BY answer_share DESC. Report it as a decimal with two places like Share of Model. Per engine (or per cluster), compute it as AVG(CASE WHEN array_contains(brands_mentioned, '<brand>') THEN 1.0 / array_position(brands_mentioned, '<brand>') ELSE 0 END) over v_latest_responses joined to v_prompts USING (prompt_id) WHERE status = 'ok' AND NOT branded, grouped by engine. Brand literals are exactly Little Caesars, Domino's, Pizza Hut, Papa Johns; in SQL write Domino's as concat('Domino', chr(39), 's').\n",
-          "Question clusters with unbranded questions: value, comparison, game_day_party, sponsorship. The product, ordering and dietary clusters contain only branded questions, so their Share of Model is NULL: exclude NULL Share of Model rows when ranking or comparing clusters.\n",
-          "Wrong price claims are claims with verdict 'wrong' in v_latest_responses.claims.\n",
-          "Opportunities are in gold_opportunities ordered by rank.\n",
-          "Never discuss people or signals that are not in v_public_signals.\n"
+          "Competitor Share of Model by brand (Domino's, Pizza Hut, Papa Johns, Little Caesars) comes from v_brand_share (columns brand, answer_share, avg_position): for example SELECT brand, answer_share FROM v_brand_share ORDER BY answer_share DESC. Report it as a decimal with two places like Share of Model. Per engine (or per cluster), compute it as AVG(CASE WHEN array_contains(brands_mentioned, '<brand>') THEN 1.0 / array_position(brands_mentioned, '<brand>') ELSE 0 END) over v_latest_responses joined to v_prompts USING (prompt_id) WHERE status = 'ok' AND NOT branded, grouped by engine. Brand literals are exactly Little Caesars, Domino's, Pizza Hut, Papa Johns; in SQL write Domino's as concat('Domino', chr(39), 's').\n",
+          "Claims are in v_latest_claims. tag is Correct, Wrong, Outdated or Unverifiable. Outdated means the stated value matches a brand_facts row whose valid_to is before today; Wrong means it matches no row. fact_id points at brand_facts.\n",
+          "The old Party Pack price is fact F13 (24.99); the current price is F12 (29.99).\n",
+          "sources.owner_class is Owned, Competitor, Editorial, Community or Reference; unowned means owner_class <> 'Owned'. Cited doc ids are in v_latest_responses.cited_doc_ids; join them to sources on doc_id.\n",
+          "prompts.priority is Gold, Silver or Bronze. Game-day prompts have cluster game_day_party.\n",
+          "Issues are in issues ordered by rank.\n",
+          "Never discuss people or posts that are not in v_public_signals.\n"
         ]
       }
     ]

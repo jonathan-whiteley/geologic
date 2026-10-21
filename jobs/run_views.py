@@ -1,4 +1,4 @@
-"""Deploys the GEOlogic read views from sql/views.sql, sql/insight_views.sql and sql/public_views.sql.
+"""Deploys the GEOlogic read views from sql/views.sql, sql/insight_views.sql, sql/public_views.sql and sql/impact_views.sql.
 
 Each file lists its views in dependency order and the files run in the order below, so v_prompts and
 v_latest_responses exist before the share views read them. {{schema}} renders to the target's
@@ -21,7 +21,7 @@ from geologic.sqlfiles import run_file
 
 spark = SparkSession.builder.getOrCreate()
 SQL_DIR = os.path.join(_src, "..", "sql")
-for f in ("views.sql", "insight_views.sql", "public_views.sql"):
+for f in ("views.sql", "insight_views.sql", "public_views.sql", "impact_views.sql"):
     n = run_file(os.path.join(SQL_DIR, f), spark.sql, catalog=S.catalog, schema=S.schema)
     print(f"  OK  {f}: {n} statements")
 print("All views deployed.")

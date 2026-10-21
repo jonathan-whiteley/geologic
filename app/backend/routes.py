@@ -167,6 +167,20 @@ def quarantine(repo=Depends(deps.get_fix_repo)):
             "points": [{"enforcement_point": p["enforcement_point"], "occurred_at": p["occurred_at"]} for p in q["points"]]}
 
 
+# Impact
+@router.get("/impact")
+def impact(reads=Depends(deps.get_reads), repo=Depends(deps.get_fix_repo)):
+    return reads.impact(repo)
+
+
+@router.get("/impact/citations")
+def impact_citations(doc_id: str = "", reads=Depends(deps.get_reads)):
+    rows = reads.doc_citations(doc_id)
+    if rows is None:
+        raise HTTPException(400, "Unknown document.")
+    return rows
+
+
 # Ask anything, Track and run
 @router.get("/search")
 def search(q: str = "", s=Depends(deps.get_search)):

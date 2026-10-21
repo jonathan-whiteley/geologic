@@ -51,7 +51,7 @@ def test_no_view_reads_retired_probe_columns():
         t = (ROOT / p).read_text()
         assert "verdict" not in t and "answer_themes" not in t and "is_official" not in t, p
 
-# Moved from tests/test_sql_v2.py (deleted in this task). Task 13 updates the two Genie pins to the v3 questions and tables.
+# Moved from tests/test_sql_v2.py. Task 13 updated the two Genie pins to the v3 questions and tables.
 def test_metric_view_uses_share_of_model_name():
     s = (ROOT / "sql/metric_views.sql").read_text()
     assert "name: Share of Model" in s and "name: Answer Share" not in s and "Owned Citation Share" not in s
@@ -62,9 +62,9 @@ def test_prompt_status_exposes_branded():
 def test_genie_space_says_share_of_model():
     d = json.loads((ROOT / "genie/space.json").read_text())
     qs = [q["question"][0] for q in d["config"]["sample_questions"]]
-    assert qs == ["Which question cluster has the lowest Share of Model?",
-                  "Which engine still gets our prices wrong?",
-                  "What are the top 3 opportunities and why?"]
+    assert qs == ["Which engine still states the old Party Pack price?",
+                  "What is our Share of Model vs Domino's on game-day prompts?",
+                  "Which unowned domains are cited most on our Gold prompts?"]
     text = json.dumps(d["instructions"])
     assert "Share of Model" in text and "Answer Share" not in text
 
@@ -72,6 +72,9 @@ def test_genie_space_has_brand_share_for_competitors():
     d = json.loads((ROOT / "genie/space.json").read_text())
     ids = [t["identifier"] for t in d["data_sources"]["tables"]]
     assert "{{schema}}.v_brand_share" in ids and "{{schema}}.v_prompts" in ids and ids == sorted(ids)
+    assert ids == ["{{schema}}." + t for t in ("brand_facts", "issues", "mv_answer_share", "prompts", "sources", "v_answer_share_weekly",
+                                               "v_brand_share", "v_kpis", "v_latest_claims", "v_latest_responses", "v_prompt_status",
+                                               "v_prompts", "v_source_types", "v_top_domains")]
     text = " ".join(d["instructions"]["text_instructions"][0]["content"])
     assert "v_brand_share" in text and "array_position(brands_mentioned" in text and "Domino's" in text
     assert "concat('Domino', chr(39), 's')" in text and "Domino''s" not in text
@@ -81,6 +84,21 @@ def test_gateway_view_dedupes_served_entities():
     assert "(SELECT DISTINCT served_entity_id, endpoint_name FROM system.serving.served_entities)" in v
 
 def test_no_dashes_in_sql_and_genie():
-    for p in ("sql/views.sql", "sql/insight_views.sql", "sql/public_views.sql", "sql/metric_views.sql", "genie/space.json"):
+    for p in ("sql/views.sql", "sql/insight_views.sql", "sql/public_views.sql", "sql/metric_views.sql", "sql/impact_views.sql",
+              "genie/space.json"):
         t = (ROOT / p).read_text()
         assert "\u2014" not in t and "\u2013" not in t, p
+
+
+def test_metric_view_v3_measures_and_priority():
+    s = (ROOT / "sql/metric_views.sql").read_text()
+    assert "name: Visibility" in s and "name: Priority" in s and "p.priority" in s and "Share of Voice, weighted by rank" in s
+
+
+def test_genie_space_v3_instructions():
+    text = " ".join(json.loads((ROOT / "genie/space.json").read_text())["instructions"]["text_instructions"][0]["content"])
+    for needle in ("Share of Voice, weighted by rank: being named first counts most.", "F13 (24.99)", "F12 (29.99)",
+                   "owner_class <> 'Owned'", "cluster game_day_party", "Issues are in issues ordered by rank.",
+                   "v_public_signals", "Claude, ChatGPT, Gemini, Meta AI"):
+        assert needle in text, needle
+    assert "gold_opportunities" not in text and "verdict" not in text
