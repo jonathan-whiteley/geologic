@@ -77,9 +77,9 @@ def query(w, index_name, columns, vector, k) -> list[dict]:
 
 
 def delete(w, index_name, ids):
-    ids = list(ids)
-    if ids:
-        w.vector_search_indexes.delete_data_vector_index(index_name=index_name, primary_keys=ids)
+    """One key per call: with databricks-sdk 0.114 a multi-key delete (repeated query parameter) removes only one row."""
+    for i in dict.fromkeys(ids):
+        w.vector_search_indexes.delete_data_vector_index(index_name=index_name, primary_keys=[i])
 
 
 def index_ids(w, index_name, pk, page=1000) -> list[str]:

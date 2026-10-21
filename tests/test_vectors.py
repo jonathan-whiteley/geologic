@@ -44,11 +44,13 @@ def test_upsert_failure_raises():
         V.upsert(w, "idx", [{"doc_id": "x", "embedding": [0.0]}])
 
 
-def test_delete_skips_empty_and_passes_ids():
+def test_delete_skips_empty_and_sends_one_key_per_call():
+    # Live (story fixes 2): with SDK 0.114 a two-key delete_data_vector_index call removed only one row
+    # (success_row_count 1); the second key needed its own call.
     w = W()
     V.delete(w, "idx", [])
     V.delete(w, "idx", (i for i in ["a", "b"]))
-    assert w.vector_search_indexes.calls == [("delete", ["a", "b"])]
+    assert w.vector_search_indexes.calls == [("delete", ["a"]), ("delete", ["b"])]
 
 
 class Indexes:
@@ -181,5 +183,8 @@ def test_prune_deletes_only_ids_not_kept():
     w = W(); w.vector_search_indexes = ScanIdx({None: ["q001", "s_old", "s_keep", "c004"]})
     gone = V.prune(w, "c.s.prompt_idx", "prompt_id", keep={"q001", "s_keep", "c004"})
     assert gone == ["s_old"] and w.vector_search_indexes.calls == [("delete", ["s_old"])]
+    w3 = W(); w3.vector_search_indexes = ScanIdx({None: ["q001", "s_a", "s_b"]})
+    assert V.prune(w3, "i", "prompt_id", keep={"q001"}) == ["s_a", "s_b"]
+    assert w3.vector_search_indexes.calls == [("delete", ["s_a"]), ("delete", ["s_b"])]
     w2 = W(); w2.vector_search_indexes = ScanIdx({None: ["q001"]})
     assert V.prune(w2, "i", "prompt_id", keep={"q001"}) == [] and w2.vector_search_indexes.calls == []
