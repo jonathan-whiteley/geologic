@@ -69,3 +69,73 @@ def test_model_calls_carry_the_v3_usage_context_and_unreadable_judge_fails_close
     draft_fix(REQ, Ctx(json.dumps(GOOD)), "ep")
     assert unsupported_claims("text", [], Ctx('{"not": "a list"}'), "ep", ("brand",)) == ["The judge could not read this draft"]
     assert [c["role"] for c in seen] == ["drafter", "draft_judge"] and {c["app"] for c in seen} == {settings.usage_app}
+
+
+# Fix round 1
+from geologic.datagen.reference import personas, site_pages
+from geologic.jsonld import build_for_page
+
+NAMES = [m["name"] for m in menu_items()]
+JREQ = {"asset_type": "jsonld", "section_id": "jsonld", "op": "replace", "persona_id": None, "persona_name": None}
+
+def fin(d, req=REQ, judge=lambda t, g: [], persons=None):
+    return finalize_fix(d, req, F, exclusion_rules(), T, item_names=NAMES,
+                        persona_names=personas() if persons is None else persons, judge=judge)
+
+def ok_of(f):
+    return {c["key"]: c["ok"] for c in f["checks"]}
+
+def test_surname_only_is_t2_and_fails_persona():
+    s = "Goff picked the Game Day Party Pack for $29.99."
+    f = fin({**GOOD, "patch": {**GOOD["patch"], "text": f"## X\n{s}"}, "sentences": [{"text": s, "fact_ids": ["F12"]}]})
+    assert f["tier"] == "T2" and ok_of(f)["persona"] is False
+
+def test_missing_or_failing_judge_fails_closed():
+    for judge in (None, lambda t, g: 1 / 0):
+        c = next(c for c in fin(GOOD, judge=judge)["checks"] if c["key"] == "unsupported")
+        assert c == {"key": "unsupported", "ok": False, "label": "Unsupported-claim check did not run"}
+
+def test_checks_come_back_in_ui_order():
+    keys = [c["key"] for c in fin(GOOD)["checks"]]
+    assert keys == ["grounded", "current", "values", "comparison", "persona", "copy", "target", "unsupported", "policy"]
+
+def _built(page_id="pg_item_party_pack"):
+    return build_for_page(next(p for p in site_pages() if p["page_id"] == page_id), F, T)
+
+def test_built_jsonld_is_t0_with_every_check():
+    for pid in ("pg_item_party_pack", "pg_deals_game_day"):
+        f = fin(_built(pid), JREQ, judge=None)
+        assert f["tier"] == "T0" and f["state"] == "pending_review", f["checks"]
+        assert [c["key"] for c in f["checks"]] == ["grounded", "current", "values", "comparison", "persona", "copy", "target",
+                                                   "policy", "schema"]
+
+def test_jsonld_needs_a_current_cited_fact():
+    f = fin({**_built(), "sentences": []}, JREQ)
+    assert f["tier"] == "T1" and ok_of(f)["grounded"] is False
+    d = _built()
+    f = fin({**d, "sentences": [{**d["sentences"][0], "fact_ids": ["F13"]}]}, JREQ)
+    assert f["tier"] == "T1" and ok_of(f)["current"] is False
+    f = fin({**d, "sentences": [{**d["sentences"][0], "fact_ids": ["F99"]}]}, JREQ)
+    assert ok_of(f)["current"] is False
+
+def test_jsonld_free_text_person_and_competitor_never_t0():
+    obj = json.loads(_built()["patch"]["text"])
+    goff = {**_built(), "patch": {**_built()["patch"], "text": json.dumps({**obj, "description": "Goff loves it"})}}
+    f = fin(goff, JREQ)
+    assert f["tier"] == "T2" and ok_of(f)["persona"] is False and ok_of(f)["schema"] is False
+    comp = {**_built(), "patch": {**_built()["patch"], "text": json.dumps({**obj, "name": "Better than Domino's"})}}
+    f = fin(comp, JREQ)
+    assert f["tier"] == "T1" and ok_of(f)["comparison"] is False
+
+def test_jsonld_organization_offer_price_must_match_the_fact():
+    d = _built("pg_deals_game_day")
+    f = fin({**d, "patch": {**d["patch"], "text": d["patch"]["text"].replace('"4.99"', '"1.99"')}}, JREQ)
+    assert f["tier"] == "T1" and ok_of(f)["values"] is False
+
+def test_parse_draft_rejects_bad_types_and_unknown_asset():
+    for bad in ({"patch": {"section_id": "a", "op": "insert", "text": ["x"]}, "sentences": []},
+                {**GOOD, "sentences": [{"text": "x", "fact_ids": "F12"}]}):
+        with pytest.raises(DraftError):
+            parse_draft(json.dumps(bad))
+    with pytest.raises(DraftError):
+        draft_messages({**REQ, "asset_type": "mystery"})

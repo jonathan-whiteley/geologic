@@ -3,12 +3,11 @@ from __future__ import annotations
 import json
 import re
 from geologic.exclusions import find_exclusion
-from geologic.jsonld import validate_against_facts
 from geologic.probe.engine import usage_context
 from geologic.probe.judge import ATTRIBUTES_TEXT
 from geologic.style import clean_dashes
 from geologic.tiering import assign_tier
-from geologic.verify import supported, verify
+from geologic.verify import CHECK_ORDER, jsonld_strings, mentions, person_terms, supported, verify, verify_jsonld
 
 BLOCKING_CHECKS = {"grounded", "current", "values", "comparison", "persona", "copy", "target", "unsupported", "policy", "schema"}
 
@@ -44,6 +43,8 @@ def _fact_line(f, old=False):
 
 
 def draft_messages(req, feedback=None):
+    if req.get("asset_type") not in ASSET_GUIDE:
+        raise DraftError(f"no drafting guide for asset type {req.get('asset_type')}")
     p, c = req.get("passage") or {}, req.get("claim") or {}
     lines = [f"Asset type: {req['asset_type']}. {ASSET_GUIDE[req['asset_type']]}",
              f"Issue: {req['issue_title']}",
@@ -72,11 +73,20 @@ def parse_draft(text):
     except json.JSONDecodeError as e:
         raise DraftError(f"not JSON: {raw[:80]}") from e
     p = obj.get("patch") if isinstance(obj, dict) else None
-    if not isinstance(p, dict) or p.get("op") not in ("insert", "replace") or not str(p.get("text") or "").strip() \
-            or not p.get("section_id"):
+    if not isinstance(p, dict) or p.get("op") not in ("insert", "replace") or not isinstance(p.get("text"), str) \
+            or not p["text"].strip() or not p.get("section_id"):
         raise DraftError("patch needs section_id, op insert|replace and text")
-    sents = [{"text": clean_dashes(str(s.get("text", ""))).strip(), "fact_ids": [str(x) for x in s.get("fact_ids") or []]}
-             for s in obj.get("sentences") or [] if isinstance(s, dict)]
+    raw_sents = obj.get("sentences") or []
+    if not isinstance(raw_sents, list):
+        raise DraftError("sentences must be a list")
+    sents = []
+    for s in raw_sents:
+        if not isinstance(s, dict):
+            continue
+        ids = s.get("fact_ids") or []
+        if not isinstance(ids, list):
+            raise DraftError("fact_ids must be a list of fact ids")
+        sents.append({"text": clean_dashes(str(s.get("text", ""))).strip(), "fact_ids": [str(x) for x in ids]})
     return {"patch": {"section_id": str(p["section_id"]), "op": p["op"], "text": clean_dashes(p["text"])},
             "sentences": sents, "rationale": clean_dashes(str(obj.get("rationale") or ""))}
 
@@ -97,7 +107,7 @@ def draft_claims_messages(text, subjects):
             {"role": "user", "content": text}]
 
 
-def unsupported_claims(text, grounding, chat, endpoint, subjects):
+def unsupported_claims(text, grounding, chat, endpoint, subjects, names=()):
     out = chat.complete(endpoint, draft_claims_messages(text, subjects), max_tokens=800, usage_context=usage_context("draft_judge"))
     raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", (out or "").strip(), flags=re.MULTILINE)
     try:
@@ -106,25 +116,40 @@ def unsupported_claims(text, grounding, chat, endpoint, subjects):
         items = None
     if not isinstance(items, list):   # fail closed: an unreadable judge answer never passes as "no unsupported claims"
         return ["The judge could not read this draft"]
-    return [str(c.get("text")) for c in items if isinstance(c, dict) and not supported(c, grounding)]
+    return [str(c.get("text")) for c in items if isinstance(c, dict) and not supported(c, grounding, names)]
+
+
+_NO_JUDGE = {"key": "unsupported", "ok": False, "label": "Unsupported-claim check did not run"}
+
+
+def _unsupported_check(text, grounding, judge):
+    """The judge pass fails closed: no judge, or a judge that raises, is a failed check, never a silent pass."""
+    if judge is None:
+        return dict(_NO_JUDGE)
+    try:
+        bad = judge(text, grounding)
+    except Exception:
+        return dict(_NO_JUDGE)
+    return {"key": "unsupported", "ok": not bad, "label": "No unsupported claims" if not bad else f"Unsupported claim: {bad[0]}"}
 
 
 def finalize_fix(draft, req, facts, rules, today, *, item_names, persona_names, judge=None):
-    asset = req["asset_type"]
+    """persona_names are names or persona rows. jsonld drafts get the T0 checks (verify_jsonld); every other asset gets
+    verify() plus the judge pass. Checks come back in CHECK_ORDER; the tier is assigned by code from the results."""
+    asset, text = req["asset_type"], draft["patch"]["text"]
     if asset == "jsonld":
-        errs = validate_against_facts(draft["patch"]["text"], facts, today)
-        checks = [{"key": "schema", "ok": not errs, "label": "schema.org validation passed" if not errs else "; ".join(errs)}]
-        sentences = [{**s, "kind": "fact"} for s in draft["sentences"]]
+        checks, sentences = verify_jsonld(draft, req, facts, today, persona_names=persona_names)
     else:
         checks, sentences = verify(draft, req, facts, today, item_names=item_names, persona_names=persona_names)
     grounding_ids = sorted({f for s in sentences for f in s["fact_ids"]})
-    if judge is not None and asset != "jsonld":
-        g = [f for f in facts if f["fact_id"] in grounding_ids]
-        bad = judge(draft["patch"]["text"], g)
-        checks.append({"key": "unsupported", "ok": not bad, "label": "No unsupported claims" if not bad else f"Unsupported claim: {bad[0]}"})
-    rule = find_exclusion(draft["patch"]["text"], req.get("persona_id") if asset != "association" else None, [], rules)
+    if asset != "jsonld":
+        checks.append(_unsupported_check(text, [f for f in facts if f["fact_id"] in grounding_ids], judge))
+    rule = find_exclusion(text, req.get("persona_id") if asset != "association" else None, [], rules)
     checks.append({"key": "policy", "ok": rule is None, "label": "Brand policy: no exclusion rule fires" if rule is None else f"Blocked by {rule}"})
-    names_person = asset == "association" or any(p.lower() in draft["patch"]["text"].lower() for p in persona_names)
+    checks.sort(key=lambda c: CHECK_ORDER.index(c["key"]))
+    terms = person_terms(list(persona_names or ()) + ([req["persona_name"]] if req.get("persona_name") else []))
+    scanned = " \n ".join([text, *(s["text"] for s in sentences), *(jsonld_strings(text) if asset == "jsonld" else [])])
+    names_person = asset == "association" or bool(mentions(scanned, terms))
     ok = all(c["ok"] for c in checks if c["key"] in BLOCKING_CHECKS)
     return {"patch": draft["patch"], "sentences": sentences, "rationale": draft.get("rationale", ""),
             "tier": assign_tier(asset, names_person=names_person, checks_ok=ok), "state": "blocked" if rule else "pending_review",
