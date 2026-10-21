@@ -1,5 +1,5 @@
 import type { IssueRow, IssueType } from '../api/types'
-import { ISSUE_TYPE, laneLabel, tierClass } from '../lib/fixLabels'
+import { ISSUE_TYPE, TIER_ORDER, laneLabel, tierClass } from '../lib/fixLabels'
 
 export type QueueFilter = 'all' | 'bad' | 'missing' | 'no_page' | 'moments'
 const FILTERS: { key: QueueFilter; label: string; types: IssueType[] }[] = [
@@ -55,7 +55,7 @@ export default function IssueQueue({ rows, filter, onFilter, selectedId, onSelec
                 </div>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-xs text-text-tertiary">
                   <span>on {n} tracked {n === 1 ? 'prompt' : 'prompts'} · {r.missed_answers} missed answers</span>
-                  {r.fixes.map(f => <span key={f.fix_id} className={`tier ${tierClass(f.tier)}`}>{f.tier}</span>)}
+                  {[...r.fixes].sort((a, b) => (TIER_ORDER[a.tier] ?? 9) - (TIER_ORDER[b.tier] ?? 9)).map(f => <span key={f.fix_id} className={`tier ${tierClass(f.tier)}`}>{f.tier}</span>)}
                 </div>
               </div>
             </button>

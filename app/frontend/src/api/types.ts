@@ -54,9 +54,20 @@ export type FixStatus = { state: string; publish_step: number; step_labels: stri
 export type FixSummary = { tiers: { T0: { ready: number }; T1: { to_review: number }; T2: { to_review: number } }; quarantined: number; review_mode: boolean }
 export type Quarantine = { count: number; rule_id: string | null; reason: string | null; points: { enforcement_point: 'ingest' | 'suggest' | 'publish'; occurred_at: string }[] }
 
-// v2 Impact shapes, still used by the v2 Impact page until Task 13 replaces it.
-export type Impact = { weekly: { week_start: string; brand: string; answer_share: number }[]; health: { t0_auto: number; t1_approved_no_edit_pct: number | null; t2_reviews: number; blocked: number }; proof: Proof | null }
-export type Proof = { suggestion_id: string; title: string; engine: string; before_answer: string | null; after_answer: string | null; before_cited: string[]; after_cited: string[]; share_before: number | null; share_after: number | null; accuracy_before: number | null; accuracy_after: number | null; reviewer: string | null; saved_at: string; prompt_text?: string | null }
+// Impact (Task 13)
+export type Funnel = { answers: number; mention_lce: number; cite_lce: number; pick_lce_first: number }
+export type Phase<T> = { before: T; after: T }
+export type Mover = { prompt_id: string; prompt_text: string; cluster: string; delta: number; naming_before: number; naming_after: number;
+  owned_cited_before: number; owned_cited_after: number }
+export type ImpactT = { ledger: LedgerEntry[]; funnel: Phase<Funnel>;
+  leading: Phase<{ owned_retrieved: number; cite_lce: number; wrong_or_outdated: number }>;
+  lagging: Phase<{ answer_share: number | null; mention_rate: number | null; avg_rank: number | null }>;
+  weekly: { week_start: string; brand: string; answer_share: number }[];
+  markers: { week_start: string; fix_id: string; title: string; approved_at: string; rehearsal: boolean }[];
+  movers: { gains: Mover[]; drops: Mover[] }; missed_by_cluster: { cluster: string; missed: number }[];
+  live_moments: { moment_id: string; title: string; issue_id: string | null; prompt_ids: string[]; tracked: boolean }[];
+  patched_pages: { doc_id: string; label: string }[] }
+export type DocCitationRun = { started_at: string; citations: number; prompts: number; prompt_ids: string[] }
 
 // Genie
 export type GenieColumn = { name: string; type: string }

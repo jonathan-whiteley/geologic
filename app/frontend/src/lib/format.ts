@@ -15,7 +15,8 @@ export function pct(n: number, digits = 0): string {
 
 export function formatDate(d: string | null): string {
   if (!d) return 'never'
-  const dt = new Date(d)
+  // A bare date is a calendar day: parse it as local midnight so it never shifts a day in US time zones.
+  const dt = new Date(/^\d{4}-\d{2}-\d{2}$/.test(d) ? `${d}T00:00:00` : d)
   if (Number.isNaN(dt.getTime())) return d
   return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
@@ -32,8 +33,6 @@ export function fx(n: number | null | undefined, digits = 2, suffix = ''): strin
   return typeof n === 'number' && Number.isFinite(n) ? `${n.toFixed(digits)}${suffix}` : 'N/A'
 }
 
-/** Answer text for display: drop inline citation tokens like [comp_dominos_party_guide] or [blog_a, lce_pg_deals];
- *  the sources are listed under the answer instead. */
 /** Engine answers arrive as light markdown with inline citation tokens: show them as plain sentences. */
 export function cleanAnswer(text: string): string {
   return text
@@ -46,20 +45,6 @@ export function cleanAnswer(text: string): string {
     .replace(/[ \t]{2,}/g, ' ')
     .replace(/\s+([.,;:!?])/g, '$1')
     .trim()
-}
-
-export type MetricMove = { share_before: number | null; share_after: number | null; accuracy_before: number | null; accuracy_after: number | null }
-
-/** Only the metrics that moved (at display precision), Share of Model first: a flat metric is left out. */
-export function movedMetrics(m: MetricMove): { label: string; before: string; after: string }[] {
-  const out: { label: string; before: string; after: string }[] = []
-  if (m.share_before != null && m.share_after != null && m.share_before.toFixed(2) !== m.share_after.toFixed(2)) {
-    out.push({ label: 'Share of Model', before: m.share_before.toFixed(2), after: m.share_after.toFixed(2) })
-  }
-  if (m.accuracy_before != null && m.accuracy_after != null && m.accuracy_before.toFixed(0) !== m.accuracy_after.toFixed(0)) {
-    out.push({ label: 'Fact accuracy', before: `${m.accuracy_before.toFixed(0)}%`, after: `${m.accuracy_after.toFixed(0)}%` })
-  }
-  return out
 }
 
 /** Engines in the order every screen lists them; unknown engines sort last. */

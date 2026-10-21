@@ -4,11 +4,11 @@ import { ArrowUp, RotateCcw, Sparkles, X } from 'lucide-react'
 import { tabForPath, useGeniePanel } from '../../state/genie-panel'
 import GenieTurn from './GenieTurn'
 
-export const STARTERS = ['Which question cluster has the lowest Share of Model?', 'Which engine still gets our prices wrong?', 'What are the top 3 opportunities and why?']
+export const STARTERS = ['Which engine still states the old Party Pack price?', "What is our Share of Model vs Domino's on game-day prompts?", 'Which unowned domains are cited most on our Gold prompts?']
 
 const SUGGESTED: Record<string, string[]> = {
-  Measure: ['Which question cluster has the lowest Share of Model?', "How does our Share of Model compare to Domino's by engine?", "Which publishers do engines cite most when they don't cite us?"],
-  Fix: ['Which engine still gets our prices wrong?', 'What are the top 3 opportunities and why?', 'Which opportunities expire in the next 48 hours?'],
+  Measure: ["What is our Share of Model vs Domino's on game-day prompts?", 'Which unowned domains are cited most on our Gold prompts?', 'Which tracked prompts name us on 0 of 4 engines?'],
+  Fix: ['Which engine still states the old Party Pack price?', 'Which sources cause the most wrong or outdated claims?', 'Which issues touch Gold prompts?'],
   Impact: STARTERS,
   Architecture: STARTERS,
 }

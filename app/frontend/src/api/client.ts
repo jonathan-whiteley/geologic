@@ -36,8 +36,9 @@ export const api = {
   edit: (id: string, patchText: string) =>
     req<T.Fix>(`/fixes/${encodeURIComponent(id)}/edit`, { method: 'POST', body: JSON.stringify({ patch_text: patchText }) }),
   fixStatus: (id: string) => req<T.FixStatus>(`/fixes/${encodeURIComponent(id)}/status`),
-  // v2 Impact call, replaced in Task 13
-  impact: () => req<T.Impact>('/impact'),
+  // Impact
+  impact: () => req<T.ImpactT>('/impact'),
+  docCitations: (docId: string) => req<T.DocCitationRun[]>(`/impact/citations?doc_id=${encodeURIComponent(docId)}`),
   // Demo controls
   reset: () => req<{ run_id: number }>('/demo/reset', { method: 'POST' }),
   resetStatus: (runId: number) => req<{ run_id: number; life_cycle_state: string | null; result_state: string | null }>(`/demo/reset/${runId}`),
