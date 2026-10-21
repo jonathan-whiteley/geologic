@@ -4,7 +4,8 @@ are overwritten, new prompt suggestions are merged (existing ones are never touc
 1. Moments from silver_signals (quarantined signals never become moments). For each, the judge model writes 1 or 2
    customer questions from the post text; each links to the best tracked prompt in the top 5 of prompt_idx at the match
    threshold (cosine), else the best other suggestion at it (never its own), otherwise it becomes a new prompt suggestion
-   (source moment), upserted into prompt_idx.
+   (source moment), upserted into prompt_idx. Each moment also links every tracked prompt whose text resolves to the
+   moment's menu item (geologic.moments.item_prompt_ids, Ruling S2-F).
 2. Issues from the latest ok answers, their claims, the tracked prompts, sources, owned pages, brand facts and the
    moments (geologic.issues). No prompt, no issue.
 """
@@ -28,7 +29,7 @@ from geologic.config import settings as S
 from geologic.clients import Embedder, FmapiChat, PromptIndex
 from geologic.datagen.reference import is_branded
 from geologic.issues import build_issues
-from geologic.moments import build_moments, fallback_question, link_questions, parse_questions, question_messages
+from geologic.moments import build_moments, fallback_question, link_moment, parse_questions, question_messages
 from geologic import vectors as V
 
 spark = SparkSession.builder.getOrCreate()
@@ -55,6 +56,7 @@ people = rows(f"SELECT * FROM {S.fq('personas')}")
 names = {m["item_id"]: m["name"] for m in menu}
 pnames = {p["persona_id"]: p["display_name"] for p in people}
 moments = build_moments(rows(f"SELECT * FROM {S.fq('silver_signals')}"), people, menu)
+prompts = rows(f"SELECT prompt_id, prompt_text, cluster, priority, branded FROM {S.fq('prompts')}")
 
 hits = {}
 
@@ -77,7 +79,7 @@ for m in moments:
         if qs:
             break
     qs = qs or [fallback_question(names[m["item_id"]])]
-    ids, new = link_questions(qs, best, S.match_threshold)
+    ids, new = link_moment(m, qs, best, S.match_threshold, prompts, menu)   # semantic links plus same-item prompts
     m["questions"], m["prompt_ids"], m["detected_at"] = qs, ids, now
     for sid, text in new:
         new_sugg.setdefault(sid, {"suggestion_id": sid, "prompt_text": text, "cluster": (best(text)[:1] or [{}])[0].get("cluster") or "product",
@@ -95,7 +97,6 @@ if new_sugg:
     V.upsert(w, S.prompt_index, idx_rows)
     print(f"prompt suggestions from moments: {len(new_sugg)} merged, {len(idx_rows)} upserted into {S.prompt_index}")
 
-prompts = rows(f"SELECT prompt_id, prompt_text, cluster, priority, branded FROM {S.fq('prompts')}")
 issues = build_issues(
     answers=rows(f"SELECT * FROM {S.fq('v_latest_responses')} WHERE status = 'ok'"),
     claims=rows(f"SELECT * FROM {S.fq('v_latest_claims')}"),

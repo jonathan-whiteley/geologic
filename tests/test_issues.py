@@ -171,3 +171,24 @@ def test_owned_stale_claim_and_stale_page_make_one_issue_with_t0_jsonld():
     hits = [x for x in issues if x["issue_type"] == key["issue_type"] and x["source_doc_id"] == key["source_doc_id"]]
     assert [assign_tier(f["asset_type"], names_person=False, checks_ok=True) for f in hits[0]["planned"]
             if f["asset_type"] in key["fixes"]] == ["T0"]
+
+
+def test_item_linked_moments_gap_only_where_engines_miss_and_never_for_a_discontinued_item():   # Ruling S2-F
+    from geologic.datagen.reference import menu_items
+    from geologic.moments import link_moment
+    prompts = P + [dict(prompt_id="q057", prompt_text="What is Detroit-style pizza at Little Caesars?", cluster="product",
+                        priority="Silver", branded=True),
+                   dict(prompt_id="q300", prompt_text="Is the pretzel crust pizza back?", cluster="product", priority="Gold",
+                        branded=False)]
+    answers = ANS + [ans("q057", e, True, ["lce_pg_deals_game_day"]) for e in ENG] + [ans("q300", e) for e in ENG]
+    goff = {**MOMENTS[0], "prompt_ids": []}
+    goff["prompt_ids"], _ = link_moment(goff, [], lambda t, k=5: [], 0.80, prompts, menu_items())
+    assert goff["prompt_ids"] == ["q057", "q202"]
+    pretzel = dict(moment_id="mo_pretzel", kind="trend", title="Pretzel Crust Pepperoni is trending", persona_id=None,
+                   item_id="pretzel_crust", signal_ids=["p1"], prompt_ids=[])
+    pretzel["prompt_ids"], _ = link_moment(pretzel, [], lambda t, k=5: [], 0.80, prompts, menu_items())
+    assert pretzel["prompt_ids"] == ["q300"]
+    issues = build(prompts=prompts, answers=answers, moments=[goff, pretzel])
+    gap = one(issues, issue_type="moment_gap")
+    assert gap["moment_id"] == "mo_goff" and gap["prompt_ids"] == ["q202"]   # q057 names LCE on every engine: no gap
+    assert not [x for x in issues if x.get("moment_id") == "mo_pretzel"]

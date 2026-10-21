@@ -1,5 +1,5 @@
 from geologic.datagen.reference import menu_items, personas
-from geologic.moments import build_moments, parse_questions, link_questions, fallback_question, question_messages, suggestion_id
+from geologic.moments import build_moments, parse_questions, link_questions, fallback_question, question_messages, suggestion_id, link_moment, item_prompt_ids
 
 def sig(**kw):
     base = dict(signal_id="s", source_type="social", quarantined=False, menu_item_id=None, persona_id=None, is_real_persona=False,
@@ -99,3 +99,26 @@ def test_link_asks_for_five_hits_when_nearest_takes_k():
         seen.append(k)
         return [{"id": "q202", "kind": "tracked", "score": 0.9}]
     assert link_questions(["a"], nearest, 0.80) == (["q202"], []) and seen == [5]
+
+
+# Ruling S2-F: a moment also links every tracked prompt whose own text resolves to the moment's menu item through the
+# alias resolver (facts.resolve_item; the same alias rule pipelines/signals.sql uses for signals, confidence 0.95).
+TRACKED = [dict(prompt_id="q202", prompt_text="Best Detroit-style pizza for game day"),
+           dict(prompt_id="q057", prompt_text="What is Detroit-style pizza at Little Caesars?"),
+           dict(prompt_id="q062", prompt_text="Best pizza for a Super Bowl party"),
+           dict(prompt_id="q085", prompt_text="What are Crazy Puffs?")]
+
+def test_item_prompt_ids_resolve_tracked_prompt_text_to_the_menu_item():
+    assert item_prompt_ids("detroit_pepperoni", TRACKED, menu_items()) == ["q057", "q202"]
+    assert item_prompt_ids("crazy_puffs_pepperoni", TRACKED, menu_items()) == ["q085"]
+    assert item_prompt_ids("pretzel_crust", TRACKED, menu_items()) == []
+    assert item_prompt_ids("detroit_pepperoni", TRACKED + [dict(prompt_id="s_x", prompt_text="Detroit-style deal")], menu_items()) \
+        == ["q057", "q202"]   # suggestions never link this way
+
+def test_q202_links_to_a_detroit_moment_with_no_semantic_match():
+    m = {"item_id": "detroit_pepperoni"}
+    q = "Where can I get the Goff pizza?"
+    ids, new = link_moment(m, [q], lambda t, k=5: [], 0.80, TRACKED, menu_items())
+    assert ids == [suggestion_id(q), "q057", "q202"] and new == [(suggestion_id(q), q)]
+    hit = [{"id": "q202", "kind": "tracked", "score": 0.81}]
+    assert link_moment(m, [q], lambda t, k=5: hit, 0.80, TRACKED, menu_items()) == (["q202", "q057"], [])   # deduped

@@ -5,6 +5,7 @@ import inspect
 import json
 import re
 from collections import defaultdict
+from geologic.facts import resolve_item
 from geologic.style import clean_dashes
 
 TREND_VELOCITY = 3.0
@@ -115,3 +116,18 @@ def link_questions(questions, nearest, threshold):
             new.append((own, q))
             ids.append(own)
     return list(dict.fromkeys(ids)), new
+
+
+def item_prompt_ids(item_id, prompts, menu) -> list[str]:
+    """Tracked prompts whose own text resolves to the moment's menu item through the alias resolver
+    (facts.resolve_item: the alias rule pipelines/signals.sql uses to text-resolve signals, which scores a text match
+    0.95, above TEXT_RESOLUTION_MIN). Suggestions (s_) never link this way."""
+    return sorted(p["prompt_id"] for p in prompts if not str(p["prompt_id"]).startswith("s_")
+                  and (resolve_item(p.get("prompt_text") or "", menu) or {}).get("item_id") == item_id)
+
+
+def link_moment(moment, questions, nearest, threshold, prompts, menu):
+    """Ruling S2-F: the semantic links of link_questions plus every tracked prompt about the same menu item, deduped.
+    The item join is deterministic, so a moment grounded to an item always reaches the tracked prompts that name it."""
+    ids, new = link_questions(questions, nearest, threshold)
+    return list(dict.fromkeys(ids + item_prompt_ids(moment.get("item_id"), prompts, menu))), new
