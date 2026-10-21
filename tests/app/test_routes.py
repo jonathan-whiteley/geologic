@@ -197,3 +197,11 @@ def test_status_and_safety_net_carry_engine_and_question():  # P2
     repo = UnproofedSuggestions()
     _with_repo(repo, lambda: c.get("/api/impact"))
     assert repo.saved[0][3]["engine"] == "Gemini"
+
+def test_genie_none_means_not_configured(monkeypatch):
+    monkeypatch.setenv("GENIE_SPACE_ID", "none")
+    app.dependency_overrides.pop(deps.get_genie, None)
+    assert c.post("/api/genie/ask", json={"question": "hi"}).status_code == 503
+
+def test_supervisor_route_is_gone():
+    assert c.post("/api/ask", json={"question": "hi"}).status_code in (404, 405)

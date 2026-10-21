@@ -10,6 +10,8 @@ except NameError:
     _src = os.path.abspath(os.path.join(os.getcwd(), "..", "src"))
 sys.path.insert(0, _src)
 
+from geologic import jobargs; jobargs.apply()
+
 from PIL import Image, ImageDraw
 from geologic.config import settings as S
 from geologic.datagen.reference import menu_items

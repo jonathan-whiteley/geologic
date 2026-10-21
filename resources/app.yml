@@ -1,10 +1,11 @@
 # Env lives in config.env (DAB apps pattern) and is applied by `databricks bundle run geologic`.
 # Lakebase uses direct env vars, not the database binding (that binding needs a workspace-admin deployer).
+# The Postgres role is the app's own DATABRICKS_CLIENT_ID (geologic.lakebase.lakebase_user).
 # No env value may resolve to an empty string.
 resources:
   apps:
     geologic:
-      name: geologic
+      name: ${var.app_name}
       description: "GEOlogic: AI answer intelligence for Little Caesars"
       source_code_path: ../app
       config:
@@ -13,15 +14,15 @@ resources:
           - { name: DATABRICKS_WAREHOUSE_ID, value_from: sql-warehouse }
           - { name: CATALOG_NAME, value: "${var.catalog}" }
           - { name: SCHEMA_NAME, value: "${var.schema}" }
-          - { name: GEOLOGIC_SUPERVISOR_ENDPOINT, value: "${var.supervisor_endpoint}" }
+          - { name: GEOLOGIC_CATALOG, value: "${var.catalog}" }
+          - { name: GEOLOGIC_SCHEMA, value: "${var.schema}" }
           - { name: GENIE_SPACE_ID, value: "${var.genie_space_id}" }
           - { name: PUBLISH_JOB_ID, value_from: publish-job }
           - { name: RESET_JOB_ID, value_from: reset-job }
           - { name: PRODUCE_JOB_ID, value_from: produce-job }
           - { name: LAKEBASE_INSTANCE, value: geologic }
-          - { name: LAKEBASE_DB, value: geologic }
+          - { name: LAKEBASE_DB, value: "${var.lakebase_db}" }
           - { name: LAKEBASE_HOST, value: "${var.lakebase_host}" }
-          - { name: LAKEBASE_USER, value: "${var.app_sp_client_id}" }
       resources:
         - name: sql-warehouse
           sql_warehouse: { id: "${var.warehouse_id}", permission: CAN_USE }
@@ -31,5 +32,3 @@ resources:
           job: { id: "${resources.jobs.geologic_reset.id}", permission: CAN_MANAGE_RUN }
         - name: produce-job
           job: { id: "${resources.jobs.geologic_produce.id}", permission: CAN_MANAGE_RUN }
-        - name: supervisor
-          serving_endpoint: { name: "${var.supervisor_endpoint}", permission: CAN_QUERY }

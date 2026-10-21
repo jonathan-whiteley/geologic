@@ -1,7 +1,7 @@
-CREATE OR REPLACE VIEW jdub_demo.geologic.mv_answer_share
+CREATE OR REPLACE VIEW {{schema}}.mv_answer_share
 WITH METRICS LANGUAGE YAML AS $$
 version: 1.1
-source: SELECT r.*, p.cluster, p.prompt_text, p.branded FROM jdub_demo.geologic.v_latest_responses r JOIN jdub_demo.geologic.v_prompts p USING (prompt_id) WHERE r.status = 'ok'
+source: SELECT r.*, p.cluster, p.prompt_text, p.branded FROM {{schema}}.v_latest_responses r JOIN {{schema}}.v_prompts p USING (prompt_id) WHERE r.status = 'ok'
 dimensions:
   - name: Cluster
     expr: cluster

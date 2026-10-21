@@ -9,6 +9,8 @@ except NameError:
     _src = os.path.abspath(os.path.join(os.getcwd(), "..", "src"))
 sys.path.insert(0, _src)
 
+from geologic import jobargs; jobargs.apply()
+
 from pyspark.sql import SparkSession
 from databricks.sdk import WorkspaceClient
 from geologic.lakebase import from_env, apply_job_defaults

@@ -11,6 +11,8 @@ except NameError:
     _src = os.path.abspath(os.path.join(os.getcwd(), "..", "src"))
 sys.path.insert(0, _src)
 
+from geologic import jobargs; jobargs.apply()
+
 import mlflow
 from pyspark.sql import SparkSession
 from databricks.sdk import WorkspaceClient
@@ -31,7 +33,7 @@ rules = rows(f"SELECT * FROM {S.fq('exclusion_rules')}")
 pages = {p["page_id"]: p for p in rows(f"SELECT * FROM {S.fq('site_pages')}")}
 opps = rows(f"SELECT * FROM {S.fq('gold_opportunities')}")
 quarantined = rows(f"SELECT signal_id, persona_id, menu_item_id, text, quarantine_rule_id FROM {S.fq('silver_signals')} WHERE quarantined")
-mlflow.set_experiment("/Shared/geologic-drafting")
+mlflow.set_experiment(S.experiment)
 
 with conn_factory() as conn:
     epoch = conn.execute("SELECT epoch FROM demo_state WHERE id = 1").fetchone()[0]

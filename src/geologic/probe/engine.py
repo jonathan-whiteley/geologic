@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from typing import Protocol
+from geologic.config import settings
 
 @dataclass(frozen=True)
 class Doc:
@@ -27,8 +28,13 @@ class ChatClient(Protocol):
 SYSTEM = ("You are an AI answer engine like ChatGPT or Perplexity. Answer the user's question in 2 to 4 sentences "
           "using only the sources provided. Name specific brands and prices when the sources give them. "
           "Cite sources inline as [doc_id].")
-# Tags engine answer calls so AI Gateway usage tracking can be scoped to GEOlogic (see sql/gateway_views.sql).
-USAGE_CONTEXT = {"app": "geologic", "role": "probe"}
+
+
+def usage_context(role: str = "probe") -> dict:
+    """Tags engine calls so AI Gateway usage tracking can be scoped to this stack (see sql/gateway_views.sql)."""
+    return {"app": settings.usage_app, "role": role}
+
+
 _CITE = re.compile(r"\[([A-Za-z0-9_\-]+)\]")
 
 class EngineProxy:
@@ -41,7 +47,7 @@ class EngineProxy:
         text = self.chat.complete(self.endpoint, [
             {"role": "system", "content": SYSTEM},
             {"role": "user", "content": f"Sources:\n{sources}\n\nQuestion: {prompt}"},
-        ], usage_context=USAGE_CONTEXT)
+        ], usage_context=usage_context())
         allowed = [d.doc_id for d in docs]
         cited = []
         for m in _CITE.findall(text or ""):

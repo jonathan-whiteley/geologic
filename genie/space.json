@@ -25,40 +25,40 @@
   "data_sources": {
     "tables": [
       {
-        "identifier": "jdub_demo.geologic.gold_opportunities"
+        "identifier": "{{schema}}.gold_opportunities"
       },
       {
-        "identifier": "jdub_demo.geologic.menu_items"
+        "identifier": "{{schema}}.menu_items"
       },
       {
-        "identifier": "jdub_demo.geologic.mv_answer_share"
+        "identifier": "{{schema}}.mv_answer_share"
       },
       {
-        "identifier": "jdub_demo.geologic.prompt_bank"
+        "identifier": "{{schema}}.prompt_bank"
       },
       {
-        "identifier": "jdub_demo.geologic.v_answer_share_weekly"
+        "identifier": "{{schema}}.v_answer_share_weekly"
       },
       {
-        "identifier": "jdub_demo.geologic.v_brand_share"
+        "identifier": "{{schema}}.v_brand_share"
       },
       {
-        "identifier": "jdub_demo.geologic.v_citation_sources"
+        "identifier": "{{schema}}.v_citation_sources"
       },
       {
-        "identifier": "jdub_demo.geologic.v_kpis"
+        "identifier": "{{schema}}.v_kpis"
       },
       {
-        "identifier": "jdub_demo.geologic.v_latest_responses"
+        "identifier": "{{schema}}.v_latest_responses"
       },
       {
-        "identifier": "jdub_demo.geologic.v_prompts"
+        "identifier": "{{schema}}.v_prompts"
       },
       {
-        "identifier": "jdub_demo.geologic.v_public_signals"
+        "identifier": "{{schema}}.v_public_signals"
       },
       {
-        "identifier": "jdub_demo.geologic.v_question_volume"
+        "identifier": "{{schema}}.v_question_volume"
       }
     ]
   },

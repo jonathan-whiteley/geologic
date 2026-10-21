@@ -1,7 +1,7 @@
 resources:
   pipelines:
     geologic_signals:
-      name: geologic-signals
+      name: ${var.pipeline_name}
       catalog: ${var.catalog}
       schema: ${var.schema}
       serverless: true

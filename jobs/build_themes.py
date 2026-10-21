@@ -7,6 +7,8 @@ try:
 except NameError:
     _src = os.path.abspath(os.path.join(os.getcwd(), "..", "src"))
 sys.path.insert(0, _src)
+
+from geologic import jobargs; jobargs.apply()
 from pyspark.sql import SparkSession
 from geologic.config import settings as S
 from geologic.datagen.prompts_ext import THEMES

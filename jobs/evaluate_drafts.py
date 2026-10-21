@@ -10,9 +10,12 @@ except NameError:
     _src = os.path.abspath(os.path.join(os.getcwd(), "..", "src"))
 sys.path.insert(0, _src)
 
+from geologic import jobargs; jobargs.apply()
+
 import mlflow
 from mlflow.genai.scorers import Guidelines, scorer
 from databricks.sdk import WorkspaceClient
+from geologic.config import settings as S
 from geologic.datagen.reference import menu_items
 from geologic.drafting import eval_failures
 from geologic.jsonld import validate
@@ -32,7 +35,7 @@ def valid_jsonld(inputs, outputs):
     return inputs["asset_type"] != "jsonld" or validate(outputs, MENU) == []
 
 
-mlflow.set_experiment("/Shared/geologic-drafting")
+mlflow.set_experiment(S.experiment)
 res = mlflow.genai.evaluate(data=data, scorers=[
     Guidelines(name="brand_voice", guidelines=(
         "The text is a Little Caesars web page draft. It passes if it uses friendly, plain language a guest understands. "

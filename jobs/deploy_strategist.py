@@ -10,13 +10,15 @@ except NameError:
 _root = os.path.abspath(os.path.join(_here, ".."))
 sys.path.insert(0, os.path.join(_root, "src"))
 
+from geologic import jobargs; jobargs.apply()
+
 import mlflow
 from mlflow.models.resources import DatabricksServingEndpoint
 from databricks import agents
 from geologic.config import settings as S
 
 mlflow.set_registry_uri("databricks-uc")
-mlflow.set_experiment("/Shared/geologic-drafting")
+mlflow.set_experiment(S.experiment)
 with mlflow.start_run(run_name="content_strategist"):
     info = mlflow.pyfunc.log_model(
         name="agent", python_model=os.path.join(_root, "agents", "strategist_agent.py"),

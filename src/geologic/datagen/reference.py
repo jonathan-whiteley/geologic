@@ -17,7 +17,7 @@ SEEDED_PAGE_IDS = {
 }
 
 # item_id, name, category, price, margin_pct, available, is_lto, dietary_flags, aliases, visual
-# visual: how the item looks (shape, crust, toppings only — no setting words)
+# visual: how the item looks (shape, crust, toppings only, no setting words)
 _MENU = [
     ("classic_pepperoni", "Classic Pepperoni Hot-N-Ready", "pizza", 6.49, 0.34, True, False, [], ["hot-n-ready", "hot n ready", "classic pepperoni"], "round pizza, pepperoni toppings"),
     ("classic_cheese", "Classic Cheese Hot-N-Ready", "pizza", 6.49, 0.36, True, False, ["vegetarian"], ["classic cheese"], "round pizza, cheese topping"),

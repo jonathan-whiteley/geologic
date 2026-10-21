@@ -15,23 +15,62 @@ variables:
   lakebase_host:
     description: Lakebase read_write_dns for instance geologic
     default: ep-withered-butterfly-d1czv7t3.database.us-west-2.cloud.databricks.com
-  app_sp_client_id:
-    description: App service principal client id (also its Postgres role and job ACL principal)
-    default: bbbf2434-aa55-4e84-95ea-2679b7607d4c
-  supervisor_endpoint:
-    description: Supervisor agent serving endpoint the app calls
-    default: mas-044fdd7b-endpoint
   genie_space_id:
-    description: GEOlogic Genie space (Ask Genie panel)
+    description: GEOlogic Genie space (Ask Genie panel); "none" means not configured
     default: 01f1c1ad57691e9ab2457acf2bff7d78
+  app_name:
+    description: Databricks App name
+    default: geologic
+  name_prefix:
+    description: Job name prefix (jobs are named <name_prefix>_<job>)
+    default: geologic
+  pipeline_name:
+    description: Signals pipeline name
+    default: geologic-signals
+  lakebase_db:
+    description: Lakebase database on instance geologic (app env and job --lakebase-db)
+    default: geologic
 
 # No `mode: development`: development mode prefixes job and pipeline names, which would
-# rename the adopted live resources. Names here must equal the live names.
+# rename the adopted live resources. Names come from the variables above, set per target.
 targets:
+  # The live v2 demo. scripts/deploy.sh refuses this target unless ALLOW_V2_DEPLOY=1 (v2 branch only).
   dev:
+    workspace:
+      profile: DEFAULT
+    resources:
+      dashboards:
+        geologic_impact:
+          display_name: GEOlogic Impact
+          file_path: ./dashboards/geologic_impact.lvdash.json
+          warehouse_id: ${var.warehouse_id}
+          # Keep the live parent folder; moving a dashboard can force a replace.
+          parent_path: /Users/jonathan.whiteley@databricks.com/genie_spaces
+      jobs:
+        geologic_deploy_strategist:
+          name: geologic_deploy_strategist
+          max_concurrent_runs: 1
+          environments:
+            - environment_key: default
+              spec:
+                client: "2"
+                dependencies: ["databricks-sdk>=0.60", databricks-vectorsearch, openai, "mlflow>=3.1", databricks-agents]
+          tasks:
+            - task_key: deploy
+              environment_key: default
+              spark_python_task: { python_file: ./jobs/deploy_strategist.py }
+  # GEOlogic v3: its own state, schema, app, jobs, pipeline and Lakebase database. Default target on build/v3.
+  v3:
     default: true
     workspace:
       profile: DEFAULT
+    variables:
+      schema: geologic_v3
+      app_name: geologic-v3
+      name_prefix: geologic_v3
+      pipeline_name: geologic-v3-signals
+      lakebase_db: geologic_v3
+      genie_space_id: none
 
 sync:
   # app/src and app/frontend/dist are gitignored build outputs; include them so the

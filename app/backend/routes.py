@@ -134,15 +134,6 @@ def impact(reads=Depends(deps.get_reads), repo=Depends(deps.get_suggestions)):
         proof = None
     return {"weekly": reads.weekly(), "health": repo.health(), "proof": proof}
 
-class Ask(BaseModel):
-    question: str
-
-@router.post("/ask")
-def ask(body: Ask, sup=Depends(deps.get_supervisor)):
-    if not body.question.strip():
-        raise HTTPException(400, "Type a question first.")
-    return {"answer": sup.ask(body.question.strip())}
-
 @router.post("/demo/reset", status_code=202)
 def demo_reset(jobs=Depends(deps.get_jobs)):
     return {"run_id": jobs.run_reset()}

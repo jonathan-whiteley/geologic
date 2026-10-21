@@ -17,8 +17,12 @@ def connect(host, db, user, token: TokenCache):
     import psycopg
     return psycopg.connect(host=host, dbname=db, user=user, password=token.get(), sslmode="require", connect_timeout=10)
 
+def lakebase_user() -> str:
+    """The Postgres role: LAKEBASE_USER when set (jobs run as a user), else the app's own service principal."""
+    return os.environ.get("LAKEBASE_USER") or os.environ["DATABRICKS_CLIENT_ID"]
+
 def from_env(w):
-    host, db, user = os.environ["LAKEBASE_HOST"], os.environ.get("LAKEBASE_DB", "geologic"), os.environ["LAKEBASE_USER"]
+    host, db, user = os.environ["LAKEBASE_HOST"], os.environ.get("LAKEBASE_DB", "geologic"), lakebase_user()
     instance = os.environ["LAKEBASE_INSTANCE"]
     tok = TokenCache(lambda: w.database.generate_database_credential(request_id=str(uuid.uuid4()), instance_names=[instance]).token)
     return lambda: connect(host, db, user, tok)
