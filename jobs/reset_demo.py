@@ -1,4 +1,4 @@
-"""Reset job: restores pages, suggestions and the baseline probe under a new epoch."""
+"""Reset job: new epoch, the demo-start fix queue, the baseline probe, pages, prompts and their vectors. fix_results stays."""
 import os
 import sys
 
@@ -13,8 +13,8 @@ from geologic import jobargs; jobargs.apply()
 
 from pyspark.sql import SparkSession
 from databricks.sdk import WorkspaceClient
-from geologic.lakebase import from_env, apply_job_defaults
-from geologic.publish_flow import reset, DeltaResetStore
+from geologic.lakebase import apply_job_defaults, from_env
+from geologic.publish_flow import DeltaResetStore, reset
 
 spark = SparkSession.builder.getOrCreate(); w = WorkspaceClient()
 apply_job_defaults(w)

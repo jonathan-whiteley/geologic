@@ -69,7 +69,7 @@ resources:
       name: ${var.name_prefix}_publish
       max_concurrent_runs: 4
       parameters:
-        - { name: suggestion_id, default: "" }
+        - { name: fix_ids, default: "" }
       environments:
         - environment_key: default
           spec:
@@ -80,7 +80,7 @@ resources:
           environment_key: default
           spark_python_task:
             python_file: ../jobs/publish.py
-            parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}", "--suggestion-id", "{{job.parameters.suggestion_id}}"]
+            parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}", "--fix-ids", "{{job.parameters.fix_ids}}"]
       permissions:
         - { service_principal_name: "${resources.apps.geologic.service_principal_client_id}", level: CAN_MANAGE_RUN }
 
@@ -147,6 +147,29 @@ resources:
           depends_on: [{ task_key: p2 }]
           environment_key: default
           spark_python_task: { python_file: ../jobs/build_issues.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"] }
+
+    # Nightly consistency (spec 5.6): re-embed the full corpus, then the full probe. Shipped PAUSED: a full probe moves the
+    # demo numbers, so it only runs when unpaused on purpose (like geologic_refresh).
+    geologic_nightly:
+      name: ${var.name_prefix}_nightly
+      max_concurrent_runs: 1
+      schedule:
+        quartz_cron_expression: "0 0 3 * * ?"
+        timezone_id: America/Detroit
+        pause_status: PAUSED
+      environments:
+        - environment_key: default
+          spec:
+            client: "2"
+            dependencies: ["databricks-sdk>=0.60", openai, httpx]
+      tasks:
+        - task_key: reembed
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/reembed_sources.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"] }
+        - task_key: probe
+          depends_on: [{ task_key: reembed }]
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/run_probe.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}", "--mode", "full", "--trigger", "nightly"] }
 
     geologic_verify_uc:
       name: ${var.name_prefix}_verify_uc
