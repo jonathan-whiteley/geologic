@@ -139,3 +139,9 @@ def test_parse_draft_rejects_bad_types_and_unknown_asset():
             parse_draft(json.dumps(bad))
     with pytest.raises(DraftError):
         draft_messages({**REQ, "asset_type": "mystery"})
+
+def test_gridiron_copy_stays_t1_with_creator_personas():
+    s = "Gridiron snacks for the big game."
+    d = {**GOOD, "patch": {**GOOD["patch"], "text": GOOD["patch"]["text"] + " " + s}, "sentences": GOOD["sentences"]}
+    f = fin(d, {**REQ, "asset_type": "answer_page"})
+    assert f["tier"] == "T1" and all(c["ok"] for c in f["checks"]), f["checks"]

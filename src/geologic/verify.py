@@ -42,15 +42,19 @@ def has_term(text, term):
 
 
 def person_terms(persons) -> tuple[str, ...]:
-    """Every way a draft can name a person: the full name, each name token of 3+ characters, and the @handle and bare
-    handle (the persona's handle if it has one, else the name with spaces removed). persons are names or persona rows."""
+    """Every way a draft can name a person: the full name, the @handle and bare handle (the persona's handle if it has one,
+    else the name with spaces removed), and for real people each name token of 3+ characters ("Goff"). persons are names
+    or persona rows. Creator and fictional rows (is_real false) match only on full name or handle, so "Gridiron" in game
+    day copy is not the creator Gridiron Grub. A plain name string, or a row
+    without the is_real flag, keeps token matching (conservative)."""
     terms = set()
     for p in persons or ():
         row = p if isinstance(p, dict) else {"display_name": p}
         name = str(row.get("display_name") or row.get("name") or "").strip()
         if name:
             terms.add(name)
-            terms |= {t for t in re.split(r"\W+", name) if len(t) >= 3}
+            if row.get("is_real") is not False:      # only an explicit non-real row drops token matching
+                terms |= {t for t in re.split(r"\W+", name) if len(t) >= 3}
         for h in (row.get("handle"), re.sub(r"\W", "", name)):
             h = str(h or "").strip().lstrip("@")
             if h:

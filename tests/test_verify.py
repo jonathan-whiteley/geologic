@@ -151,3 +151,17 @@ def test_empty_stated_value_is_supported_only_when_not_factual():
     assert not supported({"text": "Feeds 12.", "attribute": "serves", "stated_value": ""}, g)
     assert not supported({"text": "Goff loves it.", "attribute": "other", "stated_value": None}, g, person_terms(["Jared Goff"]))
     assert supported({"text": "Great for game day.", "attribute": "other", "stated_value": ""}, g)
+
+# Fix round 2: single name tokens only for real people; creators match on full name or handle
+def test_creator_tokens_do_not_trip_persona_but_full_name_and_handle_do():
+    s = "Gridiron snacks for the big game."
+    ok, _ = checks(draft(f"## X\n{s}", [{"text": s, "fact_ids": []}]), REQ, PEOPLE)
+    assert ok["persona"] is True and ok["grounded"] is True
+    for s in ("Gridiron Grub loves the big game.", "@gridirongrub loves the big game.", "gridirongrub loves the big game."):
+        ok, _ = checks(draft(f"## X\n{s}", [{"text": s, "fact_ids": []}]), REQ, PEOPLE)
+        assert ok["persona"] is False, s
+    ok, _ = checks(draft("## X\nGoff loves the big game.", [{"text": "Goff loves the big game.", "fact_ids": []}]), REQ, PEOPLE)
+    assert ok["persona"] is False
+    rows = {t.lower() for t in person_terms(PEOPLE)}
+    assert "goff" in rows and "jared" in rows and "gridiron" not in rows and "grub" not in rows
+    assert "grub" in {t.lower() for t in person_terms(["Gridiron Grub"])}     # plain strings stay conservative
