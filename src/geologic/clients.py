@@ -1,5 +1,7 @@
 """Adapters from Databricks services to the core protocols. Kept thin so the core stays testable."""
 from __future__ import annotations
+import math
+from geologic import vectors as V
 from geologic.probe.engine import Doc
 
 
@@ -48,20 +50,18 @@ class Embedder:
         return cls(w.serving_endpoints.get_open_ai_client(), endpoint)
 
     def embed(self, texts) -> list[list[float]]:
+        """Unit-length vectors (raw gte vectors have norm ~24), so the Direct Vector Access L2 score maps to cosine."""
         texts, out = list(texts), []
         for i in range(0, len(texts), self.batch):
             r = self._c.embeddings.create(model=self.endpoint, input=texts[i:i + self.batch])
-            out += [list(d.embedding) for d in sorted(r.data, key=lambda d: getattr(d, "index", 0) or 0)]
+            out += [_unit(d.embedding) for d in sorted(r.data, key=lambda d: getattr(d, "index", 0) or 0)]
         return out
 
 
-def _sdk_rows(res) -> list[dict]:
-    """Rows of a WorkspaceClient vector_search_indexes.query_index response (score is appended by Vector Search)."""
-    manifest, result = getattr(res, "manifest", None), getattr(res, "result", None)
-    if manifest is None or result is None:
-        return []
-    cols = [c.name for c in manifest.columns or []]
-    return [dict(zip(cols, r)) for r in result.data_array or []]
+def _unit(v) -> list[float]:
+    v = [float(x) for x in v]
+    n = math.sqrt(sum(x * x for x in v))
+    return [x / n for x in v] if n else v
 
 
 class DvaRetriever:
@@ -72,10 +72,8 @@ class DvaRetriever:
 
     def search(self, query, k) -> list[Doc]:
         vec = self.embedder.embed([query])[0]
-        res = self.w.vector_search_indexes.query_index(index_name=self.index_name, columns=self.columns, query_vector=vec,
-                                                       num_results=k)
         return [Doc(r["doc_id"], r.get("title") or "", r.get("body") or "", r.get("owner_class") == "Owned")
-                for r in _sdk_rows(res)]
+                for r in V.query(self.w, self.index_name, self.columns, vec, k)]
 
 
 class PromptIndex:
@@ -87,11 +85,10 @@ class PromptIndex:
         self.w, self.index_name, self.embedder = w, index_name, embedder
 
     def nearest(self, text, k=3) -> list[dict]:
+        """Nearest prompts; "score" is the cosine similarity (Ruling S2-A), compared against Settings.match_threshold."""
         vec = self.embedder.embed([text])[0]
-        res = self.w.vector_search_indexes.query_index(index_name=self.index_name, columns=list(self.COLUMNS),
-                                                       query_vector=vec, num_results=k)
         return [{"id": r["prompt_id"], "prompt_text": r["prompt_text"], "kind": r["kind"], "cluster": r["cluster"],
-                 "score": float(r["score"])} for r in _sdk_rows(res)]
+                 "score": r["score"]} for r in V.query(self.w, self.index_name, self.COLUMNS, vec, k)]
 
 
 def menu_match(index, text):

@@ -126,3 +126,34 @@ def test_wait_ready(monkeypatch):
     monkeypatch.setattr(V.time, "time", lambda: next(clock))
     with pytest.raises(TimeoutError):
         V.wait_ready(NS(vector_search_indexes=Indexes(exists=True, ready_after=99)), "i", timeout_s=1200)
+
+
+# Ruling S2-A: Direct Vector Access scores hits by L2 distance, score = 1 / (1 + d^2). For unit vectors
+# d^2 = 2 - 2 cos, so cos = 1 - d^2 / 2. vectors.query returns that cosine as "score".
+def test_cosine_from_score_inverts_the_l2_score_for_unit_vectors():
+    import math, random
+    rnd = random.Random(7)
+    for _ in range(20):
+        a, b = ([rnd.uniform(-1, 1) for _ in range(16)] for _ in range(2))
+        a, b = ([x / math.sqrt(sum(y * y for y in v)) for x in v] for v in (a, b))
+        d2 = sum((x - y) ** 2 for x, y in zip(a, b))
+        assert V.cosine_from_score(1 / (1 + d2)) == pytest.approx(sum(x * y for x, y in zip(a, b)), abs=1e-9)
+    assert V.cosine_from_score(1.0) == 1.0 and V.cosine_from_score(0.2) == -1.0   # d^2 = 4: opposite vectors
+    assert V.cosine_from_score(0.0) == -1.0 and V.cosine_from_score(None) == -1.0 and V.cosine_from_score("0.5") == 0.5
+
+
+class QueryIdx:
+    def __init__(self, cols, rows): self.cols, self.rows, self.calls = cols, rows, []
+    def query_index(self, **kw):
+        self.calls.append(kw)
+        return NS(manifest=NS(columns=[NS(name=c) for c in self.cols]), result=NS(data_array=self.rows))
+
+
+def test_query_by_vector_returns_rows_with_cosine_scores():
+    idx = QueryIdx(["prompt_id", "kind", "score"], [["q202", "tracked", 0.5], ["s_x", "suggested", "0.25"]])
+    rows = V.query(NS(vector_search_indexes=idx), "c.s.prompt_idx", ["prompt_id", "kind"], [0.6, 0.8], 5)
+    assert idx.calls == [dict(index_name="c.s.prompt_idx", columns=["prompt_id", "kind"], query_vector=[0.6, 0.8], num_results=5)]
+    assert rows == [{"prompt_id": "q202", "kind": "tracked", "score": 0.5}, {"prompt_id": "s_x", "kind": "suggested", "score": -0.5}]
+    empty = NS(vector_search_indexes=NS(query_index=lambda **kw: NS(manifest=None, result=None)))
+    assert V.query(empty, "i", ["prompt_id"], [1.0], 3) == []
+    assert V.query(NS(vector_search_indexes=QueryIdx(["prompt_id", "score"], None)), "i", ["prompt_id"], [1.0], 3) == []

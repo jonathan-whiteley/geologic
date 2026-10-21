@@ -1,5 +1,8 @@
 # tests/test_clients.py
+import math
 from types import SimpleNamespace as NS
+import pytest
+from geologic import vectors as V
 from geologic.clients import DvaRetriever, Embedder, FmapiChat, PromptIndex, menu_match, menu_candidates
 
 class FakeOpenAI:
@@ -87,7 +90,12 @@ class FakeEmbeddings:
     def create(self, model, input):
         self.calls.append((model, list(input)))
         # out of order on purpose: the embedder must reorder by index
-        return NS(data=[NS(index=i, embedding=[float(len(t))]) for i, t in reversed(list(enumerate(input)))])
+        return NS(data=[NS(index=i, embedding=[float(len(t)), 1.0]) for i, t in reversed(list(enumerate(input)))])
+
+
+def _unit(v):
+    n = math.sqrt(sum(x * x for x in v))
+    return [x / n for x in v]
 
 
 def test_embedder_batches():
@@ -96,14 +104,22 @@ def test_embedder_batches():
     vecs = Embedder(fake, "databricks-gte-large-en", batch=16).embed(texts)
     assert [len(b) for _, b in fake.embeddings.calls] == [16, 4]
     assert {m for m, _ in fake.embeddings.calls} == {"databricks-gte-large-en"}
-    assert vecs == [[float(len(t))] for t in texts]
+    assert vecs == [pytest.approx(_unit([float(len(t)), 1.0])) for t in texts]
     assert Embedder(fake, "ep").embed([]) == []
 
 
 def test_embedder_from_workspace():
     oa = NS(embeddings=FakeEmbeddings())
     e = Embedder.from_workspace(NS(serving_endpoints=NS(get_open_ai_client=lambda: oa)), "ep")
-    assert e.endpoint == "ep" and e.embed(["a"]) == [[1.0]]
+    assert e.endpoint == "ep" and e.embed(["a"]) == [pytest.approx(_unit([1.0, 1.0]))]
+
+
+def test_embedder_returns_unit_vectors():   # Ruling S2-A: raw gte vectors have norm ~24, which breaks the L2 score
+    raw = {"a": [3.0, 4.0], "b": [0.0, 0.0], "c": [24.0, 0.0, 7.0]}
+    oa = NS(embeddings=NS(create=lambda model, input: NS(data=[NS(index=i, embedding=raw[t]) for i, t in enumerate(input)])))
+    a, zero, c = Embedder(oa, "ep").embed(["a", "b", "c"])
+    assert a == pytest.approx([0.6, 0.8]) and zero == [0.0, 0.0]   # an all-zero vector stays zero (no division by zero)
+    assert math.sqrt(sum(x * x for x in c)) == pytest.approx(1.0)
 
 
 class FakeVsIndexes:
@@ -147,6 +163,10 @@ def test_prompt_index_nearest():
     kw = idx.calls[0]
     assert kw["columns"] == ["prompt_id", "prompt_text", "kind", "cluster"] and kw["num_results"] == 3
     assert "query_vector" in kw and "query_text" not in kw
-    assert out == [{"id": "q201", "prompt_text": "Super Bowl party for 12", "kind": "tracked", "cluster": "game_day_party", "score": 0.91},
-                   {"id": "c004", "prompt_text": "party pizza", "kind": "suggested", "cluster": "game_day_party", "score": 0.82}]
+    # Ruling S2-A: the Vector Search L2 score (1 / (1 + d^2)) comes back as cosine
+    assert out == [{"id": "q201", "prompt_text": "Super Bowl party for 12", "kind": "tracked", "cluster": "game_day_party",
+                    "score": pytest.approx(V.cosine_from_score(0.91))},
+                   {"id": "c004", "prompt_text": "party pizza", "kind": "suggested", "cluster": "game_day_party",
+                    "score": pytest.approx(V.cosine_from_score(0.82))}]
+    assert out[0]["score"] == pytest.approx(1 - (1 / 0.91 - 1) / 2)
     assert all(isinstance(r["score"], float) for r in out)

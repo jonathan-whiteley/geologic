@@ -53,6 +53,29 @@ def upsert(w, index_name, rows, batch=100):
             raise RuntimeError(f"upsert into {index_name} returned {status}")
 
 
+def cosine_from_score(score) -> float:
+    """Cosine similarity from a Direct Vector Access score. The index scores hits by L2 distance, score = 1 / (1 + d^2),
+    and the Embedder stores unit vectors, so d^2 = 2 - 2 cos and cos = 1 - d^2 / 2 (clamped to [-1, 1])."""
+    score = float(score or 0.0)
+    if score <= 0.0:
+        return -1.0
+    return max(-1.0, min(1.0, 1.0 - (1.0 / score - 1.0) / 2.0))
+
+
+def _rows(res) -> list[dict]:
+    manifest, result = getattr(res, "manifest", None), getattr(res, "result", None)
+    if manifest is None or result is None:
+        return []
+    cols = [c.name for c in manifest.columns or []]
+    return [dict(zip(cols, r)) for r in result.data_array or []]
+
+
+def query(w, index_name, columns, vector, k) -> list[dict]:
+    """Nearest rows of a Direct Vector Access index to a unit query vector; "score" is the cosine similarity."""
+    res = w.vector_search_indexes.query_index(index_name=index_name, columns=list(columns), query_vector=vector, num_results=k)
+    return [r | {"score": cosine_from_score(r.get("score"))} for r in _rows(res)]
+
+
 def delete(w, index_name, ids):
     ids = list(ids)
     if ids:

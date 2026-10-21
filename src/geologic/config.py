@@ -23,7 +23,7 @@ class Settings:
     embedding_endpoint: str = "databricks-gte-large-en"
     strategist_endpoint: str = "geologic-content-strategist"
     vs_endpoint: str = "geologic-vs"
-    match_threshold: float = 0.80     # Vector Search score for moment and search matches
+    match_threshold: float = 0.80     # cosine similarity (vectors.query converts the Vector Search score) for moment and search matches
     reask_fallback_s: int = 90        # re-ask wait before a rehearsed result may be shown
     embedding_dim: int = 1024         # databricks-gte-large-en
 
