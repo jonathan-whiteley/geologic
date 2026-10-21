@@ -5,6 +5,7 @@ import re
 from geologic.exclusions import find_exclusion
 from geologic.facts import parse_price, resolve_item
 from geologic.jsonld import validate
+from geologic.style import clean_dashes as _clean  # moved to geologic.style; this module goes in Task 6
 from geologic.tiering import assign_tier
 
 class DraftError(ValueError):
@@ -45,17 +46,6 @@ def draft_suggestion(opp, page, menu, deals, chat, endpoint) -> dict:
     return {"asset_type": obj["asset_type"], "diff_before": before, "diff_after": obj["diff_after"],
             "rationale": obj.get("rationale", "")}
 
-def _clean(text):
-    """Deterministically removes em and en dashes from generated text (house style)."""
-    if not isinstance(text, str):
-        return text
-    text = re.sub(r"(?<=\d)\s?[\u2013\u2014]\s?(?=\d)", "-", text)
-    # A dash before punctuation or at a line end, or one opening a line, is dropped rather than turned into
-    # a stray ", ." or trailing ", ". Only dash sites are touched, so JSON-LD commas stay intact.
-    text = re.sub(r"(?m)[ \t]*[\u2013\u2014][ \t]*(?=[.,;:!?)]|$)", "", text)
-    text = re.sub(r"(?m)^([ \t]*)[\u2013\u2014][ \t]*", r"\1", text)
-    text = re.sub(r"\s*[\u2013\u2014]\s*", ", ", text)
-    return text
 
 def clean_draft(draft):
     return {**draft, **{k: _clean(draft[k]) for k in ("diff_after", "rationale") if k in draft}}

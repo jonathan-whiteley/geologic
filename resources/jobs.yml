@@ -52,6 +52,10 @@ resources:
         - task_key: pipeline_2
           depends_on: [{ task_key: describe }]
           pipeline_task: { pipeline_id: "${resources.pipelines.geologic_signals.id}" }
+        - task_key: issues
+          depends_on: [{ task_key: pipeline_2 }, { task_key: history }]   # moments from silver_signals, issues from the views
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/build_issues.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"] }
 
     geologic_publish:
       name: ${var.name_prefix}_publish
@@ -131,10 +135,10 @@ resources:
         - task_key: p2
           depends_on: [{ task_key: describe }]
           pipeline_task: { pipeline_id: "${resources.pipelines.geologic_signals.id}" }
-        - task_key: opps
+        - task_key: issues
           depends_on: [{ task_key: p2 }]
           environment_key: default
-          spark_python_task: { python_file: ../jobs/build_opportunities.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"] }
+          spark_python_task: { python_file: ../jobs/build_issues.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"] }
 
     geologic_verify_uc:
       name: ${var.name_prefix}_verify_uc
