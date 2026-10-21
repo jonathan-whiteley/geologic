@@ -172,3 +172,15 @@ def test_run_probe_one_failure_keeps_other_rows(capsys):
     assert sum(a["status"] == "ok" for a in answers) == 5 and len(claims) == 5
     out = capsys.readouterr().out
     assert "AttributeError" in out and "q001" in out and "Claude" in out
+
+
+def test_probe_one_maps_party_pack_display_name_back_to_its_id():
+    # Smoke 1 F1: "$24.99 Game Day Party Pack" must tag party_pack Outdated F13, never gameday_499 Wrong vs F06.
+    from geologic.datagen.reference import subject_vocabulary
+    docs = (Doc(ROUNDUP, "Roundup", "Party Pack is $24.99", False),)
+    ans = EngineAnswer(f"The Game Day Party Pack is $24.99 [{ROUNDUP}].", [ROUNDUP], [ROUNDUP], docs)
+    chat = JudgeChat([judge_json([{**PP, "subject": "Game Day Party Pack"}])])
+    c = ProbeContext(chat, "judge", brand_facts(), categories(), subject_vocabulary(), frozenset(), date(2026, 10, 21))
+    _row, claims = probe_one(P, Eng("Claude", [ans]), c, "r1", 1, sleep=NOOP)
+    assert [(x["subject"], x["tag"], x["fact_id"]) for x in claims] == [("party_pack", "Outdated", "F13")]
+    assert "party_pack: Game Day Party Pack" in chat.calls[0][1][0]["content"]

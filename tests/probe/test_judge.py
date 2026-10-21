@@ -54,5 +54,48 @@ def test_parse_tolerates_missing_and_malformed_claim_fields():
 
 def test_judge_prompt_strict_and_subject_list():
     m = judge_messages("q", "a", strict=True, subjects=("party_pack", "brand"))
-    assert "SUBJECTS: party_pack, brand" in m[0]["content"] and "No markdown fences" in m[0]["content"]
+    assert "SUBJECTS:\n- party_pack\n- brand\n" in m[0]["content"] and "No markdown fences" in m[0]["content"]
     assert "{subjects}" not in m[0]["content"] and "{attributes}" not in m[0]["content"]
+
+
+# F1 (smoke 1): the judge sees each subject as "id: display name (aliases)", so "Game Day Party Pack" is never read as
+# the gameday_499 id, and a returned display name or alias maps back to its id in code.
+def test_judge_prompt_lists_display_names():
+    from geologic.datagen.reference import subject_vocabulary
+    content = judge_messages("q", "a", subjects=subject_vocabulary())[0]["content"]
+    assert "party_pack: Game Day Party Pack" in content
+    assert "gameday_499: $4.99 Online Gameday Deal" in content
+    assert "classic_pepperoni: Classic Pepperoni Hot-N-Ready" in content and "brand: Little Caesars" in content
+    assert "{subjects}" not in content
+
+
+def test_subject_vocabulary_covers_every_subject_once():
+    from geologic.datagen.reference import SUBJECTS, subject_vocabulary
+    vocab = subject_vocabulary()
+    assert [v[0] for v in vocab] == list(SUBJECTS)
+    names = {v[0]: v[1] for v in vocab}
+    assert names["party_pack"] == "Game Day Party Pack" and names["gameday_499"] == "$4.99 Online Gameday Deal"
+
+
+def _claim_out(subject, vocab):
+    raw = ('{"lce_mentioned": true, "lce_rank": 1, "brands_mentioned": [], "sentiment": "neutral", "claims": '
+           '[{"text": "t", "subject": "%s", "attribute": "price", "stated_value": "$24.99"}]}' % subject)
+    return parse_judge_output(raw, subjects=vocab).claims[0]["subject"]
+
+
+def test_display_name_or_alias_maps_back_to_id():
+    from geologic.datagen.reference import subject_vocabulary
+    v = subject_vocabulary()
+    assert _claim_out("Game Day Party Pack", v) == "party_pack"
+    assert _claim_out("game day party pack", v) == "party_pack"
+    assert _claim_out("party pack", v) == "party_pack"                           # alias
+    assert _claim_out("party_pack: Game Day Party Pack", v) == "party_pack"      # the whole vocabulary line
+    assert _claim_out("$4.99 Online Gameday Deal", v) == "gameday_499"
+    assert _claim_out("Hot-N-Ready", v) == "classic_pepperoni"
+    assert _claim_out("gameday_499", v) == "gameday_499"                         # ids still win
+    assert _claim_out("Mystery Calzone", v) == "unknown"
+
+
+def test_bare_id_subjects_still_work():
+    assert _claim_out("party_pack", ("party_pack", "brand")) == "party_pack"
+    assert _claim_out("Game Day Party Pack", ("party_pack", "brand")) == "unknown"   # no names given, no mapping

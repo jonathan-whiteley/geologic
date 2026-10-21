@@ -297,6 +297,15 @@ _NUMERIC = {"price", "serves", "founded"}
 SUBJECTS: tuple[str, ...] = tuple(row[0] for row in _MENU) + ("gameday_499", "brand")
 
 
+def subject_vocabulary() -> tuple[tuple[str, str, tuple[str, ...]], ...]:
+    """Every judge subject as (id, display name, aliases), in SUBJECTS order: menu items, the deals that are not menu
+    items, then the brand. The judge reads names, not bare ids (smoke 1: "Game Day Party Pack" was read as gameday_499)."""
+    menu = [(row[0], row[1], tuple(row[8])) for row in _MENU]
+    on_menu = {row[0] for row in _MENU}
+    extra = [(d["deal_id"], d["name"], ()) for d in deals() if d["deal_id"] not in on_menu]
+    return tuple(menu + extra + [("brand", "Little Caesars", ())])
+
+
 def categories() -> dict[str, str]:
     return {**{row[0]: row[2] for row in _MENU}, "gameday_499": "deal", "brand": "brand"}
 
@@ -321,7 +330,7 @@ def _fact_rows() -> list[tuple]:
 
 def brand_facts() -> list[dict]:
     from geologic.facts import parse_price
-    names = {row[0]: row[1] for row in _MENU} | {"gameday_499": "$4.99 Online Gameday Deal", "brand": "Little Caesars"}
+    names = {sid: name for sid, name, _aliases in subject_vocabulary()}
     urls = {p["page_id"]: p["url"] for p in site_pages()}
     return [dict(fact_id=fid, subject=subj, subject_name=names[subj], attribute=attr, value=val,
                  value_num=parse_price(val) if attr in _NUMERIC else None, applies_to=applies,

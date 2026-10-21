@@ -18,7 +18,7 @@ from pyspark.sql import SparkSession
 from databricks.sdk import WorkspaceClient
 from geologic.config import settings as S
 from geologic.clients import DvaRetriever, Embedder, FmapiChat
-from geologic.datagen.reference import SUBJECTS, categories
+from geologic.datagen.reference import categories, subject_vocabulary
 from geologic.probe.engine import EngineProxy
 from geologic.probe.plan import is_current, run_health
 from geologic.probe.runner import ANSWER_SCHEMA, CLAIM_SCHEMA, ProbeContext, run_probe
@@ -46,7 +46,7 @@ w = WorkspaceClient()
 chat = FmapiChat.from_workspace(w)
 retriever = DvaRetriever(w, S.sources_index, Embedder.from_workspace(w, S.embedding_endpoint))
 engines = [EngineProxy(fam, ep, retriever, chat) for fam, ep in S.engines.items()]
-ctx = ProbeContext(chat, S.judge_endpoint, facts, categories(), SUBJECTS, owned, date.today())
+ctx = ProbeContext(chat, S.judge_endpoint, facts, categories(), subject_vocabulary(), owned, date.today())   # id: name (aliases)
 run_id = f"run_{datetime.now(timezone.utc):%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:6]}"
 started = datetime.now(timezone.utc)
 
