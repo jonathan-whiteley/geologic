@@ -3,14 +3,16 @@ SELECT signal_id, source_type, ingested_at, author, reach, velocity, text, page,
        topic, sentiment, menu_item_id, persona_id, image_match_score, resolution_confidence
 FROM {{schema}}.silver_signals WHERE NOT quarantined;
 
--- Live weeks use the SAME Answer Share definition as v_kpis / v_brand_share: for each live week, the
--- latest response per prompt and engine as of that week's end (v_latest_responses semantics), unbranded
--- prompts only (v_prompts NOT branded). The last live week therefore equals v_kpis.answer_share.
+-- Live weeks use the SAME Share of Model definition as v_kpis and v_brand_share: for each live week, the
+-- latest response per prompt and engine as of that week's end (v_latest_responses semantics, ok runs only),
+-- unbranded tracked prompts only (v_prompts NOT branded). The last live week therefore equals v_kpis.answer_share.
+-- Synthetic weeks before go-live come from answer_share_weekly (jobs/build_history.py).
 CREATE OR REPLACE VIEW {{schema}}.v_answer_share_weekly AS
 WITH r AS (
   SELECT pr.*, runs.started_at FROM {{schema}}.probe_responses pr
   JOIN {{schema}}.probe_runs runs USING (run_id)
-  JOIN {{schema}}.probe_state st ON st.id = 1 AND pr.epoch = st.current_epoch),
+  JOIN {{schema}}.probe_state st ON st.id = 1 AND pr.epoch = st.current_epoch
+  WHERE runs.status = 'ok'),
 weeks AS (SELECT DISTINCT date_trunc('week', started_at)::date AS week_start FROM r),
 snap AS (
   SELECT w.week_start, r.*,

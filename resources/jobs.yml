@@ -34,6 +34,10 @@ resources:
           depends_on: [{ task_key: baseline_probe }, { task_key: pipeline_2 }]   # views read silver_signals
           environment_key: default
           spark_python_task: { python_file: ../jobs/run_views.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"] }
+        - task_key: history
+          depends_on: [{ task_key: views }]   # reads v_brand_share and the baseline run
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/build_history.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"] }
         - task_key: seed_signals
           depends_on: [{ task_key: data }]
           environment_key: default
