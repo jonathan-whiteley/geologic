@@ -1,6 +1,5 @@
-"""Writes menu and background images (drawn placeholders, no faces) and copies the photos listed in photos.CREDITS from assets/photos (credits in assets/photos/ATTRIBUTION.md), drawing a placeholder for any that is absent."""
+"""Writes menu and background images (drawn placeholders, no faces) and places the photos listed in photos.CREDITS (credits in assets/photos/ATTRIBUTION.md): a photo already in the volume is kept, else it is copied from assets/photos, else a placeholder is drawn."""
 import os
-import shutil
 import sys
 
 # Serverless spark_python_task exec does not set __file__; cwd is the script's workspace dir.
@@ -15,7 +14,7 @@ from geologic import jobargs; jobargs.apply()
 from PIL import Image, ImageDraw
 from geologic.config import settings as S
 from geologic.datagen.reference import menu_items
-from geologic.photos import CREDITS
+from geologic.photos import CREDITS, place_photo
 
 
 def scene(path, crust="#C9471A", bg=("#6C8FB0", "#2C3E50"), square=False):
@@ -33,14 +32,14 @@ for m in menu_items():
     scene(f"{S.volume_path}/menu/{m['item_id']}.png", square=m["item_id"].startswith("detroit"))
 _photos = os.path.join(_src, "..", "assets", "photos")
 os.makedirs(f"{S.volume_path}/signals", exist_ok=True)
-# Only the photos listed in CREDITS (the Goff photo and the CC BY-SA pizza photo) reach the volume. The Goff press
-# photo is not in the public repo; draw a placeholder when it is absent (square so the S3 vision match still lands).
+# Only the photos listed in CREDITS (the Goff photo and the CC BY-SA pizza photo) reach the volume, and a file already
+# in the volume is never overwritten: scripts/deploy.sh uploads the Goff press photo, which is gitignored (not in the
+# public repo) and so never in the bundle. When a photo is absent everywhere, a drawn placeholder stands in. The vision
+# model reads a drawn graphic as "no food visible", so the placeholder never gets an image match; the Goff persona
+# moment then rests on the signal's text-resolved menu item (geologic.moments).
 for f in CREDITS:
-    src = os.path.join(_photos, f)
-    if os.path.exists(src):
-        shutil.copyfile(src, f"{S.volume_path}/signals/{f}")
-    else:
-        scene(f"{S.volume_path}/signals/{f}", square=f.startswith("goff"))
+    draw = lambda path, f=f: scene(path, square=f.startswith("goff"))
+    print(f"signals/{f}: {place_photo(f, _photos, S.volume_path + '/signals', draw)}")
 for i in range(1, 6):
     scene(f"{S.volume_path}/signals/bg_{i}.png", bg=("#9AA7B5", "#4A5568"))
 print("images written")

@@ -58,6 +58,10 @@ rm -f "$PLAN"
 # 4. Deploy (uploads files, updates jobs, pipeline, dashboard and the app object).
 databricks bundle deploy "${BUNDLE[@]}"
 
+# 4b. Upload the credited photos found locally (the Goff press photo is gitignored, so the bundle never carries it) to
+#     the target's assets volume. Catalog and schema come from the summary variables; refuses the v2 schema.
+bash scripts/push_photos.sh "$SUMMARY"
+
 # 5. Confirm the built frontend landed (memory: apps_dist_sync). sync.include covers the
 #    gitignored dist; fall back to an explicit import if the hashes differ.
 APP_PATH=$(databricks bundle summary -o json "${BUNDLE[@]}" \

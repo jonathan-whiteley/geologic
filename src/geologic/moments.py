@@ -7,6 +7,7 @@ from collections import defaultdict
 from geologic.style import clean_dashes
 
 TREND_VELOCITY = 3.0
+TEXT_RESOLUTION_MIN = 0.9   # a persona post with no image match may still pass on a confident text resolution
 QUESTION_SYSTEM = ("A social moment just happened for Little Caesars. Write the 1 or 2 questions real customers would now type "
                    "into an AI assistant because of it. Plain consumer wording, under 12 words each, no hashtags. "
                    "Return only a JSON list of strings.")
@@ -16,6 +17,17 @@ def _h(s):
     return hashlib.sha1(s.encode()).hexdigest()[:10]
 
 
+def persona_match_path(s) -> str | None:
+    """How a real persona's post resolved to its menu item: "image" (the preferred path: a vision match), else "text"
+    (no image match, but the item came from the post's text with resolution_confidence >= 0.9), else None (no moment).
+    Smoke 1: the Goff photo got no image match, so the moment was dropped though the text named Deep!Deep! Dish."""
+    if s.get("image_match_score"):
+        return "image"
+    if s.get("menu_item_id") and (s.get("resolution_confidence") or 0.0) >= TEXT_RESOLUTION_MIN:
+        return "text"
+    return None
+
+
 def build_moments(signals, personas, menu):
     people = {p["persona_id"]: p for p in personas}
     items = {m["item_id"]: m for m in menu}
@@ -23,7 +35,7 @@ def build_moments(signals, personas, menu):
     for s in signals:
         if s.get("quarantined") or s.get("menu_item_id") not in items:
             continue
-        if s["source_type"] == "athlete_post" and s.get("is_real_persona") and s.get("image_match_score"):
+        if s["source_type"] == "athlete_post" and s.get("is_real_persona") and persona_match_path(s):
             groups[("persona", s["persona_id"], s["menu_item_id"])].append(s)
         elif s["source_type"] == "social" and (s.get("velocity") or 0) >= TREND_VELOCITY:
             groups[("trend", None, s["menu_item_id"])].append(s)
@@ -34,7 +46,10 @@ def build_moments(signals, personas, menu):
                         title=f"{who} posted a {item['name']} moment" if who else f"{item['name']} is trending",
                         signal_ids=sorted(s["signal_id"] for s in sigs), persona_id=pid, item_id=iid,
                         reach=max(s.get("reach") or 0 for s in sigs), velocity=max(s.get("velocity") or 0.0 for s in sigs),
-                        image_match=max(s.get("image_match_score") or 0.0 for s in sigs) or None, questions=[], prompt_ids=[]))
+                        image_match=max(s.get("image_match_score") or 0.0 for s in sigs) or None, questions=[], prompt_ids=[],
+                        # not persisted (the moments table has no column for it); trends carry None
+                        match_path=(("image" if any(persona_match_path(s) == "image" for s in sigs) else "text")
+                                    if kind == "persona" else None)))
     return out
 
 

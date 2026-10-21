@@ -27,6 +27,16 @@ def rerank_messages(description: str, candidates: list[tuple[str, str, float]]) 
     )}]
 
 
+def rerank_candidates(ranked: list[tuple[str, str, float]], k: int, text_item_id: str | None) -> list[tuple[str, str, float]]:
+    """The reranker's candidates: the top k of the menu_idx ranking, plus the signal's text-resolved item (with its own
+    score from the same ranking) when it is set and not already in the top k. Smoke 1: the Goff photo's description put
+    detroit_pepperoni at about 0.585, outside the top 10, so the reranker could only answer none."""
+    top = list(ranked[:k])
+    if text_item_id and all(iid != text_item_id for iid, _, _ in top):
+        top += [c for c in ranked if c[0] == text_item_id][:1]
+    return top
+
+
 def _norm(answer: str) -> str:
     """'None.', ' NONE ' and '`none`' all mean none; ids are compared the same way."""
     return answer.strip().strip("`'\"*").strip().lower().rstrip(".!?,;:").strip()

@@ -101,3 +101,25 @@ def test_rerank_id_with_trailing_period_matches():
     r = describe_and_match(b"img", chat, "ep", lambda d: ("x", 0.1),
                            candidates_fn=lambda d: [("thin_crust", "thin", 0.9), ("detroit_pepperoni", "square", 0.7)])
     assert r["matched_item_id"] == "detroit_pepperoni"
+
+
+# Smoke 1 F3b: the Goff photo's description ranked detroit_pepperoni outside the top 10, so the reranker never saw it.
+# The candidate list is now the top k from menu_idx plus the signal's text-resolved item when it is not already there.
+from geologic.vision import rerank_candidates
+
+_RANKED = [("classic_cheese", "c", 0.668), ("thin_crust", "t", 0.667), ("stuffed_crust", "s", 0.657),
+           ("detroit_cheese", "dc", 0.603), ("detroit_pepperoni", "dp", 0.585)]
+
+def test_rerank_candidates_adds_the_text_resolved_item():
+    assert rerank_candidates(_RANKED, 3, "detroit_pepperoni") == _RANKED[:3] + [("detroit_pepperoni", "dp", 0.585)]
+
+def test_rerank_candidates_no_duplicate_or_missing_item():
+    assert rerank_candidates(_RANKED, 3, "thin_crust") == _RANKED[:3]          # already in the top k
+    assert rerank_candidates(_RANKED, 3, None) == _RANKED[:3]                  # no text resolution
+    assert rerank_candidates(_RANKED, 3, "party_pack") == _RANKED[:3]          # not in the index result: nothing to add
+
+def test_reranker_can_pick_the_text_resolved_item():
+    chat = MultiChat("A square-pan pizza with a thick crust and pepperoni.", "detroit_pepperoni")
+    out = describe_and_match(b"\xff\xd8\xff", chat, "ep", lambda t: (None, 0.0),
+                             candidates_fn=lambda t: rerank_candidates(_RANKED, 3, "detroit_pepperoni"))
+    assert out["matched_item_id"] == "detroit_pepperoni" and out["match_score"] == 0.585
