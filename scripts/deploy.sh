@@ -8,6 +8,9 @@ cd "$(dirname "$0")/.."
 if [ -z "${TARGET:-}" ]; then
   echo "Set TARGET, for example: TARGET=v3 bash scripts/deploy.sh"; exit 1
 fi
+if [ "$TARGET" = "dev" ] && [ "$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)" = "build/v3" ]; then
+  echo "Refusing TARGET=dev on branch build/v3, even with ALLOW_V2_DEPLOY=1: this branch's dev config no longer matches live v2."; exit 1
+fi
 if [ "$TARGET" = "dev" ] && [ "${ALLOW_V2_DEPLOY:-0}" != "1" ]; then
   echo "Refusing TARGET=dev: it is the live v2 demo. Deploy v2 only from the v2 branch with ALLOW_V2_DEPLOY=1."; exit 1
 fi

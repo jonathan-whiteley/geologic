@@ -16,3 +16,25 @@ def test_repo_sql_files_have_no_hardcoded_v2_schema():
     for p in list((root / "sql").glob("*.sql")) + [root / "genie" / "space.json", root / "jobs" / "run_views.py",
                                                      root / "jobs" / "verify_uc_functions.py"]:
         assert "jdub_demo.geologic." not in p.read_text(), p
+
+def _split_repo(name):
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parents[1]
+    return split_statements(render((root / "sql" / name).read_text(), catalog="jdub_demo", schema="geologic_v3"))
+
+def test_metric_view_yaml_body_stays_intact():
+    out = _split_repo("metric_views.sql")
+    assert len(out) == 1
+    mv = out[0]
+    assert mv.startswith("CREATE OR REPLACE VIEW jdub_demo.geologic_v3.mv_answer_share") and mv.endswith("$$")
+    assert mv.count("$$") == 2 and "\nversion: 1.1\n" in mv
+    assert "\n  - name: Share of Model\n    expr: AVG(" in mv          # YAML indentation preserved
+    assert "\nmeasures:\n" in mv and "\n  - name: Answers\n    expr: COUNT(1)\n$$" in mv
+
+def test_uc_functions_python_body_stays_intact():
+    out = _split_repo("uc_functions.sql")
+    assert [s.split("(")[0].rsplit(".", 1)[1] for s in out] == ["check_exclusions", "assign_tier", "validate_jsonld", "check_facts"]
+    py = out[2]
+    assert py.count("$$") == 2 and py.endswith("$$") and "LANGUAGE PYTHON" in py
+    assert "\n    o = json.loads(jsonld)\n" in py and "\nreturn json.dumps(errs)\n$$" in py
+    assert out[3].endswith(")") and "{{schema}}" not in "".join(out)

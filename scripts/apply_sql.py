@@ -6,7 +6,8 @@ Usage:
 
 catalog, schema and warehouse_id come from `databricks bundle summary -t <target>`, and {{schema}} and
 {{usage_app}} render per geologic.sqlfiles. Statements go as JSON bodies to /api/2.0/sql/statements,
-which keeps metric-view YAML indentation intact. --target dev (the live v2 demo) needs --allow-v2.
+which keeps metric-view YAML indentation intact. --target dev (the live v2 demo) needs --allow-v2; any other
+target must resolve to its own catalog and schema (scripts/check_plan.py EXPECTED) before a statement runs.
 --query prints each result row as one JSON object per line.
 """
 from __future__ import annotations
@@ -17,7 +18,10 @@ import subprocess
 import sys
 import time
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
+_here = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(_here, "..", "src"))
+sys.path.insert(0, _here)
+from check_plan import EXPECTED  # noqa: E402
 from geologic.sqlfiles import render, split_statements  # noqa: E402
 
 PROFILE = "DEFAULT"
@@ -40,6 +44,19 @@ def bundle_vars(target: str) -> dict:
     if missing:
         raise SystemExit(f"bundle summary for target {target} has no value for {missing}")
     return vals
+
+
+def target_problem(target: str, v: dict, allow_v2: bool) -> str | None:
+    """Why statements must not run for this target and its resolved variables, or None when they may."""
+    if target == "dev":
+        return None if allow_v2 else "Refusing --target dev: it is the live v2 demo. Pass --allow-v2 only from the v2 branch."
+    exp = EXPECTED.get(target)
+    if exp is None:
+        return f"Refusing unknown target {target!r}; known: dev, {', '.join(EXPECTED)}"
+    if (v.get("catalog"), v.get("schema")) != (exp["catalog"], exp["schema"]):
+        return (f"Refusing target {target}: it resolves to {v.get('catalog')}.{v.get('schema')}, "
+                f"expected {exp['catalog']}.{exp['schema']}")
+    return None
 
 
 def execute(statement: str, warehouse_id: str) -> dict:
@@ -72,12 +89,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--query", help="one SELECT; rows print as JSON lines")
     ap.add_argument("files", nargs="*")
     a = ap.parse_args(argv)
-    if a.target == "dev" and not a.allow_v2:
-        print("Refusing --target dev: it is the live v2 demo. Pass --allow-v2 only from the v2 branch.")
+    if a.target == "dev" and not a.allow_v2:   # refuse before any CLI call
+        print(target_problem("dev", {}, False))
         return 1
     if not a.files and not a.query:
         ap.error("give SQL files or --query")
     v = bundle_vars(a.target)
+    problem = target_problem(a.target, v, a.allow_v2)
+    if problem:
+        print(problem)
+        return 1
     if a.query:
         r = execute(render(a.query, catalog=v["catalog"], schema=v["schema"]), v["warehouse_id"])
         err = _failed(r)
