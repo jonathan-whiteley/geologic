@@ -1,63 +1,92 @@
-import pytest
+import copy
+from geologic.datagen.reference import personas
 from geologic.harness import check
 
-pytestmark = pytest.mark.skip(reason="replaced in v3 Task 7")
+GOFF_SIG, REPOST = "sig_goff", "sig_repost"
+OK = [{"key": "grounded", "ok": True, "label": "g"}, {"key": "unsupported", "ok": True, "label": "u"}]
+
+
+def issue(iid, issue_type, **k):
+    return {"issue_id": iid, "issue_type": issue_type, "prompt_ids": ["q201"], "source_doc_id": None, "source_doc_ids": [],
+            "subject": None, "cluster": None, "moment_id": None, "fact_id": None, "stated_fact_id": None, **k}
+
+
+def fix(fid, iid, asset, tier, text="Plain copy."):
+    return {"fix_id": fid, "issue_id": iid, "asset_type": asset, "tier": tier, "state": "pending_review", "patch_text": text,
+            "checks": list(OK)}
 
 
 def good_state():
-    opp = lambda **k: {"status": "open", "signal_ids": [], "item_id": None, "cluster": None, "persona_id": None, **k}
     return {
-        "opps": [opp(opp_type="accuracy_fix", page_id="pg_item_classic_pepperoni", item_id="classic_pepperoni", rank=1),
-                 opp(opp_type="content_gap", page_id="pg_deals_game_day", cluster="game_day_party", rank=2),
-                 opp(opp_type="citation_gap", page_id="pg_about", cluster="sponsorship", rank=3),
-                 opp(opp_type="persona_moment", page_id="pg_item_detroit_pepperoni", item_id="detroit_pepperoni", persona_id="p_goff", rank=4, signal_ids=["k"]),
-                 opp(opp_type="trend", page_id="pg_item_crazy_puffs_pepperoni", item_id="crazy_puffs_pepperoni", rank=5),
-                 opp(opp_type="crawler_gap", page_id="pg_order", rank=6),
-                 opp(opp_type="trend", page_id="pg_item_pretzel_crust", item_id="pretzel_crust", rank=7, status="monitor")],
-        "signals": [{"signal_id": "x", "producer": "seeded", "persona_id": "p_fictional_dax", "quarantined": True, "quarantine_rule_id": "EX-01"}],
-        "suggestions": [{"opp_type": "accuracy_fix", "page_id": "pg_item_classic_pepperoni", "tier": "T0"},
-                        {"opp_type": "accuracy_fix", "page_id": "pg_item_classic_pepperoni", "tier": "T1"},
-                        {"opp_type": "content_gap", "page_id": "pg_deals_game_day", "tier": "T1"},
-                        {"opp_type": "persona_moment", "page_id": "pg_item_detroit_pepperoni", "tier": "T2"},
-                        {"opp_type": "citation_gap", "page_id": "pg_about", "tier": "T0"},
-                        {"opp_type": "citation_gap", "page_id": "pg_about", "tier": "T1"},
-                        {"opp_type": "crawler_gap", "page_id": "pg_order", "tier": "T0"}],
-        "audits": [{"exclusion_rule_id": "EX-01", "enforcement_point": p} for p in ("ingest", "suggest", "publish")],
-        "public_signal_ids": {"k"},
+        "kpis": {"tracked_prompts": 30, "engines": 4, "answers": 120},
+        "issues": [
+            issue("is_pp", "outdated", source_doc_id="editorial_superbowl_roundup_2024", subject="party_pack", fact_id="F12",
+                  stated_fact_id="F13"),
+            issue("is_gl", "missing_us", source_doc_id="review_pizzahut_gameday_top", source_doc_ids=["review_pizzahut_gameday_top"]),
+            issue("is_cp", "outdated", source_doc_id="lce_pg_item_classic_pepperoni", subject="classic_pepperoni"),
+            issue("is_rd", "wrong", source_doc_id="reddit_pizza_hnr", subject="classic_pepperoni"),
+            issue("is_cm", "no_answer_page", cluster="comparison"),
+            issue("is_gm", "moment_gap", moment_id="m_goff", prompt_ids=["q202"]),
+        ],
+        "fixes": [fix("fx_1", "is_pp", "correction_email", "T2"), fix("fx_2", "is_pp", "owned_patch", "T1"),
+                  fix("fx_3", "is_gl", "answer_page", "T1"), fix("fx_4", "is_cp", "jsonld", "T0", '{"@type":"MenuItem"}'),
+                  fix("fx_5", "is_rd", "community_reply", "T2"), fix("fx_6", "is_cm", "answer_page", "T1"),
+                  fix("fx_7", "is_gm", "moment_page", "T1", "## Deep dish\nSquare deep dish for the game."),
+                  fix("fx_8", "is_gm", "association", "T2", "Jared Goff loves the corner piece.")],
+        "moments": [{"moment_id": "m_goff", "persona_id": "p_goff", "item_id": "detroit_pepperoni", "prompt_ids": ["q202"],
+                     "signal_ids": [GOFF_SIG]}],
+        "signals": [{"signal_id": GOFF_SIG, "author": "Jared Goff", "producer": "seeded", "quarantined": False, "quarantine_rule_id": None},
+                    {"signal_id": REPOST, "author": "@sidelinebets", "producer": "seeded", "quarantined": True, "quarantine_rule_id": "EX-03"}],
+        "audits": [{"exclusion_rule_id": "EX-03", "enforcement_point": p, "object_ref": REPOST} for p in ("ingest", "suggest", "publish")],
+        "public_signal_ids": {GOFF_SIG},
+        "personas": personas(),
     }
+
+
+def fails(mutate):
+    s = copy.deepcopy(good_state())
+    mutate(s)
+    return check(s)
+
+
+def has(msgs, prefix):
+    return any(m.startswith(prefix) or prefix in m for m in msgs)
 
 
 def test_good_state_passes():
     assert check(good_state()) == []
 
 
-def test_missing_enforcement_point():
-    s = good_state(); s["audits"] = s["audits"][:2]
-    assert any("S4" in f and "publish" in f for f in check(s))
+def test_missing_party_pack_issue():
+    assert has(fails(lambda s: s["issues"].pop(0)), "party_pack: no matching issue")
 
 
-def test_s5_order():
-    s = good_state()
-    next(o for o in s["opps"] if o["item_id"] == "pretzel_crust")["rank"] = 1
-    assert any("S5" in f for f in check(s))
+def test_correction_email_at_t1():
+    assert has(fails(lambda s: s["fixes"][0].update(tier="T1")), "party_pack: fixes")
 
 
-def test_quarantined_leak():
-    s = good_state(); s["public_signal_ids"].add("x")
-    assert any("S4" in f and "public" in f for f in check(s))
+def test_moment_page_naming_goff():
+    assert has(fails(lambda s: s["fixes"][6].update(patch_text="Jared Goff picked the deep dish.")), "names a person")
 
 
-def test_metric_must_improve_after_publish():
-    s = good_state(); s["accuracy_by_run"] = {"baseline": 0.7, "latest": 0.6}
-    assert any("S1" in f for f in check(s))
+def test_repost_visible():
+    assert has(fails(lambda s: s["public_signal_ids"].add(REPOST)), "sportsbook_repost: visible")
 
 
-def test_wrong_tier():
-    s = good_state(); s["suggestions"][3]["tier"] = "T1"
-    assert any("S3" in f for f in check(s))
+def test_issue_without_prompts():
+    assert has(fails(lambda s: s["issues"].append(issue("is_x", "wrong", prompt_ids=[]))), "issue without prompts")
 
 
-def test_s6_is_citation_gap_not_content_gap():
-    s = good_state()
-    next(o for o in s["opps"] if o["cluster"] == "sponsorship")["opp_type"] = "content_gap"
-    assert any("S6" in f for f in check(s))
+def test_answers_out_of_range():
+    assert has(fails(lambda s: s["kpis"].update(answers=100)), "answers")
+
+
+def test_story_fix_with_unsupported_claim():
+    def m(s):
+        s["fixes"][1]["checks"] = [OK[0], {"key": "unsupported", "ok": False, "label": "Unsupported claim: x"}]
+    assert has(fails(m), "unsupported")
+
+
+def test_missing_publish_audit_and_goff_link():
+    msgs = fails(lambda s: (s["audits"].pop(), s["moments"][0].update(prompt_ids=["q201"])))
+    assert "sportsbook_repost: no audit event at publish" in msgs and "goff_moment: moment not linked to q202" in msgs

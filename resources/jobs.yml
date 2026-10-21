@@ -56,6 +56,14 @@ resources:
           depends_on: [{ task_key: pipeline_2 }, { task_key: history }]   # moments from silver_signals, issues from the views
           environment_key: default
           spark_python_task: { python_file: ../jobs/build_issues.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"] }
+        - task_key: draft
+          depends_on: [{ task_key: issues }]   # fixes in Lakebase, then the demo-start snapshots Reset restores
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/draft_fixes.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"] }
+        - task_key: answer_key
+          depends_on: [{ task_key: draft }]
+          environment_key: default
+          spark_python_task: { python_file: ../jobs/answer_key_check.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"] }
 
     geologic_publish:
       name: ${var.name_prefix}_publish
