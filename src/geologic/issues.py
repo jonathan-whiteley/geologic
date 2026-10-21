@@ -147,7 +147,7 @@ def build_issues(answers, claims, prompts, sources, pages, facts, moments, perso
              claim_keys=[claim_key(tag, src_id, subject, attribute)])
 
     # (2) Owned page stale: a current price fact newer than the page, and a tracked prompt with a claim about the subject
-    # (cited or not: the Classic Pepperoni page never ranks, so requiring a citation would erase the story)
+    # (cited or not: an engine can repeat the stale Classic Pepperoni price without citing the page)
     by_subject = defaultdict(list)
     for c in tracked_claims:
         by_subject[c.get("subject")].append(c)

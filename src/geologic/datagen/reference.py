@@ -18,9 +18,11 @@ SEEDED_PAGE_IDS = {
 
 # item_id, name, category, price, margin_pct, available, is_lto, dietary_flags, aliases, visual
 # visual: how the item looks (shape, crust and toppings only, no setting words)
+# Only classic_pepperoni carries the Hot-N-Ready name (smoke 1 F2: a "Classic Cheese Hot-N-Ready" page out-ranked the stale
+# Classic Pepperoni page for q002, so the stale-page and Reddit price stories never reproduced).
 _MENU = [
     ("classic_pepperoni", "Classic Pepperoni Hot-N-Ready", "pizza", 6.49, 0.34, True, False, [], ["hot-n-ready", "hot n ready", "classic pepperoni"], "round pizza, pepperoni toppings"),
-    ("classic_cheese", "Classic Cheese Hot-N-Ready", "pizza", 6.49, 0.36, True, False, ["vegetarian"], ["classic cheese"], "round pizza, cheese topping"),
+    ("classic_cheese", "Classic Cheese Pizza", "pizza", 6.49, 0.36, True, False, ["vegetarian"], ["classic cheese"], "round pizza, cheese topping"),
     ("emb_pepperoni", "ExtraMostBestest Pepperoni", "pizza", 7.99, 0.33, True, False, [], ["extramostbestest", "extra most bestest"], "round pizza, extra pepperoni toppings"),
     ("emb_cheese", "ExtraMostBestest Cheese", "pizza", 7.99, 0.35, True, False, ["vegetarian"], [], "round pizza, extra cheese topping"),
     ("three_meat", "3 Meat Treat", "pizza", 10.99, 0.31, True, False, [], ["3 meat treat", "three meat treat"], "round pizza, mixed meat toppings"),
@@ -85,7 +87,14 @@ def _page(page_id, url, page_type, item_id, body, jsonld=None, primary_subject=N
 # No owned page may say "Detroit" at baseline, so the Goff moment gap on q202 stays real.
 _PARTY_PACK_JSONLD = ('{"@context":"https://schema.org","@type":"MenuItem","name":"Game Day Party Pack",'
                       '"offers":{"@type":"Offer","price":"24.99","priceCurrency":"USD"}}')   # stale: F13, not F12
+# S1 (classic_pepperoni story): the Hot-N-Ready page still states the old $5 price (F04, valid to 2025-12-31) in its body
+# and its JSON-LD, and was last updated before the current $6.49 price (F03). It must never state $6.49.
+_HOT_N_READY_BODY = ("## Classic Pepperoni Hot-N-Ready\nHow much is a Little Caesars Hot-N-Ready pizza? "
+                     "Hot-N-Ready Classic Pepperoni pizza, $5, ready when you walk in. No calling ahead, no waiting.")
+_HOT_N_READY_JSONLD = ('{"@context":"https://schema.org","@type":"MenuItem","name":"Classic Pepperoni Hot-N-Ready",'
+                       '"offers":{"@type":"Offer","price":"5.00","priceCurrency":"USD"}}')   # stale: F04, not F03
 _ITEM_OVERRIDES = {
+    "classic_pepperoni": dict(body=_HOT_N_READY_BODY, jsonld=_HOT_N_READY_JSONLD, updated_at=_STALE),
     "party_pack": dict(body="## Game Day Party Pack\nA bundle for groups. See the app for today's price.",
                        jsonld=_PARTY_PACK_JSONLD, updated_at=datetime(2025, 3, 1, tzinfo=timezone.utc)),
     "detroit_pepperoni": dict(body="## Deep!Deep! Dish Pepperoni\nSquare deep dish, pepperoni to the edge.",
@@ -97,12 +106,6 @@ _ITEM_OVERRIDES = {
 def site_pages() -> list[dict]:
     pages = []
     for m in menu_items():
-        if m["item_id"] == "classic_pepperoni":
-            # S1: no price text, no JSON-LD
-            body = "## Classic Hot-N-Ready\nPepperoni pizza, ready when you walk in."
-            pages.append(_page("pg_item_classic_pepperoni", "https://littlecaesars.com/menu/hot-n-ready", "item", m["item_id"], body,
-                               primary_subject=m["item_id"], updated_at=_STALE))
-            continue
         body = f"## {m['name']}\n{m['name']} from Little Caesars. ${m['price']:.2f} at most locations."
         if not m["available"]:
             body = f"## {m['name']}\nNo longer available."
@@ -112,7 +115,8 @@ def site_pages() -> list[dict]:
         )
         o = _ITEM_OVERRIDES.get(m["item_id"], {})
         body, jsonld, updated = o.get("body", body), o.get("jsonld", jsonld), o.get("updated_at", _UPDATED)
-        pages.append(_page(f"pg_item_{m['item_id']}", f"https://littlecaesars.com/menu/{m['item_id'].replace('_', '-')}", "item",
+        slug = "hot-n-ready" if m["item_id"] == "classic_pepperoni" else m["item_id"].replace("_", "-")
+        pages.append(_page(f"pg_item_{m['item_id']}", f"https://littlecaesars.com/menu/{slug}", "item",
                            m["item_id"], body, jsonld, primary_subject=m["item_id"], updated_at=updated))
     fixed = [
         ("pg_menu", "https://littlecaesars.com/menu", "menu", None, "## Menu\nPizza, sides, wings, dips, and combos."),

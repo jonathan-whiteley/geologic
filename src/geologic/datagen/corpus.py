@@ -41,9 +41,10 @@ def _d(doc_id, source_type, publisher, title, body, year, official=False, page_i
                 last_updated=last_updated or date(year, 6, 1))
 
 _THIRD_PARTY = [
-    # Reddit price: a wrong current price for the Classic Pepperoni (truth is F03, 6.49)
-    _d("reddit_pizza_hnr", "reddit", "r/pizza", "Is Hot-N-Ready still $5?",
-       "Pretty sure the Hot-N-Ready is $4.25 at my store now. Crazy Bread is the move.", 2026, last_updated=date(2026, 9, 30)),
+    # Reddit price: a wrong current price for the Classic Pepperoni (truth is F03, 6.49). Worded like q002 so it retrieves there.
+    _d("reddit_pizza_hnr", "reddit", "r/pizza", "Hot-N-Ready price check",
+       "How much is a Little Caesars Hot-N-Ready pizza right now? Pretty sure the Hot-N-Ready pepperoni is $4.25 at my store. "
+       "Crazy Bread is the move.", 2026, last_updated=date(2026, 9, 30)),
     # Party Pack: a 2024 roundup still quotes the superseded $24.99 price (F13; current is F12)
     _d("editorial_superbowl_roundup_2024", "blog", "partyplanner-weekly.com", "2024 Super Bowl party food roundup",
        "Feeding 12 for the big game? Little Caesars' Game Day Party Pack is $24.99 and feeds about 12. Pizza Hut party boxes "

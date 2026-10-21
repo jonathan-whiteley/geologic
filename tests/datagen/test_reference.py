@@ -32,7 +32,7 @@ def test_pages_seeded_gaps():
     pages = {p["page_id"]: p for p in r.site_pages()}
     assert 55 <= len(pages) <= 70
     hnr = pages[r.SEEDED_PAGE_IDS["hot_n_ready"]]
-    assert hnr["jsonld"] is None and "$" not in hnr["body"]          # S1 gap
+    assert '"5.00"' in hnr["jsonld"] and "$5," in hnr["body"] and "6.49" not in hnr["body"]   # S1: stale $5 price (F04)
     gd = pages[r.SEEDED_PAGE_IDS["game_day"]]
     assert "how many" not in gd["body"].lower()                        # S2 gap
     assert all(p["version"] == 1 for p in pages.values())
