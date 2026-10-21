@@ -1,5 +1,5 @@
 from geologic.datagen.reference import menu_items, personas
-from geologic.moments import build_moments, parse_questions, link_questions, fallback_question
+from geologic.moments import build_moments, parse_questions, link_questions, fallback_question, question_messages, suggestion_id
 
 def sig(**kw):
     base = dict(signal_id="s", source_type="social", quarantined=False, menu_item_id=None, persona_id=None, is_real_persona=False,
@@ -64,3 +64,38 @@ def test_text_path_never_rescues_quarantined_or_fictional_posts():
     assert build_moments([_goff(image_match_score=None, resolution_confidence=0.95, quarantined=True)], personas(), menu_items()) == []
     s = _goff(image_match_score=None, resolution_confidence=0.95); s["is_real_persona"] = False
     assert build_moments([s], personas(), menu_items()) == []
+
+
+# Ruling S2-B (smoke 2 F-S2-1): the question prompt carries the post text, matching looks at k=5 hits and prefers a
+# tracked prompt at or above the threshold over any suggestion, and a question never matches its own suggestion.
+def test_question_messages_carry_the_signal_text():
+    s = _goff(image_match_score=0.585, resolution_confidence=0.95, text="Detroit-style is back before kickoff. Corner piece is mine.")
+    m = build_moments([s], personas(), menu_items())[0]
+    assert m["signal_texts"] == ["Detroit-style is back before kickoff. Corner piece is mine."]
+    user = question_messages(m, "Detroit-Style Deep!Deep! Dish Pepperoni", "Jared Goff")[1]["content"]
+    assert "before kickoff" in user and "Jared Goff posted it" in user and "Detroit-Style Deep!Deep! Dish Pepperoni" in user
+    assert "Post:" not in question_messages({"title": "Crazy Bread is trending"}, "Crazy Bread")[1]["content"]   # no text, no line
+
+def test_link_prefers_a_tracked_prompt_over_a_closer_suggestion():
+    hits = [{"id": "s_old", "kind": "suggested", "score": 0.97}, {"id": "q202", "kind": "tracked", "score": 0.82},
+            {"id": "q057", "kind": "tracked", "score": 0.81}]
+    ids, new = link_questions(["Best Detroit-style pizza before kickoff"], lambda t: hits, 0.80)
+    assert ids == ["q202"] and new == []
+    below = [{"id": "s_old", "kind": "suggested", "score": 0.97}, {"id": "q202", "kind": "tracked", "score": 0.79}]
+    assert link_questions(["x"], lambda t: below, 0.80) == (["s_old"], [])   # no tracked prompt at threshold: the suggestion
+
+def test_a_suggestion_never_matches_itself():
+    q = "Is Little Caesars Detroit-Style Deep Dish any good?"
+    own = suggestion_id(q)
+    assert own == "s_" + __import__("hashlib").sha1(q.lower().encode()).hexdigest()[:10]   # the id the last build upserted
+    hits = [{"id": own, "kind": "suggested", "score": 0.999}, {"id": "q057", "kind": "tracked", "score": 0.75}]
+    assert link_questions([q], lambda t: hits, 0.80) == ([own], [(own, q)])   # re-proposed, not a match on itself
+    hits = [{"id": own, "kind": "suggested", "score": 0.999}, {"id": "q202", "kind": "tracked", "score": 0.80}]
+    assert link_questions([q], lambda t: hits, 0.80) == (["q202"], [])
+
+def test_link_asks_for_five_hits_when_nearest_takes_k():
+    seen = []
+    def nearest(text, k=1):
+        seen.append(k)
+        return [{"id": "q202", "kind": "tracked", "score": 0.9}]
+    assert link_questions(["a"], nearest, 0.80) == (["q202"], []) and seen == [5]

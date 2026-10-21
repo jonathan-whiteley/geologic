@@ -61,3 +61,8 @@ prompt_rows = V.prompt_rows(prompts, suggestions, embed)
 V.upsert(w, S.sources_index, sources)
 V.upsert(w, S.prompt_index, prompt_rows)
 print(f"sources_idx: {len(sources)} rows, prompt_idx: {len(prompt_rows)} rows")
+# Upserts never delete: drop prompt vectors whose ids are in neither prompts nor prompt_suggestions (smoke 2: orphaned
+# moment suggestions from an earlier build stayed matchable after the data task rewrote prompt_suggestions).
+keep = {p["prompt_id"] for p in prompts} | {s["suggestion_id"] for s in suggestions}
+pruned = V.prune(w, S.prompt_index, "prompt_id", keep)
+print(f"prompt_idx: pruned {len(pruned)} rows not in prompts or prompt_suggestions: {pruned}")

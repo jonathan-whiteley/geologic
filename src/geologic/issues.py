@@ -146,23 +146,36 @@ def build_issues(answers, claims, prompts, sources, pages, facts, moments, perso
              stated_value=value, engines=_engines(c.get("engine") for c in cs),
              claim_keys=[claim_key(tag, src_id, subject, attribute)])
 
-    # (2) Owned page stale: a current price fact newer than the page, and a tracked prompt with a claim about the subject
-    # (cited or not: an engine can repeat the stale Classic Pepperoni price without citing the page)
+    # (2) Owned page stale: a current price fact newer than the page, and a tracked prompt with a price claim about the
+    # subject (cited or not: an engine can repeat the stale Classic Pepperoni price without citing the page). Only claims
+    # on the fact's attribute count; Unverifiable claims (generic alias hits such as "Hot-N-Ready is cheap") do not. When
+    # rule 1 already has an issue for the same page and fact, the jsonld fix joins it: one issue per stale page.
     by_subject = defaultdict(list)
     for c in tracked_claims:
-        by_subject[c.get("subject")].append(c)
+        if c.get("tag") != "Unverifiable":
+            by_subject[(c.get("subject"), c.get("attribute"))].append(c)
     page_doc = {d.get("page_id"): d["doc_id"] for d in sources if d.get("owner_class") == "Owned" and d.get("page_id")}
     for pg in sorted(pages, key=lambda p: p["page_id"]):
         subj, updated = pg.get("primary_subject"), _day(pg.get("updated_at"))
-        fact = _current_fact(facts, subj, "price", today) if subj and by_subject.get(subj) else None
+        fact = _current_fact(facts, subj, "price", today) if subj and by_subject.get((subj, "price")) else None
         if not fact or updated is None or not _day(fact["valid_from"]) > updated:
             continue
-        cs = by_subject[subj]
+        cs = by_subject[(subj, "price")]
         pids = sorted({c["prompt_id"] for c in cs})
         doc_id = page_doc.get(pg["page_id"], "lce_" + pg["page_id"])
+        jsonld = _fix("jsonld", "fix_page", page_id=pg["page_id"], section_id="jsonld", op="replace")
+        hosts = sorted((i for i in issues if i["issue_type"] in ("outdated", "wrong") and i["source_doc_id"] == doc_id
+                        and i["fact_id"] == fact["fact_id"]), key=lambda i: i["issue_type"] != "outdated")
+        if hosts:
+            host = hosts[0]
+            host["planned"].append(jsonld)
+            host["prompt_ids"] = sorted(set(host["prompt_ids"]) | set(pids))
+            host["engines"] = _engines(list(host["engines"]) + [c.get("engine") for c in cs])
+            covered.update(pids)
+            continue
         emit("outdated", title=f"Our {subject_name(subj)} page is out of date", prompt_ids=pids, anchor=doc_id,
              scope=pg["page_id"], action_lane="fix_page",
-             planned=[_fix("jsonld", "fix_page", page_id=pg["page_id"], section_id="jsonld", op="replace")],
+             planned=[jsonld],
              cluster=main_cluster(pids), source_doc_id=doc_id, source_doc_ids=[doc_id], item_id=menu_item(subj), subject=subj,
              attribute="price", fact_id=fact["fact_id"], engines=_engines(c.get("engine") for c in cs))
 

@@ -2,8 +2,9 @@
 are overwritten, new prompt suggestions are merged (existing ones are never touched).
 
 1. Moments from silver_signals (quarantined signals never become moments). For each, the judge model writes 1 or 2
-   customer questions; each links to the nearest tracked prompt or suggestion in prompt_idx at the match threshold,
-   otherwise it becomes a new prompt suggestion (source moment), upserted into prompt_idx so the next build reuses it.
+   customer questions from the post text; each links to the best tracked prompt in the top 5 of prompt_idx at the match
+   threshold (cosine), else the best other suggestion at it (never its own), otherwise it becomes a new prompt suggestion
+   (source moment), upserted into prompt_idx.
 2. Issues from the latest ok answers, their claims, the tracked prompts, sources, owned pages, brand facts and the
    moments (geologic.issues). No prompt, no issue.
 """
@@ -58,9 +59,9 @@ moments = build_moments(rows(f"SELECT * FROM {S.fq('silver_signals')}"), people,
 hits = {}
 
 
-def best(text):   # nearest tracked prompt or suggestion, cached so each question costs one embedding and one query
+def best(text, k=5):   # nearest tracked prompts and suggestions (cosine), cached: one embedding and one query per question
     if text not in hits:
-        hits[text] = (index.nearest(text, 1) or [None])[0]
+        hits[text] = index.nearest(text, k) or []
     return hits[text]
 
 
@@ -79,7 +80,7 @@ for m in moments:
     ids, new = link_questions(qs, best, S.match_threshold)
     m["questions"], m["prompt_ids"], m["detected_at"] = qs, ids, now
     for sid, text in new:
-        new_sugg.setdefault(sid, {"suggestion_id": sid, "prompt_text": text, "cluster": (best(text) or {}).get("cluster") or "product",
+        new_sugg.setdefault(sid, {"suggestion_id": sid, "prompt_text": text, "cluster": (best(text)[:1] or [{}])[0].get("cluster") or "product",
                                   "base_volume": None, "calendar_tags": [], "branded": is_branded(text), "source": "moment",
                                   "status": "suggested", "moment_id": m["moment_id"]})
 

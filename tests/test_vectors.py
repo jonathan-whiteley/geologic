@@ -157,3 +157,29 @@ def test_query_by_vector_returns_rows_with_cosine_scores():
     empty = NS(vector_search_indexes=NS(query_index=lambda **kw: NS(manifest=None, result=None)))
     assert V.query(empty, "i", ["prompt_id"], [1.0], 3) == []
     assert V.query(NS(vector_search_indexes=QueryIdx(["prompt_id", "score"], None)), "i", ["prompt_id"], [1.0], 3) == []
+
+
+
+# Ruling S2-C (smoke 2 F-S2-2): vector_search prunes prompt_idx rows whose ids are in neither prompts nor prompt_suggestions.
+class ScanIdx(FakeIdx):
+    def __init__(self, pages):
+        super().__init__(); self.pages, self.scans = pages, []
+    def scan_index(self, index_name, last_primary_key=None, num_results=None):
+        self.scans.append((index_name, last_primary_key, num_results))
+        data = self.pages.get(last_primary_key, [])
+        rows = [NS(fields=[NS(key="prompt_id", value=NS(string_value=i)), NS(key="kind", value=NS(string_value="x"))]) for i in data]
+        return NS(data=rows, last_primary_key=data[-1] if data else None)
+
+
+def test_index_ids_pages_through_scan():
+    w = W(); w.vector_search_indexes = ScanIdx({None: ["q001", "q002"], "q002": ["s_a"], "s_a": []})
+    assert V.index_ids(w, "idx", "prompt_id", page=2) == ["q001", "q002", "s_a"]
+    assert [s[1] for s in w.vector_search_indexes.scans] == [None, "q002", "s_a"]
+
+
+def test_prune_deletes_only_ids_not_kept():
+    w = W(); w.vector_search_indexes = ScanIdx({None: ["q001", "s_old", "s_keep", "c004"]})
+    gone = V.prune(w, "c.s.prompt_idx", "prompt_id", keep={"q001", "s_keep", "c004"})
+    assert gone == ["s_old"] and w.vector_search_indexes.calls == [("delete", ["s_old"])]
+    w2 = W(); w2.vector_search_indexes = ScanIdx({None: ["q001"]})
+    assert V.prune(w2, "i", "prompt_id", keep={"q001"}) == [] and w2.vector_search_indexes.calls == []

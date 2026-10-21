@@ -80,3 +80,28 @@ def delete(w, index_name, ids):
     ids = list(ids)
     if ids:
         w.vector_search_indexes.delete_data_vector_index(index_name=index_name, primary_keys=ids)
+
+
+def index_ids(w, index_name, pk, page=1000) -> list[str]:
+    """Every primary key in a Direct Vector Access index (scan_index pages)."""
+    out, last = [], None
+    while True:
+        r = w.vector_search_indexes.scan_index(index_name=index_name, last_primary_key=last, num_results=page)
+        rows = getattr(r, "data", None) or []
+        if not rows:
+            return out
+        for row in rows:
+            v = next((e.value for e in row.fields or [] if e.key == pk), None)
+            if v is not None and getattr(v, "string_value", None) is not None:
+                out.append(v.string_value)
+        last = getattr(r, "last_primary_key", None)
+        if not last:
+            return out
+
+
+def prune(w, index_name, pk, keep) -> list[str]:
+    """Deletes index rows whose primary key is not in keep; returns the deleted ids."""
+    keep = set(keep)
+    gone = sorted(i for i in dict.fromkeys(index_ids(w, index_name, pk)) if i not in keep)
+    delete(w, index_name, gone)
+    return gone

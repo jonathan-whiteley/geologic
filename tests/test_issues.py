@@ -141,3 +141,33 @@ def test_discontinued_item_moment_makes_no_moment_gap_but_its_stale_claim_still_
     i = one(issues, issue_type="outdated", subject="pretzel_crust")
     assert i["prompt_ids"] == ["q115"] and i["stated_fact_id"] == old_price
     assert one(issues, issue_type="moment_gap")["moment_id"] == "mo_goff"   # available items keep their moment gap
+
+
+
+# Ruling S2-D (smoke 2 F-S2-3): rule 2 counts only claims on the stale fact's attribute (Unverifiable alias hits do not
+# count), and a rule 1 issue on the same owned page and fact absorbs the jsonld asset: one issue per stale page.
+def _unverifiable(pid, attribute):
+    return dict(prompt_id=pid, engine="Claude", subject="classic_pepperoni", attribute=attribute, stated_value=None,
+                tag="Unverifiable", fact_id=None, source_doc_id=None)
+
+def test_stale_page_counts_only_price_claims_not_unverifiable_alias_hits():
+    claims = CLAIMS + [_unverifiable("q201", "ordering"), _unverifiable("q115", "price"), _unverifiable("q062", None)]
+    i = one(build(claims=claims), issue_type="outdated", source_doc_id="lce_pg_item_classic_pepperoni")
+    assert i["prompt_ids"] == ["q002"] and i["engines"] == ["Claude"]
+    only_alias = [c for c in CLAIMS if c["subject"] != "classic_pepperoni"] + [_unverifiable("q201", "ordering")]
+    assert not [x for x in build(claims=only_alias) if x["source_doc_id"] == "lce_pg_item_classic_pepperoni"]
+
+def test_owned_stale_claim_and_stale_page_make_one_issue_with_t0_jsonld():
+    owned = [cl("q002", e, "classic_pepperoni", "$5", "Outdated", "F04", "lce_pg_item_classic_pepperoni") for e in ("Claude", "ChatGPT")]
+    issues = build(claims=CLAIMS + owned)
+    i = one(issues, source_doc_id="lce_pg_item_classic_pepperoni")   # exactly one issue for the page
+    assert i["issue_type"] == "outdated" and i["fact_id"] == "F03" and i["stated_fact_id"] == "F04" and i["prompt_ids"] == ["q002"]
+    assert [(f["asset_type"], f["page_id"], f["section_id"], f["op"]) for f in i["planned"]] == [
+        ("owned_patch", "pg_item_classic_pepperoni", None, "replace"), ("jsonld", "pg_item_classic_pepperoni", "jsonld", "replace")]
+    assert i["claim_keys"] == [claim_key("Outdated", "lce_pg_item_classic_pepperoni", "classic_pepperoni", "price")]
+    from geologic.datagen.answer_key import ANSWER_KEY
+    from geologic.tiering import assign_tier
+    key = ANSWER_KEY["classic_pepperoni"]
+    hits = [x for x in issues if x["issue_type"] == key["issue_type"] and x["source_doc_id"] == key["source_doc_id"]]
+    assert [assign_tier(f["asset_type"], names_person=False, checks_ok=True) for f in hits[0]["planned"]
+            if f["asset_type"] in key["fixes"]] == ["T0"]
