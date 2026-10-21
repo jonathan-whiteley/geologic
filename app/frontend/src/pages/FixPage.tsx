@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
+import type { FixStatus } from '../api/types'
 import { CLUSTERS } from '../components/Heatmap'
 import TierStrip from '../components/TierStrip'
 import QuarantineTrail from '../components/QuarantineTrail'
@@ -21,6 +22,7 @@ export default function FixPage() {
   const [filter, setFilter] = useState<QueueFilter>('all')
   const [showTrail, setShowTrail] = useState(false)
   const [t0Ids, setT0Ids] = useState<string[]>([])
+  const [t0Running, setT0Running] = useState<string[]>([])
   const [t0Starting, setT0Starting] = useState(false)
   const toast = useToast()
   const queryClient = useQueryClient()
@@ -50,6 +52,7 @@ export default function FixPage() {
       const { fix_ids } = await api.approveT0()
       toast(`Publishing ${fix_ids.length} T0 fixes`)
       setT0Ids(fix_ids)
+      setT0Running(fix_ids)
       queryClient.invalidateQueries({ queryKey: ['fix-summary'] })
       queryClient.invalidateQueries({ queryKey: ['fixes'] })
     } catch (err) {
@@ -59,7 +62,11 @@ export default function FixPage() {
     }
   }
 
-  const endT0 = (id: string) => setT0Ids(ids => ids.filter(x => x !== id))
+  // A published T0 card clears after 4 s; a failed one stays so its error remains visible.
+  const endT0 = (id: string, st: FixStatus) => {
+    setT0Running(ids => ids.filter(x => x !== id))
+    if (st.state === 'published') window.setTimeout(() => setT0Ids(ids => ids.filter(x => x !== id)), 4000)
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -69,13 +76,13 @@ export default function FixPage() {
         <p className="text-text-secondary">Every fix is grounded in Unity Catalog facts and approved in Lakebase. Then we re-ask the engines.</p>
       </div>
 
-      <TierStrip summary={summary.data} t0Busy={t0Starting || t0Ids.length > 0} onApproveT0={approveT0} onOpenQuarantine={() => setShowTrail(true)} />
+      <TierStrip summary={summary.data} t0Busy={t0Starting || t0Running.length > 0} onApproveT0={approveT0} onOpenQuarantine={() => setShowTrail(true)} />
 
       {t0Ids.length > 0 && (
         <div className="card p-5 space-y-3">
           <p className="text-sm font-semibold">Publishing T0 fixes</p>
           <div className="grid md:grid-cols-2 gap-4">
-            {t0Ids.map(id => <PublishProgress key={id} fixId={id} onEnd={() => window.setTimeout(() => endT0(id), 4000)} />)}
+            {t0Ids.map(id => <PublishProgress key={id} fixId={id} fresh onEnd={st => endT0(id, st)} />)}
           </div>
         </div>
       )}

@@ -53,7 +53,7 @@ function Fixes({ d }: { d: IssueDetailT }) {
           ))}
         </div>
       )}
-      <FixCard key={sel.fix_id} fix={sel} facts={d.truth.facts} />
+      <FixCard key={`${sel.fix_id}:${sel.state}`} fix={sel} facts={d.truth.facts} />
     </div>
   )
 }

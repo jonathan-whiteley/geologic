@@ -20,8 +20,8 @@ export default function EngineScorecard({ answers }: { answers: AnswerT[] }) {
             ) : (
               <>
                 <div className="flex flex-col gap-1 text-xs font-medium">
-                  {a.lce_mentioned && a.lce_rank
-                    ? <span className="text-green-700">Named #{a.lce_rank}</span>
+                  {a.lce_mentioned
+                    ? <span className="text-green-700">{a.lce_rank ? `Named #${a.lce_rank}` : 'Named'}</span>
                     : <span className="text-red-700">Not named</span>}
                   {ownedCited
                     ? <span className="text-green-700">Our page cited</span>

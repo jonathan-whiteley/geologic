@@ -26,6 +26,7 @@ export function useTrackPrompt() {
       toast(`Now tracking: ${res.prompt_text}`)
       queryClient.invalidateQueries({ queryKey: ['prompts'] })
       queryClient.invalidateQueries({ queryKey: ['model'] })
+      queryClient.invalidateQueries({ queryKey: ['prompt-suggestions'] })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
     } finally {

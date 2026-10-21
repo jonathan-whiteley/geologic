@@ -15,14 +15,21 @@ function stepState(i: number, st: FixStatus): 'done' | 'running' | 'pending' {
   return 'pending'
 }
 
-/** Polls a fix's publish status every 2 s and shows the five steps, then the before → after (or the rehearsed fallback). */
-export default function PublishProgress({ fixId, onEnd }: { fixId: string; onEnd?: (st: FixStatus) => void }) {
+const MAX_404 = 3
+const FAILED = 'Publish failed. Try again.'
+
+/** Polls a fix's publish status every 2 s and shows the five steps, then the before → after (or the rehearsed fallback).
+ *  `fresh` means this client started the run, so its end refreshes the screens even if the poll never saw `publishing`. */
+export default function PublishProgress({ fixId, onEnd, fresh = false }: { fixId: string; onEnd?: (st: FixStatus) => void; fresh?: boolean }) {
   const queryClient = useQueryClient()
   const [st, setSt] = useState<FixStatus | null>(null)
   const [local, setLocal] = useState(0)
   const [pollError, setPollError] = useState(false)
+  const [lost, setLost] = useState(false)
   const onEndRef = useRef(onEnd)
   onEndRef.current = onEnd
+  const freshRef = useRef(fresh)
+  freshRef.current = fresh
 
   useEffect(() => {
     const t = window.setInterval(() => setLocal(s => s + 1), 1000)
@@ -32,19 +39,31 @@ export default function PublishProgress({ fixId, onEnd }: { fixId: string; onEnd
   useEffect(() => {
     let stopped = false
     let timer: number
+    let sawPublishing = false
+    let misses = 0
     const tick = async () => {
       try {
         const s = await api.fixStatus(fixId)
         if (stopped) return
         setSt(s)
         setPollError(false)
-        if (s.state !== 'publishing') {
-          for (const key of ['fixes', 'issues', 'issue', 'fix-summary', 'impact']) queryClient.invalidateQueries({ queryKey: [key] })
+        misses = 0
+        if (s.state === 'publishing') sawPublishing = true
+        else {
+          // Only a run that was live (seen publishing, or started here) refreshes the screens; mounting on a finished fix does not.
+          if (sawPublishing || freshRef.current) {
+            for (const key of ['fixes', 'issues', 'issue', 'fix-summary', 'impact']) queryClient.invalidateQueries({ queryKey: [key] })
+          }
           onEndRef.current?.(s)
           return
         }
-      } catch {
-        if (!stopped) setPollError(true)
+      } catch (err) {
+        if (stopped) return
+        setPollError(true)
+        if ((err as { status?: number }).status === 404 && ++misses >= MAX_404) {
+          setLost(true)
+          return
+        }
       }
       if (!stopped) timer = window.setTimeout(tick, 2000)
     }
@@ -52,6 +71,7 @@ export default function PublishProgress({ fixId, onEnd }: { fixId: string; onEnd
     return () => { stopped = true; window.clearTimeout(timer) }
   }, [fixId, queryClient])
 
+  if (lost) return <p className="text-sm text-red-600">Lost contact with the server.</p>
   if (!st) return <p className="flex items-center gap-2 text-sm text-text-secondary"><Loader2 className="w-4 h-4 animate-spin" />Starting...</p>
 
   const elapsed = st.state === 'publishing' ? Math.max(st.elapsed_s ?? 0, local) : (st.elapsed_s ?? local)
@@ -80,7 +100,7 @@ export default function PublishProgress({ fixId, onEnd }: { fixId: string; onEnd
         </div>
       )}
 
-      {st.state === 'published' && st.entry && <LedgerMini entry={st.entry} />}
+      {st.state === 'published' && (st.entry ? <LedgerMini entry={st.entry} /> : <p className="text-sm font-medium text-green-700">Published</p>)}
       {st.state === 'approved' && <p className="text-sm font-medium text-green-700">Approved. Ready for a human to send.</p>}
       {live && st.fallback && (
         <LedgerMini entry={st.fallback.entry} label={`Rehearsed at ${formatTime(st.fallback.rehearsed_at)}`} note="The live re-ask is still running." />
@@ -88,7 +108,7 @@ export default function PublishProgress({ fixId, onEnd }: { fixId: string; onEnd
       {live && !st.fallback && (st.elapsed_s ?? 0) > FALLBACK_S && (
         <p className="flex items-center gap-2 text-sm text-text-secondary"><Loader2 className="w-4 h-4 animate-spin" />Still re-asking the engines...</p>
       )}
-      {st.state === 'pending_review' && st.error && <p className="text-sm text-red-600">{st.error}</p>}
+      {st.state === 'pending_review' && <p className="text-sm text-red-600">{st.error ?? FAILED}</p>}
       {st.state === 'rejected' && <p className="text-sm text-text-tertiary">Rejected.</p>}
       {st.state === 'blocked' && <p className="text-sm text-red-600">{st.error ?? 'Blocked by policy.'}</p>}
     </div>

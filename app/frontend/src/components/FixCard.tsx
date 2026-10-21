@@ -14,13 +14,21 @@ export default function FixCard({ fix: initial, facts }: { fix: Fix; facts: Fact
   const queryClient = useQueryClient()
   const toast = useToast()
   const [edited, setEdited] = useState<Fix | null>(null)
-  const fix = edited ?? initial
   const [started, setStarted] = useState(false)
+  const [draft, setDraft] = useState(initial.patch_text)
+  // Server state wins: drop a local edit (and a finished local run) when the server's state or patch text changes.
+  const [seen, setSeen] = useState({ state: initial.state, patch: initial.patch_text })
+  if (seen.state !== initial.state || seen.patch !== initial.patch_text) {
+    setSeen({ state: initial.state, patch: initial.patch_text })
+    setEdited(null)
+    setDraft(initial.patch_text)
+    if (initial.state === 'pending_review') setStarted(false)
+  }
+  const fix = edited ?? initial
   const progress = started || IN_FLIGHT.includes(fix.state)
   const [error, setError] = useState<string | null>(initial.state === 'pending_review' ? initial.error : null)
   const [busy, setBusy] = useState<'approve' | 'reject' | 'save' | null>(null)
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(fix.patch_text)
 
   const factById = new Map(facts.map(f => [f.fact_id, f]))
   const blocked = fix.checks.some(c => !c.ok && BLOCKING_CHECKS.has(c.key))
@@ -35,7 +43,9 @@ export default function FixCard({ fix: initial, facts }: { fix: Fix; facts: Fact
       setStarted(true)
       queryClient.invalidateQueries({ queryKey: ['fixes'] })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Publish failed. Try again.')
+      // 409: already publishing or no longer reviewable; follow the real state instead of guessing.
+      if ((err as { status?: number }).status === 409) setStarted(true)
+      else setError(err instanceof Error ? err.message : 'Publish failed. Try again.')
     } finally {
       setBusy(null)
     }
@@ -141,7 +151,7 @@ export default function FixCard({ fix: initial, facts }: { fix: Fix; facts: Fact
       )}
 
       {progress ? (
-        <PublishProgress fixId={fix.fix_id} onEnd={onEnd} />
+        <PublishProgress fixId={fix.fix_id} onEnd={onEnd} fresh={started} />
       ) : reviewable && !editing ? (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">

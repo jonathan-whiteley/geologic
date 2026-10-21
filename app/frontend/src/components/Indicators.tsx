@@ -20,8 +20,8 @@ function Move({ label, before, after, fmt, better }: { label: string; before: nu
   )
 }
 
-/** Visibility arrives as a 0 to 1 rate or an already scaled percent; show it as a percent either way. */
-const asPct = (n: number | null) => (n == null ? null : n <= 1 ? n * 100 : n)
+/** Visibility arrives as a 0 to 1 rate. */
+const asPct = (n: number | null) => (n == null ? null : n * 100)
 const int = (n: number | null) => (n == null ? 'N/A' : String(n))
 
 export default function Indicators({ d }: { d: ImpactT }) {

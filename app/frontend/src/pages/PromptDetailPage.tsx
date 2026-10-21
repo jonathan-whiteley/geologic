@@ -41,12 +41,12 @@ function renderAnswer(raw: string, cited: CitedDoc[]): ReactNode[] {
 }
 
 function AnswerCard({ a }: { a: AnswerT }) {
-  const named = !!(a.lce_mentioned && a.lce_rank)
+  const named = !!a.lce_mentioned
   return (
     <div className="card p-4 space-y-3 flex flex-col">
       <div className="flex items-center justify-between gap-2">
         <span className="font-semibold">{a.engine}</span>
-        <span className={`text-xs font-semibold ${named ? 'text-green-700' : 'text-red-700'}`}>{named ? `Named #${a.lce_rank}` : 'Not named'}</span>
+        <span className={`text-xs font-semibold ${named ? 'text-green-700' : 'text-red-700'}`}>{named ? (a.lce_rank ? `Named #${a.lce_rank}` : 'Named') : 'Not named'}</span>
       </div>
       <p className={`flex items-center gap-1.5 text-xs ${a.owned_retrieved ? 'text-green-700' : 'text-text-tertiary'}`}>
         {a.owned_retrieved ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
