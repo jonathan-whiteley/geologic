@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Sparkles, Radar, FileCheck2, TrendingUp, RotateCcw, Megaphone, Network, Loader2 } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Sparkles, Radar, FileCheck2, TrendingUp, RotateCcw, Megaphone, Network, Loader2, Settings } from 'lucide-react'
 import { api } from '../api/client'
 import { ToastProvider, useToast } from '../components/Toast'
 import GeniePanel from '../components/genie/GeniePanel'
@@ -24,8 +25,30 @@ function Shell() {
   const pendingCount = suggestions?.filter(s => s.state === 'pending_review').length ?? 0
 
   const [resetRunId, setResetRunId] = useState<number | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
+  const settingsRef = useRef<HTMLDivElement>(null)
+  const { pathname } = useLocation()
+
+  // Close the settings menu on an outside click, Escape, or navigation.
+  useEffect(() => {
+    if (!showSettings) return
+    const onDown = (e: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) setShowSettings(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowSettings(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [showSettings])
+  useEffect(() => setShowSettings(false), [pathname])
 
   const handleReset = async () => {
+    setShowSettings(false)
     if (resetRunId) return
     if (!window.confirm('Reset the demo? This restores the starting pages, suggestions and probe results.')) return
     try {
@@ -112,20 +135,64 @@ function Shell() {
           </nav>
 
           <div className="flex items-center gap-1">
-            <ThemeSwitch className="mr-1 hidden md:grid" />
             <button className="btn btn-primary" onClick={toggle} title="Ask Genie (/)" aria-label="Ask Genie">
               <Sparkles className="w-4 h-4" />
               <span className="hidden sm:inline">Ask Genie</span>
             </button>
-            <NavLink to="/architecture" title="Architecture"
-              className={({ isActive }) => `btn btn-ghost ${isActive ? 'text-lce-orange' : ''}`}>
-              <Network className="w-4 h-4" />
-              <span className="hidden xl:inline">Architecture</span>
-            </NavLink>
-            <button onClick={handleReset} className="btn btn-ghost" title="Reset demo" disabled={!!resetRunId}>
-              {resetRunId ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
-              <span className="hidden xl:inline">Reset</span>
-            </button>
+
+            {/* Settings: theme, Architecture, Reset demo */}
+            <div className="relative" ref={settingsRef}>
+              <button
+                type="button"
+                onClick={() => setShowSettings(v => !v)}
+                aria-label="Settings"
+                aria-haspopup="menu"
+                aria-expanded={showSettings}
+                title="Settings"
+                className={`relative p-2.5 rounded-xl hover:bg-gray-100 transition-colors ${pathname.startsWith('/architecture') ? 'text-lce-orange' : 'text-text-secondary'}`}
+              >
+                <motion.div animate={{ rotate: showSettings ? 180 : 0 }} transition={{ duration: 0.4, ease: 'easeInOut' }}>
+                  <Settings className="w-5 h-5" />
+                </motion.div>
+                {resetRunId && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500 animate-pulse-soft" />}
+              </button>
+
+              <AnimatePresence>
+                {showSettings && (
+                  <motion.div
+                    role="menu"
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute top-full right-0 mt-2 w-56 bg-surface rounded-xl shadow-strong border border-gray-100 py-1 z-50 origin-top-right"
+                  >
+                    <div className="px-3 py-2.5">
+                      <ThemeSwitch />
+                    </div>
+                    <div className="h-px bg-gray-100 my-1" />
+                    <NavLink
+                      to="/architecture"
+                      role="menuitem"
+                      className={({ isActive }) => `w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 transition-colors text-sm font-medium ${isActive ? 'text-lce-orange' : 'text-text-primary'}`}
+                    >
+                      <Network className="w-4 h-4 text-text-secondary" />
+                      Architecture
+                    </NavLink>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={handleReset}
+                      disabled={!!resetRunId}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 transition-colors text-sm font-medium text-text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {resetRunId ? <Loader2 className="w-4 h-4 text-text-secondary animate-spin" /> : <RotateCcw className="w-4 h-4 text-text-secondary" />}
+                      {resetRunId ? 'Resetting demo...' : 'Reset demo'}
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </header>

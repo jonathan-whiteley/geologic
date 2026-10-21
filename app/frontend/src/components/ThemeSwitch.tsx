@@ -13,7 +13,7 @@ export default function ThemeSwitch({ className = '' }: { className?: string }) 
       aria-label="Spooky mode"
       title={isHalloween ? 'Switch to Light mode' : 'Switch to Spooky mode'}
       onClick={toggle}
-      className={`relative grid grid-cols-2 w-[8.5rem] h-9 p-1 rounded-full bg-surface-secondary border border-gray-100 text-xs font-semibold select-none shrink-0 ${className}`}
+      className={`relative grid grid-cols-2 w-full h-9 p-1 rounded-full bg-surface-secondary border border-gray-100 text-xs font-semibold select-none shrink-0 ${className}`}
     >
       <span
         aria-hidden="true"
@@ -23,11 +23,11 @@ export default function ThemeSwitch({ className = '' }: { className?: string }) 
             : 'translate-x-0 bg-surface'
         }`}
       />
-      <span className={`relative z-10 flex items-center justify-center gap-1 transition-colors ${isHalloween ? 'text-text-tertiary' : 'text-lce-orange'}`}>
+      <span className={`relative z-10 flex items-center justify-center gap-1.5 transition-colors ${isHalloween ? 'text-text-tertiary' : 'text-lce-orange'}`}>
         <Sun className="w-3.5 h-3.5" />
         Light
       </span>
-      <span className={`relative z-10 flex items-center justify-center gap-1 transition-colors ${isHalloween ? 'text-white' : 'text-text-tertiary'}`}>
+      <span className={`relative z-10 flex items-center justify-center gap-1.5 transition-colors ${isHalloween ? 'text-white' : 'text-text-tertiary'}`}>
         <Ghost className="w-3.5 h-3.5" />
         Spooky
       </span>
