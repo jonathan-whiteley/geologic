@@ -19,15 +19,20 @@ def _user(req: Request) -> str:
     return req.headers.get("X-Forwarded-Email", "presenter")
 
 
-# Measure (v2 reads until Task 11)
+# Measure
 @router.get("/model/summary")
 def model_summary(reads=Depends(deps.get_reads)):
     return reads.model_summary()
 
 
 @router.get("/prompts")
-def prompt_inventory(reads=Depends(deps.get_reads)):
-    return reads.prompt_inventory()
+def prompts(reads=Depends(deps.get_reads)):
+    return reads.prompt_rows()
+
+
+@router.get("/prompt-suggestions")
+def prompt_suggestions(reads=Depends(deps.get_reads)):
+    return reads.prompt_suggestions()
 
 
 # Fix: the queue, approve (fast path), Approve all T0 (job), reject, edit, status
@@ -152,6 +157,14 @@ def track(body: TrackBody, req: Request, tracker=Depends(deps.get_tracker)):
         raise HTTPException(400, str(e))
     except SearchUnavailable:
         raise HTTPException(503, "Search is unavailable right now.")
+
+
+@router.get("/prompts/{prompt_id}")
+def prompt_detail(prompt_id: str, reads=Depends(deps.get_reads)):
+    d = reads.prompt_detail(prompt_id)
+    if d is None:
+        raise HTTPException(404, "Unknown prompt")
+    return d
 
 
 @router.get("/signals/{signal_id}/image")

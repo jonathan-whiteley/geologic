@@ -15,7 +15,9 @@ class FakeJobs:
 
 
 class FakeReads:
-    def prompt_inventory(self): return [{"prompt_id": "q001"}]
+    def prompt_rows(self): return [{"prompt_id": "q001"}]
+    def prompt_detail(self, pid): return {"prompt_id": pid, "answers": []} if pid == "q001" else None
+    def prompt_suggestions(self): return [{"suggestion_id": "c001"}]
 
 
 class FakeRepo:
@@ -74,8 +76,12 @@ def test_jobs_run_publish_sends_the_comma_list(monkeypatch):
     assert j.run_publish(["fx_a", "fx_b"]) == 9 and sent == [(5, {"fix_ids": "fx_a,fx_b"})]
 
 
-def test_prompt_inventory_route():
+def test_prompt_routes():
     assert c.get("/api/prompts").json() == [{"prompt_id": "q001"}]
+    assert c.get("/api/prompts/q001").json()["prompt_id"] == "q001"
+    r = c.get("/api/prompts/q999")
+    assert r.status_code == 404 and r.json()["detail"] == "Unknown prompt"
+    assert c.get("/api/prompt-suggestions").json() == [{"suggestion_id": "c001"}]
 
 
 def test_search_route_errors():
