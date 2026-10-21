@@ -25,13 +25,37 @@ export type SearchResp = { query: string; threshold: number; match: { prompt_id:
   nearest: { id: string; prompt_text: string; kind: 'tracked' | 'suggested'; score: number } | null; scorecard: AnswerT[] | null }
 export type TrackResp = { prompt_id: string; prompt_text: string; scorecard: AnswerT[]; elapsed_s: number }
 
-// v2 Fix and Impact shapes, still used by the v2 Fix and Impact pages until Tasks 12 and 13 replace them.
-export type Opportunity = { opp_id: string; rank: number; opp_type: string; title: string; reasoning: string; assets: string[]; expected_lift_low: number; expected_lift_high: number; question_volume: number; window_name: string | null; window_expires_at: string | null; status: 'open' | 'monitor'; persona_id: string | null }
-export type Check = { ok: boolean; label: string }
-export type Suggestion = { suggestion_id: string; opp_id: string; opp_rank: number; title: string; asset_type: string; page_id: string; diff_before: string | null; diff_after: string; rationale: string; tier: 'T0' | 'T1' | 'T2'; state: string; checks: Check[]; persona_id: string | null; agent_trace_id: string | null; publish_step: number; error: string | null }
-export type PublishStatus = { state: string; publish_step: number; error: string | null; before?: { answer: string; cited: string[] }; after?: { answer: string; cited: string[] }; engine?: string; prompt_id?: string; prompt_text?: string | null; summary?: { share_before: number | null; share_after: number | null; accuracy_before: number | null; accuracy_after: number | null } | null }
+// Fix (Task 12)
+export type IssueType = 'wrong' | 'outdated' | 'missing_us' | 'no_answer_page' | 'moment_gap'
+export type FixLite = { fix_id: string; tier: 'T0' | 'T1' | 'T2'; asset_type: string; state: string }
+export type IssueRow = { issue_id: string; rank: number; issue_type: IssueType; title: string; cluster: string; action_lane: string;
+  prompt_ids: string[]; missed_answers: number; moment_id: string | null; fixes: FixLite[] }
+export type Check = { key: string; ok: boolean; label: string }
+export type Sentence = { text: string; fact_ids: string[]; kind: 'fact' | 'copy' }
+export type Fix = FixLite & { issue_id: string; title: string; lane: string; page_id: string | null; section_id: string | null; op: 'insert' | 'replace' | null;
+  section_before: string | null; patch_text: string; sentences: Sentence[]; grounding_fact_ids: string[]; checks: Check[]; rationale: string | null;
+  recipient: string | null; publish_step: number; error: string | null; reviewer: string | null }
+export type FactRow = { fact_id: string; subject_name: string; attribute: string; value: string; valid_from: string; valid_to: string | null; current: boolean }
+export type Passage = { doc_id: string; domain: string; owner_class: OwnerClass; last_updated: string | null; title: string; url: string; excerpt: string }
+export type MomentT = { moment_id: string; title: string; kind: 'persona' | 'trend'; author: string | null; persona_name: string | null; reach: number | null;
+  velocity: number | null; item_name: string; image_url: string | null; image_credit: string | null; image_match: number | null }
+export type IssueDetailT = { issue: IssueRow & { source_doc_id: string | null; subject: string | null; attribute: string | null; stated_value: string | null };
+  said: { claims: { engine: string; prompt_id: string; prompt_text: string; text: string | null; stated_value: string | null; tag: Tag }[];
+          passage: Passage | null; memory: boolean; moment: MomentT | null;
+          scorecards: { prompt_id: string; prompt_text: string; answers: AnswerT[] }[] };
+  truth: { facts: FactRow[]; uc_table: string }; fixes: Fix[] }
+export type LedgerSide = { mentioned: number; owned_cited: number; tag: Tag | null }
+export type LedgerEntry = { fix_id: string; title: string; tier: string; asset_type: string; reviewer: string | null; approved_at: string | null;
+  measured_at: string; epoch: number; rehearsal: boolean; engines_answered: number; engines_total: number; elapsed_s: number | null;
+  prompts: { prompt_id: string; prompt_text: string | null; before: LedgerSide; after: LedgerSide;
+             answers: { engine: string; status: string; before_answer: string | null; after_answer: string | null; before_cited: string[]; after_cited: string[] }[] }[] }
+export type FixStatus = { state: string; publish_step: number; step_labels: string[]; error: string | null; elapsed_s: number | null;
+  entry: LedgerEntry | null; fallback: { rehearsed_at: string; entry: LedgerEntry } | null }
+export type FixSummary = { tiers: { T0: { ready: number }; T1: { to_review: number }; T2: { to_review: number } }; quarantined: number; review_mode: boolean }
+export type Quarantine = { count: number; rule_id: string | null; reason: string | null; points: { enforcement_point: 'ingest' | 'suggest' | 'publish'; occurred_at: string }[] }
+
+// v2 Impact shapes, still used by the v2 Impact page until Task 13 replaces it.
 export type Impact = { weekly: { week_start: string; brand: string; answer_share: number }[]; health: { t0_auto: number; t1_approved_no_edit_pct: number | null; t2_reviews: number; blocked: number }; proof: Proof | null }
-export type Evidence = { opp_id: string; page_id: string | null; wrong_claims: { engine: string; item: string; price: string }[]; truth: { name: string; price: number } | null; cited_instead: { publisher: string; source_type: string; citations: number }[]; signal: { signal_id: string; author: string; text: string; persona_name: string | null; menu_item_name: string | null; image_url: string | null; image_credit: string | null } | null; live_page: { version: number; published_by: string; published_at: string } | null }
 export type Proof = { suggestion_id: string; title: string; engine: string; before_answer: string | null; after_answer: string | null; before_cited: string[]; after_cited: string[]; share_before: number | null; share_after: number | null; accuracy_before: number | null; accuracy_after: number | null; reviewer: string | null; saved_at: string; prompt_text?: string | null }
 
 // Genie

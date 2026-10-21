@@ -18,15 +18,25 @@ export const api = {
   search: (q: string) => req<T.SearchResp>(`/search?q=${encodeURIComponent(q)}`),
   trackPrompt: (text: string, suggestionId?: string) =>
     req<T.TrackResp>('/prompts/track', { method: 'POST', body: JSON.stringify({ text, suggestion_id: suggestionId ?? null }) }),
-  // Fix nav badge (typed fully in Task 12)
-  fixes: () => req<{ fix_id: string; state: string }[]>('/fixes'),
-  // v2 Fix and Impact calls, replaced in Tasks 12 and 13
-  evidence: (id: string) => req<T.Evidence>(`/opportunities/${id}/evidence`),
-  opportunities: () => req<T.Opportunity[]>('/opportunities'),
-  suggestions: () => req<T.Suggestion[]>('/suggestions'),
-  approve: (id: string) => req<{ run_id: number }>(`/suggestions/${id}/approve`, { method: 'POST' }),
-  reject: (id: string) => req<{ state: string }>(`/suggestions/${id}/reject`, { method: 'POST' }),
-  status: (id: string) => req<T.PublishStatus>(`/suggestions/${id}/status`),
+  // Fix
+  issues: (params?: { type?: string; cluster?: string }) => {
+    const qs = new URLSearchParams()
+    if (params?.type) qs.set('type', params.type)
+    if (params?.cluster) qs.set('cluster', params.cluster)
+    const q = qs.toString()
+    return req<T.IssueRow[]>(`/issues${q ? `?${q}` : ''}`)
+  },
+  issue: (id: string) => req<T.IssueDetailT>(`/issues/${encodeURIComponent(id)}`),
+  fixSummary: () => req<T.FixSummary>('/fix/summary'),
+  quarantine: () => req<T.Quarantine>('/quarantine'),
+  fixes: () => req<T.Fix[]>('/fixes'),
+  approve: (id: string) => req<{ started: boolean }>(`/fixes/${encodeURIComponent(id)}/approve`, { method: 'POST' }),
+  approveT0: () => req<{ run_id: number; fix_ids: string[] }>('/fixes/approve-t0', { method: 'POST' }),
+  reject: (id: string) => req<{ state: string }>(`/fixes/${encodeURIComponent(id)}/reject`, { method: 'POST' }),
+  edit: (id: string, patchText: string) =>
+    req<T.Fix>(`/fixes/${encodeURIComponent(id)}/edit`, { method: 'POST', body: JSON.stringify({ patch_text: patchText }) }),
+  fixStatus: (id: string) => req<T.FixStatus>(`/fixes/${encodeURIComponent(id)}/status`),
+  // v2 Impact call, replaced in Task 13
   impact: () => req<T.Impact>('/impact'),
   // Demo controls
   reset: () => req<{ run_id: number }>('/demo/reset', { method: 'POST' }),
