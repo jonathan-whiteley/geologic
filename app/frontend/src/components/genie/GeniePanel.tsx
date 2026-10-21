@@ -75,13 +75,13 @@ export default function GeniePanel() {
               type="button"
               onClick={newChat}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 h-7 px-3 rounded-full border border-white/20 text-xs font-medium hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 h-7 px-3 rounded-full border border-white/20 text-xs font-medium hover:bg-surface/10 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RotateCcw className="w-3 h-3" />
               New chat
             </button>
           )}
-          <button type="button" onClick={closePanel} aria-label="Close Ask Genie" className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10">
+          <button type="button" onClick={closePanel} aria-label="Close Ask Genie" className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-surface/10">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -95,7 +95,7 @@ export default function GeniePanel() {
                   key={q}
                   type="button"
                   onClick={() => ask(q)}
-                  className="w-full text-left flex items-center gap-2.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm hover:border-lce-orange/50 hover:bg-lce-cream transition-colors"
+                  className="w-full text-left flex items-center gap-2.5 rounded-xl border border-gray-200 bg-surface px-3.5 py-2.5 text-sm hover:border-lce-orange/50 hover:bg-lce-cream transition-colors"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-lce-orange shrink-0" />
                   {q}
@@ -107,7 +107,7 @@ export default function GeniePanel() {
           )}
         </div>
 
-        <div className="p-4 border-t border-gray-100 bg-white shrink-0">
+        <div className="p-4 border-t border-gray-100 bg-surface shrink-0">
           <div className="rounded-2xl border border-gray-200 bg-surface-secondary p-2 pl-4 flex items-end gap-2 focus-within:border-lce-orange focus-within:ring-2 focus-within:ring-lce-orange/20">
             <textarea
               ref={inputRef}

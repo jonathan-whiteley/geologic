@@ -23,7 +23,8 @@ const LAYER: Record<Layer, { fg: string; ring: string; tint: string; label: stri
   source: { fg: '#64748B', ring: 'rgba(100,116,139,0.40)', tint: 'rgba(100,116,139,0.10)', label: 'Sources' },
   ingest: { fg: '#FF671B', ring: 'rgba(255,103,27,0.40)', tint: 'rgba(255,103,27,0.10)', label: 'Zerobus Ingest' },
   pipeline: { fg: '#0EA5E9', ring: 'rgba(14,165,233,0.40)', tint: 'rgba(14,165,233,0.10)', label: 'Lakeflow SDP' },
-  gateway: { fg: '#0B2026', ring: 'rgba(11,32,38,0.40)', tint: 'rgba(11,32,38,0.10)', label: 'AI Gateway' },
+  // Navy flips to lavender in Spooky mode (see --arch-navy) so it reads on the dark canvas.
+  gateway: { fg: 'rgb(var(--arch-navy))', ring: 'rgb(var(--arch-navy) / 0.40)', tint: 'rgb(var(--arch-navy) / 0.10)', label: 'AI Gateway' },
   search: { fg: '#8B5CF6', ring: 'rgba(139,92,246,0.40)', tint: 'rgba(139,92,246,0.10)', label: 'Vector Search' },
   agent: { fg: '#EC4899', ring: 'rgba(236,72,153,0.40)', tint: 'rgba(236,72,153,0.10)', label: 'Agent Bricks' },
   lakebase: { fg: '#F59E0B', ring: 'rgba(245,158,11,0.40)', tint: 'rgba(245,158,11,0.10)', label: 'Lakebase' },
@@ -45,7 +46,7 @@ function CardNode({ data }: NodeProps) {
   return (
     <div
       style={{
-        background: '#fff',
+        background: 'rgb(var(--surface-default))',
         border: `1.5px solid ${tone.ring}`,
         borderRadius: 10,
         padding: '12px 14px',
@@ -91,7 +92,7 @@ function CardNode({ data }: NodeProps) {
         <div
           style={{
             fontSize: 11,
-            color: '#71717A',
+            color: 'rgb(var(--arch-muted))',
             marginTop: 3,
             lineHeight: 1.25,
             wordWrap: 'break-word',
@@ -127,9 +128,9 @@ function HeaderNode({ data }: NodeProps) {
         fontWeight: 700,
         letterSpacing: '0.12em',
         textTransform: 'uppercase',
-        color: '#A1A1AA',
+        color: 'rgb(var(--arch-faint))',
         padding: '8px 0 10px',
-        borderBottom: '1.5px solid #E4E4E7',
+        borderBottom: '1.5px solid rgb(var(--arch-line))',
         width: d.width ?? 200,
         textAlign: 'center',
         fontFamily: 'var(--font-sans)',
@@ -243,19 +244,19 @@ function edge(
     label: opts.label,
     labelStyle: {
       fontSize: 10,
-      fill: '#71717A',
+      fill: 'rgb(var(--arch-muted))',
       fontFamily: 'var(--font-mono)',
     },
-    labelBgStyle: { fill: '#fff' },
+    labelBgStyle: { fill: 'rgb(var(--surface-default))' },
     labelBgPadding: [4, 2],
     style: {
-      stroke: opts.color ?? '#D4D4D8',
+      stroke: opts.color ?? 'rgb(var(--arch-edge))',
       strokeWidth: 1.5,
       strokeDasharray: dashed ? '5 5' : undefined,
     },
     markerEnd: {
       type: MarkerType.ArrowClosed,
-      color: opts.color ?? '#D4D4D8',
+      color: opts.color ?? 'rgb(var(--arch-edge))',
       width: 16,
       height: 16,
     },
@@ -289,7 +290,8 @@ function Toolbar() {
       await new Promise((r) => setTimeout(r, 80))
       const exporter = kind === 'png' ? toPng : toSvg
       const dataUrl = await exporter(flowEl, {
-        backgroundColor: '#FAFAFA',
+        // The exporter paints a canvas, so resolve the theme variable to a concrete color first.
+        backgroundColor: `rgb(${getComputedStyle(document.documentElement).getPropertyValue('--arch-canvas').trim()})`,
         cacheBust: true,
         pixelRatio: 2,
         filter: (n: HTMLElement) => !n.classList?.contains?.('geo-arch-toolbar'),
@@ -312,10 +314,10 @@ function Toolbar() {
         zIndex: 10,
         display: 'flex',
         gap: 6,
-        background: 'rgba(255,255,255,0.96)',
+        background: 'rgb(var(--surface-default) / 0.96)',
         padding: 6,
         borderRadius: 10,
-        border: '1px solid #E4E4E7',
+        border: '1px solid rgb(var(--arch-line))',
         boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
         backdropFilter: 'blur(8px)',
       }}
@@ -343,13 +345,13 @@ function ToolBtn({ children, onClick }: { children: React.ReactNode; onClick: ()
         borderRadius: 6,
         fontSize: 12,
         fontWeight: 500,
-        color: '#1A1A1A',
+        color: 'rgb(var(--text-primary))',
         cursor: 'pointer',
         fontFamily: 'var(--font-sans)',
         transition: 'background 0.2s',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = '#F5F5F5'
+        e.currentTarget.style.background = 'rgb(var(--gray-100))'
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = 'transparent'
@@ -361,7 +363,7 @@ function ToolBtn({ children, onClick }: { children: React.ReactNode; onClick: ()
 }
 
 function ToolDivider() {
-  return <span style={{ width: 1, background: '#E4E4E7', margin: '4px 2px' }} />
+  return <span style={{ width: 1, background: 'rgb(var(--arch-line))', margin: '4px 2px' }} />
 }
 
 function LegendFooter() {
@@ -370,8 +372,8 @@ function LegendFooter() {
   return (
     <div
       style={{
-        borderTop: '1px solid #E4E4E7',
-        background: '#fff',
+        borderTop: '1px solid rgb(var(--arch-line))',
+        background: 'rgb(var(--surface-default))',
         padding: '12px 16px',
         display: 'flex',
         gap: 16,
@@ -386,7 +388,7 @@ function LegendFooter() {
           fontWeight: 600,
           letterSpacing: '0.08em',
           textTransform: 'uppercase',
-          color: '#A1A1AA',
+          color: 'rgb(var(--arch-faint))',
         }}
       >
         Layers
@@ -399,7 +401,7 @@ function LegendFooter() {
             alignItems: 'center',
             gap: 6,
             fontSize: 12,
-            color: '#1A1A1A',
+            color: 'rgb(var(--text-primary))',
           }}
         >
           <span
@@ -441,7 +443,7 @@ function FlowInner() {
         panOnScroll={false}
         zoomOnScroll
       >
-        <Background gap={24} size={1} color='#E8E8E8' />
+        <Background gap={24} size={1} color='rgb(var(--arch-dot))' />
       </ReactFlow>
       <Toolbar />
     </div>
@@ -460,8 +462,8 @@ export default function ArchitecturePage() {
       </div>
       <div
         style={{
-          background: '#FAFAFA',
-          border: '1px solid #E4E4E7',
+          background: 'rgb(var(--arch-canvas))',
+          border: '1px solid rgb(var(--arch-line))',
           borderRadius: 12,
           overflow: 'hidden',
           boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
@@ -474,10 +476,10 @@ export default function ArchitecturePage() {
           style={{
             margin: 0,
             padding: '10px 16px',
-            borderTop: '1px solid #E4E4E7',
-            background: '#fff',
+            borderTop: '1px solid rgb(var(--arch-line))',
+            background: 'rgb(var(--surface-default))',
             fontSize: 12,
-            color: '#71717A',
+            color: 'rgb(var(--arch-muted))',
           }}
         >
           In production, AI Gateway routes to the live OpenAI, Gemini and Anthropic APIs, or you land your GEO tracking vendor's data in Unity Catalog.

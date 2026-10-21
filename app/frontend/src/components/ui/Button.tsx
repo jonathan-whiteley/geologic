@@ -26,7 +26,7 @@ export function Button({
 }: ButtonProps) {
   const variants = {
     primary: 'lce-gradient text-white shadow-soft hover:shadow-medium',
-    secondary: 'bg-white text-text-primary border border-gray-200 hover:border-gray-300 hover:bg-gray-50',
+    secondary: 'bg-surface text-text-primary border border-gray-200 hover:border-gray-300 hover:bg-gray-50',
     ghost: 'text-text-secondary hover:text-text-primary hover:bg-gray-100',
   }
 

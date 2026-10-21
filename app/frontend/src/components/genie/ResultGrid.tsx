@@ -29,7 +29,7 @@ export default function ResultGrid({ columns, rows, pageSize = 25 }: Props) {
   const toggle = (i: number) => setSort(s => (s && s.i === i ? (s.dir === 1 ? { i, dir: -1 } : null) : { i, dir: 1 }))
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white">
+    <div className="overflow-x-auto rounded-xl border border-gray-100 bg-surface">
       <table className="w-full text-sm">
         <thead className="bg-surface-secondary text-text-secondary text-xs sticky top-0">
           <tr>

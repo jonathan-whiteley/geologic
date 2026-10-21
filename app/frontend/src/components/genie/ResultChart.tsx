@@ -2,8 +2,7 @@ import { useMemo } from 'react'
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { GenieColumn } from '../../api/types'
 import { type ColumnKind, columnKind, formatValue, isNumericKind, prettyLabel } from '../../lib/genieFormat'
-
-const COLORS = ['#FF671B', '#1A1A1A', '#FF9A5C', '#9CA3AF', '#C2410C', '#6B7280']
+import { useTheme } from '../../theme/ThemeContext'
 
 type Rows = (string | null)[][]
 
@@ -53,6 +52,8 @@ export function buildChartSpec(columns: GenieColumn[], rows: Rows): ChartSpec | 
 
 export default function ResultChart({ columns, rows }: Props) {
   const spec = useMemo(() => buildChartSpec(columns, rows), [columns, rows])
+  const { chart } = useTheme()
+  const COLORS = chart.series
 
   if (!spec) return <p className="text-xs text-text-tertiary p-4">No chartable columns in this result.</p>
   const fmt = (v: number) => formatValue(v, spec.kind)
@@ -68,12 +69,12 @@ export default function ResultChart({ columns, rows }: Props) {
   const Chart = spec.isLine ? LineChart : BarChart
 
   return (
-    <div className="h-64 rounded-xl border border-gray-100 bg-white p-3">
+    <div className="h-64 rounded-xl border border-gray-100 bg-surface p-3">
       <ResponsiveContainer width="100%" height="100%">
         <Chart data={spec.data} margin={{ top: 8, right: 16, bottom: 0, left: 8 }}>
-          <CartesianGrid stroke="#F0F1F2" vertical={false} />
-          <XAxis dataKey="x" tickFormatter={fmtX} tick={{ fontSize: 11, fill: '#6B7280' }} tickLine={false} axisLine={false} />
-          <YAxis tickFormatter={tickFmt} tick={{ fontSize: 11, fill: '#6B7280' }} tickLine={false} axisLine={false} width={56} />
+          <CartesianGrid stroke={chart.gridColor} vertical={false} />
+          <XAxis dataKey="x" tickFormatter={fmtX} tick={{ fontSize: 11, fill: chart.axisColor }} tickLine={false} axisLine={false} />
+          <YAxis tickFormatter={tickFmt} tick={{ fontSize: 11, fill: chart.axisColor }} tickLine={false} axisLine={false} width={56} />
           <Tooltip formatter={(v: number) => (v === null || v === undefined ? '' : fmt(v))} labelFormatter={fmtX} />
           {spec.series.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
           {spec.series.map((s, i) =>

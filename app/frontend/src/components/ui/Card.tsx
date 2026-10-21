@@ -25,7 +25,7 @@ export function Card({
   return (
     <motion.div
       className={`
-        bg-white rounded-2xl border border-gray-100 shadow-soft
+        bg-surface rounded-2xl border border-gray-100 shadow-soft
         ${hover ? 'card-hover' : ''}
         ${paddingClasses[padding]}
         ${className}

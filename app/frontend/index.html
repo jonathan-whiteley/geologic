@@ -20,6 +20,12 @@
         background: #FFFFFF;
       }
 
+      /* Spooky mode (same values as src/index.css) */
+      html.halloween body {
+        background: radial-gradient(1200px 600px at 80% -10%, rgba(109, 40, 217, 0.28), transparent 60%), rgb(18 13 24);
+        color: rgb(245 239 230);
+      }
+
       #root {
         min-height: 100vh;
       }
@@ -45,6 +51,17 @@
         50% { opacity: 0.7; transform: scale(0.98); }
       }
     </style>
+
+    <!-- Prevent a white flash on load in Spooky mode -->
+    <script>
+      (function() {
+        const param = new URLSearchParams(location.search).get('theme');
+        const theme = param || localStorage.getItem('geologic-theme');
+        if (theme === 'halloween') {
+          document.documentElement.classList.add('halloween', 'dark');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root">

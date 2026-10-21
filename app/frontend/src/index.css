@@ -2,6 +2,99 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Light theme CSS variables (Tailwind default values, so light mode is unchanged) */
+:root {
+  --surface-default: 255 255 255;
+  --surface-secondary: 248 249 250;
+  --surface-tertiary: 240 241 242;
+  --text-primary: 26 26 26;
+  --text-secondary: 107 114 128;
+  --text-tertiary: 156 163 175;
+  --lce-cream: 255 244 236;
+  --lce-orange-dark: 224 83 15;
+  --heat-top: 224 83 15;
+  --gray-50: 249 250 251;
+  --gray-100: 243 244 246;
+  --gray-200: 229 231 235;
+  --gray-300: 209 213 219;
+  --gray-600: 75 85 99;
+  --gray-700: 55 65 81;
+  --red-50: 254 242 242;
+  --red-100: 254 226 226;
+  --red-600: 220 38 38;
+  --red-700: 185 28 28;
+  --green-50: 240 253 244;
+  --green-100: 220 252 231;
+  --green-600: 22 163 74;
+  --green-700: 21 128 61;
+  --amber-50: 255 251 235;
+  --amber-200: 253 230 138;
+  --amber-600: 217 119 6;
+  --amber-700: 180 83 9;
+  --amber-800: 146 64 14;
+  --blue-50: 239 246 255;
+  --blue-600: 37 99 235;
+  --blue-700: 29 78 216;
+  --orange-50: 255 247 237;
+  --orange-100: 255 237 213;
+  --orange-200: 254 215 170;
+  --orange-600: 234 88 12;
+  /* Architecture canvas (inline styles) */
+  --arch-canvas: 250 250 250;
+  --arch-line: 228 228 231;
+  --arch-dot: 232 232 232;
+  --arch-edge: 212 212 216;
+  --arch-muted: 113 113 122;
+  --arch-faint: 161 161 170;
+  --arch-navy: 11 32 38;
+}
+
+/* Spooky mode (Halloween) CSS variables */
+html.halloween {
+  --surface-default: 30 23 38;
+  --surface-secondary: 18 13 24;
+  --surface-tertiary: 42 32 51;
+  --text-primary: 245 239 230;
+  --text-secondary: 184 175 196;
+  --text-tertiary: 133 124 147;
+  --lce-cream: 66 34 16;
+  --lce-orange-dark: 255 143 87;
+  --heat-top: 255 103 27;
+  --gray-50: 36 28 46;
+  --gray-100: 58 46 71;
+  --gray-200: 74 60 90;
+  --gray-300: 96 84 114;
+  --gray-600: 184 175 196;
+  --gray-700: 220 212 228;
+  --red-50: 48 20 28;
+  --red-100: 64 26 34;
+  --red-600: 248 113 113;
+  --red-700: 252 165 165;
+  --green-50: 22 44 33;
+  --green-100: 26 58 40;
+  --green-600: 74 222 128;
+  --green-700: 134 239 172;
+  --amber-50: 48 36 16;
+  --amber-200: 92 68 22;
+  --amber-600: 251 191 36;
+  --amber-700: 252 211 77;
+  --amber-800: 253 230 138;
+  --blue-50: 24 30 56;
+  --blue-600: 147 197 253;
+  --blue-700: 191 219 254;
+  --orange-50: 48 26 14;
+  --orange-100: 66 34 16;
+  --orange-200: 92 46 18;
+  --orange-600: 255 154 92;
+  --arch-canvas: 22 16 29;
+  --arch-line: 58 46 71;
+  --arch-dot: 46 37 56;
+  --arch-edge: 96 84 114;
+  --arch-muted: 184 175 196;
+  --arch-faint: 133 124 147;
+  --arch-navy: 205 168 255;
+}
+
 /* Base styles */
 html {
   scroll-behavior: smooth;
@@ -10,6 +103,12 @@ html {
 body {
   @apply bg-surface-secondary text-text-primary antialiased;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  transition: background-color 0.4s, color 0.4s;
+}
+
+html.halloween body {
+  background: radial-gradient(1200px 600px at 80% -10%, rgba(109, 40, 217, 0.28), transparent 60%), rgb(var(--surface-secondary));
+  background-attachment: fixed;
 }
 
 /* Custom scrollbar */
@@ -32,12 +131,12 @@ body {
 
 /* Focus styles */
 *:focus-visible {
-  @apply outline-none ring-2 ring-lce-orange ring-offset-2;
+  @apply outline-none ring-2 ring-lce-orange ring-offset-2 ring-offset-surface;
 }
 
 /* Card */
 .card {
-  @apply bg-white rounded-2xl border border-gray-100 shadow-soft;
+  @apply bg-surface rounded-2xl border border-gray-100 shadow-soft;
 }
 
 /* Card hover effect */
@@ -51,7 +150,7 @@ body {
 
 /* Glass effect */
 .glass {
-  @apply bg-white/80 backdrop-blur-md;
+  @apply bg-surface/80 backdrop-blur-md;
 }
 
 /* Little Caesars brand gradient */
@@ -89,19 +188,19 @@ body {
   @apply inline-flex items-center justify-center gap-2 rounded-xl font-medium text-sm px-4 py-2.5 transition-all duration-200 active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed;
 }
 .btn-primary { @apply lce-gradient text-white shadow-soft hover:shadow-medium; }
-.btn-secondary { @apply bg-white text-text-primary border border-gray-200 hover:border-gray-300 hover:bg-gray-50; }
+.btn-secondary { @apply bg-surface text-text-primary border border-gray-200 hover:border-gray-300 hover:bg-gray-50; }
 .btn-ghost { @apply text-text-secondary hover:text-text-primary hover:bg-gray-100; }
 
 /* Segmented nav */
 .nav-item {
   @apply flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all text-text-secondary hover:text-text-primary whitespace-nowrap;
 }
-.nav-item.active { @apply bg-white text-lce-orange shadow-soft; }
+.nav-item.active { @apply bg-surface text-lce-orange shadow-soft; }
 
 .sub-item {
   @apply flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary transition-all;
 }
-.sub-item.active { @apply bg-white text-text-primary shadow-soft; }
+.sub-item.active { @apply bg-surface text-text-primary shadow-soft; }
 
 /* Suggestion tier pills */
 .tier { @apply font-mono text-[11px] font-semibold px-1.5 py-0.5 rounded-md; }
@@ -157,10 +256,29 @@ mark.ok { @apply bg-green-50 text-green-700 font-medium px-0.5 rounded; }
 }
 
 .custom-tooltip {
-  @apply bg-white/95 backdrop-blur-sm rounded-xl shadow-medium p-3 border border-gray-100;
+  @apply bg-surface/95 backdrop-blur-sm rounded-xl shadow-medium p-3 border border-gray-100;
 }
 
+/* Count Little Caesars glow (Spooky mode mascot) */
+@keyframes glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(255, 103, 27, 0.75)) drop-shadow(0 0 14px rgba(181, 123, 255, 0.55)); }
+  50% { filter: drop-shadow(0 0 12px rgba(255, 103, 27, 0.95)) drop-shadow(0 0 26px rgba(181, 123, 255, 0.8)); }
+}
+.count-glow { animation: glow-pulse 3s ease-in-out infinite; }
+
+/* Spooky mode: KPI and hero cards pick up a slow orange-to-purple glow */
+@keyframes spooky-card-glow {
+  0%, 100% { border-color: rgb(255, 103, 27); box-shadow: 0 0 12px rgba(255, 103, 27, 0.35), 0 0 24px rgba(181, 123, 255, 0.25); }
+  50% { border-color: rgb(181, 123, 255); box-shadow: 0 0 18px rgba(255, 103, 27, 0.5), 0 0 36px rgba(181, 123, 255, 0.45); }
+}
+html.halloween .spooky-glow { animation: spooky-card-glow 3s ease-in-out infinite; }
+
+/* Recharts default tooltip paints an inline white box */
+html.halloween .recharts-default-tooltip { background-color: rgb(var(--surface-default)) !important; border-color: rgb(var(--gray-100)) !important; }
+
 @media (prefers-reduced-motion: reduce) {
+  .count-glow { filter: drop-shadow(0 0 8px rgba(255, 103, 27, 0.85)) drop-shadow(0 0 18px rgba(181, 123, 255, 0.6)); }
+  html.halloween .spooky-glow { border-color: rgb(255, 103, 27); box-shadow: 0 0 16px rgba(255, 103, 27, 0.45), 0 0 32px rgba(181, 123, 255, 0.35); }
   *, *::before, *::after {
     animation: none !important;
     transition: none !important;

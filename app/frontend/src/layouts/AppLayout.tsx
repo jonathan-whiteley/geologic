@@ -6,6 +6,9 @@ import { api } from '../api/client'
 import { ToastProvider, useToast } from '../components/Toast'
 import GeniePanel from '../components/genie/GeniePanel'
 import { GeniePanelProvider, useGeniePanel } from '../state/genie-panel'
+import ThemeSwitch from '../components/ThemeSwitch'
+import HalloweenDecor from '../components/HalloweenDecor'
+import { BrandLockup } from '../components/BrandMark'
 
 const navItems = [
   { to: '/measure', label: 'Measure', icon: Radar },
@@ -72,12 +75,13 @@ function Shell() {
   }, [resetRunId, queryClient, toast])
 
   return (
-    <div className="min-h-screen bg-surface-secondary">
+    <div className="min-h-screen">
+      <HalloweenDecor />
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
+      <header className="sticky top-0 z-50 bg-surface/80 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <img src="/lce-logo.svg" alt="Little Caesars" className="h-12 w-auto" />
+            <BrandLockup />
             <div className="h-8 w-px bg-gray-200" />
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-xl lce-gradient flex items-center justify-center shadow-glow-orange">
@@ -96,7 +100,7 @@ function Shell() {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${isActive ? 'bg-white text-lce-orange shadow-soft' : 'text-text-secondary hover:text-text-primary'}`}
+                  `flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${isActive ? 'bg-surface text-lce-orange shadow-soft' : 'text-text-secondary hover:text-text-primary'}`}
               >
                 <item.icon className="w-4 h-4" />
                 <span>{item.label}</span>
@@ -108,6 +112,7 @@ function Shell() {
           </nav>
 
           <div className="flex items-center gap-1">
+            <ThemeSwitch className="mr-1 hidden md:grid" />
             <button className="btn btn-primary" onClick={toggle} title="Ask Genie (/)" aria-label="Ask Genie">
               <Sparkles className="w-4 h-4" />
               <span className="hidden sm:inline">Ask Genie</span>
@@ -126,7 +131,7 @@ function Shell() {
       </header>
 
       {/* Mobile Navigation */}
-      <nav className="lg:hidden sticky top-16 z-40 bg-white border-b border-gray-100 overflow-x-auto">
+      <nav className="lg:hidden sticky top-16 z-40 bg-surface border-b border-gray-100 overflow-x-auto">
         <div className="flex items-center gap-1 px-4 py-2">
           {navItems.map(item => (
             <NavLink
@@ -146,7 +151,7 @@ function Shell() {
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-[1600px] mx-auto px-6 py-6">
+      <main className="relative z-10 max-w-[1600px] mx-auto px-6 py-6">
         {resetRunId && (
           <div role="status" className="mb-4 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-800">
             <Loader2 className="w-4 h-4 animate-spin" />

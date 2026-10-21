@@ -44,7 +44,7 @@ export default function QueryResult({ columns, rows, rowCount, truncated, sql }:
       </div>
       {view === 'chart' && canChart ? <ResultChart columns={columns} rows={rows} /> : <ResultGrid columns={columns} rows={rows} />}
       {sql && (
-        <details className="rounded-xl border border-gray-100 bg-white">
+        <details className="rounded-xl border border-gray-100 bg-surface">
           <summary className="px-4 py-2.5 text-xs font-medium text-text-secondary cursor-pointer flex items-center gap-2">
             <Code2 className="w-3.5 h-3.5" />
             Generated SQL

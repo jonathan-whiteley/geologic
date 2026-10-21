@@ -17,3 +17,5 @@ assets/photos/goff_slices_n_stix.jpg
 assets/photos/jefferson_press.jpg
 assets/photos/kittle_radio_row.jpg
 app/frontend/public/pizza/lce-pepperoni.webp
+# Spooky-mode Count mascot (fallback: the classic mascot)
+app/frontend/public/count-caesar.png

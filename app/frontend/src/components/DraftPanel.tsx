@@ -263,12 +263,12 @@ export default function DraftPanel({ suggestions }: { suggestions: Suggestion[] 
               <div className="space-y-2">
                 {question && <p className="text-sm"><span className="text-text-secondary">Question: </span><span className="font-medium">{question}</span></p>}
                 <div className="grid md:grid-cols-2 gap-4">
-                  <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-2">
+                  <div className="bg-surface rounded-xl border border-gray-100 p-4 space-y-2">
                     <span className="badge b-default">Before · {engine}</span>
                     <p className="text-sm">{cleanAnswer(before.answer ?? '')}</p>
                     <p className="font-mono text-[11px] text-text-tertiary">cites: {(before.cited ?? []).join(' · ') || 'none'}</p>
                   </div>
-                  <div className="bg-white rounded-xl border border-green-100 p-4 space-y-2 shadow-soft">
+                  <div className="bg-surface rounded-xl border border-green-100 p-4 space-y-2 shadow-soft">
                     <span className="badge b-success"><span className="dot" />After · {engine}</span>
                     <p className="text-sm">{cleanAnswer(after.answer ?? '')}</p>
                     <p className="font-mono text-[11px] text-lce-orange-dark">cites: {(after.cited ?? []).join(' · ') || 'none'}</p>

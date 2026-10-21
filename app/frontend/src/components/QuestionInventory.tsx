@@ -32,7 +32,7 @@ export default function QuestionInventory({ clusterLabel }: { clusterLabel: (c: 
         <div className="flex gap-1 bg-surface-tertiary rounded-xl p-1">
           {FILTERS.map(f => (
             <button key={f.key} onClick={() => setFilter(f.key)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium ${filter === f.key ? 'bg-white shadow-soft' : 'text-text-secondary'}`}>
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium ${filter === f.key ? 'bg-surface shadow-soft' : 'text-text-secondary'}`}>
               {f.label} <span className="text-text-tertiary tabular-nums">{data.filter(f.test).length}</span>
             </button>
           ))}
@@ -40,7 +40,7 @@ export default function QuestionInventory({ clusterLabel }: { clusterLabel: (c: 
       </div>
       <div className="overflow-auto max-h-[560px]">
         <table className="w-full text-sm">
-          <thead className="text-left text-xs text-text-tertiary sticky top-0 bg-white">
+          <thead className="text-left text-xs text-text-tertiary sticky top-0 bg-surface">
             <tr><th className="py-2 pr-3">Question</th><th className="pr-3">Cluster</th><th className="pr-3 text-right">Volume/mo</th>
               <th className="pr-3">Tier</th><th className="pr-3">Type</th><th className="pr-3 text-right">Engines naming LCE</th><th className="pr-3 text-right">Share of Model</th><th /></tr>
           </thead>

@@ -145,7 +145,7 @@ export default function SignalsPage() {
             </div>
             <select
               aria-label="Seeded signal"
-              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white mb-3"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm bg-surface mb-3"
               value={seed}
               onChange={e => setSeed(e.target.value)}
             >
@@ -164,7 +164,7 @@ export default function SignalsPage() {
 function SignalCard({ signal, isNew }: { signal: Signal; isNew: boolean }) {
   const Icon = SOURCE_ICON[signal.source_type]
   return (
-    <article className={`flex gap-4 p-4 rounded-xl border border-gray-100 bg-white hover:shadow-soft transition-all ${isNew ? 'animate-slide-up ring-1 ring-lce-orange/30' : ''}`}>
+    <article className={`flex gap-4 p-4 rounded-xl border border-gray-100 bg-surface hover:shadow-soft transition-all ${isNew ? 'animate-slide-up ring-1 ring-lce-orange/30' : ''}`}>
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${SOURCE_STYLE[signal.source_type]}`}>
         <Icon className="w-5 h-5" />
       </div>

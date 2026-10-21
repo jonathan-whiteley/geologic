@@ -12,7 +12,7 @@ export default function MeasureLayout() {
       <div className="flex items-center gap-1 bg-surface-tertiary rounded-xl p-1 w-fit">
         {tabs.map(t => (
           <NavLink key={t.to} to={t.to} className={({ isActive }) =>
-            `flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${isActive ? 'bg-white text-text-primary shadow-soft' : 'text-text-secondary hover:text-text-primary'}`}>
+            `flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${isActive ? 'bg-surface text-text-primary shadow-soft' : 'text-text-secondary hover:text-text-primary'}`}>
             <t.icon className="w-4 h-4" />{t.label}
           </NavLink>
         ))}

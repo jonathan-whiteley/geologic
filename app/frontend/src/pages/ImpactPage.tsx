@@ -10,6 +10,7 @@ import { cleanAnswer, movedMetrics } from '../lib/format'
 import { PageSkeleton, ErrorRetry } from '../components/PageState'
 import { STARTERS } from '../components/genie/GeniePanel'
 import { useGeniePanel } from '../state/genie-panel'
+import { useTheme } from '../theme/ThemeContext'
 
 const FIRST_PUBLISH_AFTER = '2026-09-14'
 
@@ -34,6 +35,7 @@ function savedAtLabel(savedAt: string) {
 export default function ImpactPage() {
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['impact'], queryFn: api.impact })
   const { ask, openPanel } = useGeniePanel()
+  const { chart } = useTheme()
 
   const chartData = useMemo(() => {
     if (!data) return []
@@ -110,9 +112,9 @@ export default function ImpactPage() {
                     <stop offset="100%" stopColor="#FF671B" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="#F0F1F2" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v.toFixed(2)} width={40} />
+                <CartesianGrid stroke={chart.gridColor} vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: chart.tickColor }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: chart.tickColor }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v.toFixed(2)} width={40} />
                 <Tooltip
                   content={({ active, payload, label }) => {
                     if (!active || !payload?.length) return null
@@ -130,11 +132,11 @@ export default function ImpactPage() {
                   }}
                 />
                 {firstPublishWeek && (
-                  <ReferenceLine x={firstPublishWeek.label} stroke="#1A1A1A" strokeOpacity={0.35} strokeDasharray="3 3"
-                    label={{ value: 'First publish', position: 'insideTopLeft', fontSize: 11, fill: '#1A1A1A' }} />
+                  <ReferenceLine x={firstPublishWeek.label} stroke={chart.ink} strokeOpacity={0.35} strokeDasharray="3 3"
+                    label={{ value: 'First publish', position: 'insideTopLeft', fontSize: 11, fill: chart.ink }} />
                 )}
                 <Area type="monotone" dataKey="lce" stroke="none" fill="url(#impactGradient)" isAnimationActive={false} />
-                <Line type="monotone" dataKey="dominos" stroke="#D1D5DB" strokeWidth={2} strokeDasharray="5 4" dot={false} isAnimationActive={false} />
+                <Line type="monotone" dataKey="dominos" stroke={chart.rival} strokeWidth={2} strokeDasharray="5 4" dot={false} isAnimationActive={false} />
                 <Line type="monotone" dataKey="lce" stroke="#FF671B" strokeWidth={3} dot={false} isAnimationActive={false} />
               </ComposedChart>
             </ResponsiveContainer>

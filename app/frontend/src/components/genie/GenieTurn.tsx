@@ -24,7 +24,7 @@ export default function GenieTurn({ turn, busy, onFollowUp }: Props) {
       <div className="flex justify-end">
         <div className="max-w-[85%] rounded-2xl rounded-br-md bg-lce-black text-white px-4 py-2.5 text-sm">{turn.question}</div>
       </div>
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-4 space-y-4">
+      <div className="bg-surface rounded-2xl border border-gray-100 shadow-soft p-4 space-y-4">
         <div className="flex items-center gap-2 text-xs font-medium text-lce-orange">
           <Sparkles className="w-3.5 h-3.5" />
           Genie

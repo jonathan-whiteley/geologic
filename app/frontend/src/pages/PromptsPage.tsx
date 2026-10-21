@@ -16,6 +16,7 @@ import { CLUSTERS } from '../components/Heatmap'
 import QuestionInventory from '../components/QuestionInventory'
 import { cleanAnswer, formatDate, formatK1 } from '../lib/format'
 import { useGeniePanel } from '../state/genie-panel'
+import { useTheme } from '../theme/ThemeContext'
 
 const CLUSTER_LABEL = new Map(CLUSTERS)
 
@@ -82,6 +83,7 @@ function csvDownload(filename: string, header: string, rows: string) {
 }
 
 export default function PromptsPage() {
+  const { chart } = useTheme()
   const { promptId: routePromptId } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
@@ -175,7 +177,7 @@ export default function PromptsPage() {
           <Search className="w-4 h-4 text-text-tertiary absolute left-4 top-1/2 -translate-y-1/2" />
           <input
             aria-label="Search a prompt"
-            className="w-full rounded-xl border border-gray-200 bg-white pl-11 pr-4 py-3 text-sm focus:border-lce-orange"
+            className="w-full rounded-xl border border-gray-200 bg-surface pl-11 pr-4 py-3 text-sm focus:border-lce-orange"
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="How much is a Little Caesars Hot-N-Ready pizza right now?"
@@ -238,7 +240,7 @@ export default function PromptsPage() {
               >
                 {isTracked ? 'Tracked' : 'Track prompt'}
               </Button>
-              <button className="w-10 h-10 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50" title="Export" onClick={exportVolumeCsv}>
+              <button className="w-10 h-10 rounded-xl border border-gray-200 bg-surface flex items-center justify-center hover:bg-gray-50" title="Export" onClick={exportVolumeCsv}>
                 <Download className="w-4 h-4" />
               </button>
             </div>
@@ -285,9 +287,9 @@ export default function PromptsPage() {
                         <stop offset="100%" stopColor="#FF671B" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 4" vertical={false} stroke="#F0F1F2" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={formatK1} width={40} />
+                    <CartesianGrid strokeDasharray="3 4" vertical={false} stroke={chart.gridColor} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: chart.tickColor }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: chart.tickColor }} axisLine={false} tickLine={false} tickFormatter={formatK1} width={40} />
                     <Tooltip
                       content={({ active, payload }) => {
                         if (!active || !payload?.length) return null
@@ -304,8 +306,8 @@ export default function PromptsPage() {
                       }}
                     />
                     {febPoint && (
-                      <ReferenceLine x={febPoint.label} stroke="#E0530F" strokeDasharray="2 3" opacity={0.6}
-                        label={{ value: 'Super Bowl', position: 'insideBottomLeft', fill: '#E0530F', fontSize: 11 }} />
+                      <ReferenceLine x={febPoint.label} stroke={chart.orangeDark} strokeDasharray="2 3" opacity={0.6}
+                        label={{ value: 'Super Bowl', position: 'insideBottomLeft', fill: chart.orangeDark, fontSize: 11 }} />
                     )}
                     <Area type="monotone" dataKey="est_volume" stroke="#FF671B" strokeWidth={2.5} fill="url(#volGradient)" />
                   </AreaChart>
@@ -376,7 +378,7 @@ export default function PromptsPage() {
                     <p className="text-sm">{a.answer ? renderAnswer(a.answer, a.claims) : <span className="text-text-tertiary">No answer captured.</span>}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {a.cited.map(c => (
-                        <span key={c.doc_id} className={`font-mono text-[11px] px-2 py-0.5 rounded-md ${c.is_official ? 'bg-lce-orange/10 text-lce-orange-dark' : 'bg-white text-text-secondary border border-gray-100'}`}>
+                        <span key={c.doc_id} className={`font-mono text-[11px] px-2 py-0.5 rounded-md ${c.is_official ? 'bg-lce-orange/10 text-lce-orange-dark' : 'bg-surface text-text-secondary border border-gray-100'}`}>
                           {c.doc_id}
                         </span>
                       ))}
