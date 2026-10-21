@@ -22,3 +22,22 @@ def test_main_refuses_before_running_anything(monkeypatch):
     monkeypatch.setattr(aq, "bundle_vars", lambda t: dict(V3, schema="geologic"))
     monkeypatch.setattr(aq, "execute", lambda *a: calls.append(a))
     assert aq.main(["--target", "v3", "--query", "SELECT 1"]) == 1 and calls == []
+
+def test_app_grant_statements_cover_prompts_and_refuse_bad_ids():
+    sp = "02b98af0-a7e5-43d9-8a99-ff61f7d3ce4c"
+    s = aq.app_grant_statements(sp, "jdub_demo", "geologic_v3")
+    assert f"GRANT USE CATALOG ON CATALOG jdub_demo TO `{sp}`" in s
+    assert f"GRANT USE SCHEMA, SELECT, MODIFY, EXECUTE ON SCHEMA jdub_demo.geologic_v3 TO `{sp}`" in s
+    assert f"GRANT READ VOLUME ON VOLUME jdub_demo.geologic_v3.assets TO `{sp}`" in s
+    assert f"GRANT SELECT, MODIFY ON TABLE jdub_demo.geologic_v3.prompts TO `{sp}`" in s
+    import pytest
+    with pytest.raises(ValueError):
+        aq.app_grant_statements("x`; DROP", "jdub_demo", "geologic_v3")
+    with pytest.raises(ValueError):
+        aq.app_grant_statements(sp, "jdub_demo", "geologic")
+
+def test_grant_app_sp_refuses_v2_target_before_running(monkeypatch):
+    calls = []
+    monkeypatch.setattr(aq, "bundle_vars", lambda t: dict(V3, schema="geologic"))
+    monkeypatch.setattr(aq, "execute", lambda *a: calls.append(a))
+    assert aq.main(["--target", "v3", "--grant-app-sp", "02b98af0-a7e5-43d9-8a99-ff61f7d3ce4c"]) == 1 and calls == []

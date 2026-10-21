@@ -3,17 +3,20 @@
 Usage:
   python3 scripts/apply_sql.py --target v3 sql/views.sql sql/metric_views.sql
   python3 scripts/apply_sql.py --target v3 --query "SELECT count(*) AS n FROM {{schema}}.prompt_bank"
+  python3 scripts/apply_sql.py --target v3 --grant-app-sp <APP_SP_CLIENT_ID>
 
 catalog, schema and warehouse_id come from `databricks bundle summary -t <target>`, and {{schema}} and
 {{usage_app}} render per geologic.sqlfiles. Statements go as JSON bodies to /api/2.0/sql/statements,
 which keeps metric-view YAML indentation intact. --target dev (the live v2 demo) needs --allow-v2; any other
 target must resolve to its own catalog and schema (scripts/check_plan.py EXPECTED) before a statement runs.
---query prints each result row as one JSON object per line.
+--query prints each result row as one JSON object per line. --grant-app-sp applies the app service principal's UC grants
+(catalog, schema, assets volume, and SELECT, MODIFY on prompts, which Track and run writes); safe to re-run after a rebuild.
 """
 from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -26,6 +29,24 @@ from geologic.sqlfiles import render, split_statements  # noqa: E402
 
 PROFILE = "DEFAULT"
 POLL_S, MAX_WAIT_S = 3, 300
+_CLIENT_ID = re.compile(r"^[0-9a-f-]{36}$")
+V2_SCHEMA = "geologic"
+
+
+def app_grant_statements(client_id: str, catalog: str, schema: str) -> list[str]:
+    """UC grants the app SP needs on a v3 stack. The table grant on prompts is explicit so a rebuild that drops and
+    recreates the table gets it back on the next run of this command."""
+    if not _CLIENT_ID.match(client_id or ""):
+        raise ValueError(f"not a service principal client id: {client_id!r}")
+    if schema == V2_SCHEMA:
+        raise ValueError("refusing the v2 schema geologic")
+    sp, fq = f"`{client_id}`", f"{catalog}.{schema}"
+    return [
+        f"GRANT USE CATALOG ON CATALOG {catalog} TO {sp}",
+        f"GRANT USE SCHEMA, SELECT, MODIFY, EXECUTE ON SCHEMA {fq} TO {sp}",
+        f"GRANT READ VOLUME ON VOLUME {fq}.assets TO {sp}",
+        f"GRANT SELECT, MODIFY ON TABLE {fq}.prompts TO {sp}",
+    ]
 
 
 def _cli(*args: str) -> dict:
@@ -87,18 +108,32 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--target", required=True)
     ap.add_argument("--allow-v2", action="store_true", help="permit --target dev (the live v2 demo)")
     ap.add_argument("--query", help="one SELECT; rows print as JSON lines")
+    ap.add_argument("--grant-app-sp", metavar="CLIENT_ID", help="apply the app service principal's UC grants")
     ap.add_argument("files", nargs="*")
     a = ap.parse_args(argv)
     if a.target == "dev" and not a.allow_v2:   # refuse before any CLI call
         print(target_problem("dev", {}, False))
         return 1
-    if not a.files and not a.query:
-        ap.error("give SQL files or --query")
+    if not a.files and not a.query and not a.grant_app_sp:
+        ap.error("give SQL files, --query or --grant-app-sp")
     v = bundle_vars(a.target)
     problem = target_problem(a.target, v, a.allow_v2)
     if problem:
         print(problem)
         return 1
+    if a.grant_app_sp:
+        try:
+            stmts = app_grant_statements(a.grant_app_sp, v["catalog"], v["schema"])
+        except ValueError as e:
+            print(e)
+            return 1
+        for s in stmts:
+            err = _failed(execute(s, v["warehouse_id"]))
+            if err:
+                print(f"FAILED {s}: {err}")
+                return 1
+            print(f"OK {s}")
+        return 0
     if a.query:
         r = execute(render(a.query, catalog=v["catalog"], schema=v["schema"]), v["warehouse_id"])
         err = _failed(r)
