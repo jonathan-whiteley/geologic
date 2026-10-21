@@ -7,8 +7,9 @@ class Jobs:
     def _run(self, env, params):
         return self.w.jobs.run_now(job_id=int(os.environ[env]), job_parameters=params).run_id
 
-    def run_publish(self, sid):
-        return self._run("PUBLISH_JOB_ID", {"suggestion_id": sid})
+    def run_publish(self, fix_ids):
+        """The T0 batch job: one run for every claimed fix id."""
+        return self._run("PUBLISH_JOB_ID", {"fix_ids": ",".join(fix_ids)})
 
     def run_reset(self):
         return self._run("RESET_JOB_ID", {})

@@ -1,6 +1,11 @@
 fastapi==0.115.*
 uvicorn[standard]==0.30.*
-databricks-sdk>=0.60
-databricks-sql-connector>=3.4
-psycopg[binary]>=3.2
-openai>=1.40
+# Exact pins verified in a throwaway venv (query_index query_vector, upsert/delete_data_vector_index,
+# database.generate_database_credential). The Apps base image ships an old SDK, so never float these.
+databricks-sdk==0.155.0
+databricks-sql-connector==4.7.0
+psycopg[binary]==3.3.6
+psycopg-binary==3.3.6
+openai==3.34.0
+# Without pyarrow the 4.x connector returns arrays as JSON strings.
+pyarrow==26.0.0

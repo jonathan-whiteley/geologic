@@ -1,67 +1,158 @@
 import mimetypes
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 from backend import deps
+from backend.search import SearchUnavailable
+from geologic.config import settings
+from geologic.datagen.reference import SUBJECTS, exclusion_rules
 from geologic.datagen.signals import SEEDED
+from geologic.publish_flow import FRIENDLY_ERROR, STEP_LABELS
+from geologic.results import summarize
 
 router = APIRouter()
+_REASONS = {r["rule_id"]: r["reason"] for r in exclusion_rules()}
+
 
 def _user(req: Request) -> str:
     return req.headers.get("X-Forwarded-Email", "presenter")
 
+
+# Measure (v2 reads until Task 11)
 @router.get("/model/summary")
 def model_summary(reads=Depends(deps.get_reads)):
     return reads.model_summary()
 
-@router.get("/model/prompts/{prompt_id}")
-def prompt_detail(prompt_id: str, reads=Depends(deps.get_reads)):
-    d = reads.prompt_detail(prompt_id)
-    if d is None:
-        raise HTTPException(404, "Unknown question")
-    return d
 
 @router.get("/prompts")
 def prompt_inventory(reads=Depends(deps.get_reads)):
     return reads.prompt_inventory()
 
-@router.get("/opportunities/{opp_id}/evidence")
-def opportunity_evidence(opp_id: str, reads=Depends(deps.get_reads), repo=Depends(deps.get_suggestions)):
-    ev = reads.opportunity_evidence(opp_id)
-    if ev is None:
-        raise HTTPException(404, "Unknown opportunity")
+
+# Fix: the queue, approve (fast path), Approve all T0 (job), reject, edit, status
+@router.get("/fixes")
+def fixes(repo=Depends(deps.get_fix_repo)):
+    return repo.list()
+
+
+@router.get("/fix/summary")
+def fix_summary(repo=Depends(deps.get_fix_repo)):
+    t = repo.tier_counts()
+    return {"tiers": {"T0": {"ready": t.get("T0", 0)}, "T1": {"to_review": t.get("T1", 0)}, "T2": {"to_review": t.get("T2", 0)}},
+            "quarantined": repo.quarantine_points()["count"], "review_mode": True}
+
+
+@router.post("/fixes/approve-t0", status_code=202)
+def approve_t0(req: Request, repo=Depends(deps.get_fix_repo), jobs=Depends(deps.get_jobs)):
+    ids = repo.claim_t0(_user(req))
+    if not ids:
+        raise HTTPException(409, "No T0 fixes are waiting.")
     try:
-        ev["live_page"] = repo.live_page(ev["page_id"]) if ev.get("page_id") else None
+        run_id = jobs.run_publish(ids)
     except Exception as e:
-        print(f"live_page {ev.get('page_id')}: {type(e).__name__}: {e}")
-        ev["live_page"] = None
-    return ev
+        print(f"approve-t0: could not start publish job: {type(e).__name__}: {e}")
+        repo.release_many(ids, FRIENDLY_ERROR)
+        raise HTTPException(502, "Couldn't start publishing. Try again.")
+    repo.set_run(ids, run_id)
+    return {"run_id": run_id, "fix_ids": ids}
 
-@router.get("/prompts/search")
-def prompt_search(q: str = "", reads=Depends(deps.get_reads)):
-    if not q.strip():
-        raise HTTPException(400, "Type a question to research.")
-    pid = reads.prompt_search(q.strip())
-    if pid is None:
-        raise HTTPException(404, "No matching question found.")
-    return {"prompt_id": pid}
 
-@router.get("/prompts/{prompt_id}")
-def prompt_explorer(prompt_id: str, reads=Depends(deps.get_reads)):
-    d = reads.prompt_explorer(prompt_id)
-    if d is None:
-        raise HTTPException(404, "Unknown question")
-    return d
+@router.post("/fixes/{fix_id}/approve", status_code=202)
+def approve(fix_id: str, req: Request, repo=Depends(deps.get_fix_repo), publisher=Depends(deps.get_publisher)):
+    if not repo.claim(fix_id, _user(req)):
+        raise HTTPException(409, "This fix is already publishing or no longer needs review.")
+    publisher.start(fix_id)
+    return {"started": True}
 
-@router.post("/prompts/{prompt_id}/track")
-def track_prompt(prompt_id: str, req: Request, reads=Depends(deps.get_reads)):
-    if not reads.track_prompt(prompt_id, _user(req)):
-        raise HTTPException(404, "Unknown question")
-    return {"tracked": True}
 
-@router.get("/signals")
-def signals(limit: int = 50, reads=Depends(deps.get_reads)):
-    return reads.signals(min(max(limit, 1), 200))
+@router.post("/fixes/{fix_id}/reject")
+def reject(fix_id: str, req: Request, repo=Depends(deps.get_fix_repo)):
+    if not repo.reject(fix_id, _user(req)):
+        raise HTTPException(409, "Only fixes waiting for review can be rejected.")
+    return {"state": "rejected"}
+
+
+class EditBody(BaseModel):
+    patch_text: str
+
+
+@router.post("/fixes/{fix_id}/edit")
+def edit(fix_id: str, body: EditBody, repo=Depends(deps.get_fix_repo), reads=Depends(deps.get_reads), chat=Depends(deps.get_chat)):
+    from backend.fixes_edit import edit_fix
+    from geologic.drafting import unsupported_claims
+    fix = repo.get(fix_id)
+    if fix is None:
+        raise HTTPException(404, "Unknown fix")
+    if fix["state"] != "pending_review":
+        raise HTTPException(409, "Only fixes waiting for review can be edited.")
+    text = (body.patch_text or "").strip()
+    if not text:
+        raise HTTPException(400, "The fix text is empty.")
+    items, people = reads.item_names(), reads.personas()
+    names = tuple(items) + tuple(p["display_name"] for p in people)
+    judge = lambda t, g: unsupported_claims(t, g, chat, settings.judge_endpoint, SUBJECTS, names=names)
+    final = edit_fix(fix, text, facts=reads.facts(), rules=reads.rules(), today=date.today(), item_names=items,
+                     persona_names=people, judge=judge)
+    updated = repo.edit(fix_id, text, final)
+    if updated is None:
+        raise HTTPException(409, "Only fixes waiting for review can be edited.")
+    return updated
+
+
+@router.get("/fixes/{fix_id}/status")
+def fix_status(fix_id: str, repo=Depends(deps.get_fix_repo), clock=Depends(deps.get_clock)):
+    s = repo.status(fix_id)
+    if s is None:
+        raise HTTPException(404, "Unknown fix")
+    rv = s.get("reviewed_at")
+    elapsed = int((clock() - rv).total_seconds()) if rv else None
+    entry = fallback = None
+    if s["state"] == "published" or (s["state"] == "publishing" and elapsed is not None and elapsed > settings.reask_fallback_s):
+        epoch, rows = repo.epoch(), repo.results(fix_id)
+        if s["state"] == "published":
+            fresh = [r for r in rows if rv is None or r["measured_at"] >= rv]
+            entry = (summarize(fresh, epoch) or [None])[0]
+        else:   # still re-asking past the fallback window: a rehearsal (results measured before this approval) may stand in
+            prev = [r for r in rows if r["measured_at"] < rv]
+            if prev:
+                fallback = {"rehearsed_at": max(r["measured_at"] for r in prev).isoformat(), "entry": summarize(prev, epoch)[0]}
+    return {"state": s["state"], "publish_step": s["publish_step"], "step_labels": list(STEP_LABELS), "error": s.get("error"),
+            "elapsed_s": elapsed, "entry": entry, "fallback": fallback}
+
+
+@router.get("/quarantine")
+def quarantine(repo=Depends(deps.get_fix_repo)):
+    q = repo.quarantine_points()
+    return {"count": q["count"], "rule_id": q["rule_id"], "reason": _REASONS.get(q["rule_id"]),
+            "points": [{"enforcement_point": p["enforcement_point"], "occurred_at": p["occurred_at"]} for p in q["points"]]}
+
+
+# Ask anything, Track and run
+@router.get("/search")
+def search(q: str = "", s=Depends(deps.get_search)):
+    try:
+        return s.search(q)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except SearchUnavailable:
+        raise HTTPException(503, "Search is unavailable right now.")
+
+
+class TrackBody(BaseModel):
+    text: str
+    suggestion_id: str | None = None
+
+
+@router.post("/prompts/track")
+def track(body: TrackBody, req: Request, tracker=Depends(deps.get_tracker)):
+    try:
+        return tracker.track(body.text, body.suggestion_id, _user(req))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except SearchUnavailable:
+        raise HTTPException(503, "Search is unavailable right now.")
+
 
 @router.get("/signals/{signal_id}/image")
 def signal_image(signal_id: str, reads=Depends(deps.get_reads)):
@@ -72,71 +163,11 @@ def signal_image(signal_id: str, reads=Depends(deps.get_reads)):
     body = deps._w().files.download(path).contents.read()
     return Response(body, media_type=mimetypes.guess_type(path)[0] or "image/png", headers={"Cache-Control": "max-age=3600"})
 
-@router.get("/opportunities")
-def opportunities(reads=Depends(deps.get_reads)):
-    return reads.opportunities()
-
-@router.get("/suggestions")
-def suggestions(repo=Depends(deps.get_suggestions)):
-    return repo.list()
-
-@router.post("/suggestions/{sid}/approve", status_code=202)
-def approve(sid: str, req: Request, repo=Depends(deps.get_suggestions), jobs=Depends(deps.get_jobs)):
-    if not repo.claim(sid, _user(req)):
-        raise HTTPException(409, "This suggestion is already publishing or no longer needs review.")
-    try:
-        run_id = jobs.run_publish(sid)
-    except Exception as e:
-        print(f"approve {sid}: could not start publish job: {type(e).__name__}: {e}")
-        repo.release(sid, "Publish failed. Try again.")
-        raise HTTPException(502, "Couldn't start publishing. Try again.")
-    repo.set_run(sid, run_id)
-    return {"run_id": run_id}
-
-@router.post("/suggestions/{sid}/reject")
-def reject(sid: str, req: Request, repo=Depends(deps.get_suggestions)):
-    if not repo.reject(sid, _user(req)):
-        raise HTTPException(409, "Only suggestions waiting for review can be rejected.")
-    return {"state": "rejected"}
-
-@router.get("/suggestions/{sid}/status")
-def status(sid: str, repo=Depends(deps.get_suggestions), reads=Depends(deps.get_reads)):
-    s = repo.status(sid)
-    if s is None:
-        raise HTTPException(404, "Unknown suggestion")
-    if s["state"] == "published":
-        ba = reads.before_after(s["prompt_ids"])
-        s.update(ba or {})
-        s["summary"] = reads.cluster_before_after(s["prompt_ids"])
-        if ba:
-            try:  # proof is a nice-to-have: never fail the poll over it
-                row = repo.get(sid) or {}
-                repo.save_proof(sid, row.get("title") or sid, row.get("reviewer"), ba, s["summary"])
-            except Exception as e:
-                print(f"save_proof {sid}: {type(e).__name__}: {e}")
-    return s
-
-@router.get("/impact")
-def impact(reads=Depends(deps.get_reads), repo=Depends(deps.get_suggestions)):
-    try:  # safety net: a publish nobody polled (Fix page closed), or a newer publish than the saved proof, gets a fresh proof row
-        u = repo.latest_published_needing_proof()
-        if u:
-            ba = reads.before_after(u["prompt_ids"])
-            if ba is not None:
-                repo.save_proof(u["suggestion_id"], u.get("title") or u["suggestion_id"], u.get("reviewer"), ba,
-                                reads.cluster_before_after(u["prompt_ids"]))
-    except Exception as e:
-        print(f"proof safety net: {type(e).__name__}: {e}")
-    try:
-        proof = repo.latest_proof()
-    except Exception as e:  # proof_results missing on an old Lakebase: show the empty state
-        print(f"latest_proof: {type(e).__name__}: {e}")
-        proof = None
-    return {"weekly": reads.weekly(), "health": repo.health(), "proof": proof}
 
 @router.post("/demo/reset", status_code=202)
 def demo_reset(jobs=Depends(deps.get_jobs)):
     return {"run_id": jobs.run_reset()}
+
 
 @router.get("/demo/reset/{run_id}")
 def demo_reset_status(run_id: int, jobs=Depends(deps.get_jobs)):
@@ -145,16 +176,19 @@ def demo_reset_status(run_id: int, jobs=Depends(deps.get_jobs)):
         raise HTTPException(404, "Unknown reset run")
     return st
 
+
 @router.post("/demo/inject/{truth_id}", status_code=202)
 def demo_inject(truth_id: str, jobs=Depends(deps.get_jobs)):
     if truth_id not in SEEDED:
         raise HTTPException(404, "Unknown seeded signal")
     return {"run_id": jobs.run_inject(truth_id)}
 
+
 class GenieAsk(BaseModel):
     question: str
     conversation_id: str | None = None
     context: str | None = None
+
 
 @router.post("/genie/ask")
 def genie_ask(body: GenieAsk, genie=Depends(deps.get_genie)):
@@ -162,6 +196,7 @@ def genie_ask(body: GenieAsk, genie=Depends(deps.get_genie)):
         raise HTTPException(400, "Type a question first.")
     ctx = body.context.strip()[:300] if body.context and body.context.strip() else None
     return genie.ask(body.question.strip(), conversation_id=body.conversation_id or None, context=ctx)
+
 
 @router.get("/genie/message/{conversation_id}/{message_id}")
 def genie_message(conversation_id: str, message_id: str, genie=Depends(deps.get_genie)):

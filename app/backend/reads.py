@@ -1,7 +1,11 @@
 """Read models for each screen. All warehouse SQL lives here."""
+import json
 import os
 import re
+from datetime import date
 from backend.warehouse import query
+from geologic.datagen.prompts_ext import monthly_volume
+from geologic.issues import claim_key
 from geologic.brands import LOGOS
 from geologic.photos import credit_for
 from geologic.datagen.prompts_ext import THEME_LABELS
@@ -247,3 +251,83 @@ class Reads:
             return False
         query(f"INSERT INTO {T('tracked_prompts')} VALUES (:p, :u, current_timestamp())", {"p": prompt_id, "u": user})
         return True
+
+    # v3 Task 9: scorecards, Track and run, and the facts the edit route re-verifies against
+    def scorecard(self, prompt_id):
+        """The latest answer per engine for one tracked prompt, in engine order, with cited doc chips and tagged claims."""
+        if not _PID.match(prompt_id or ""):
+            return []
+        answers = query(f"SELECT answer_id, engine, status, answer, lce_mentioned, lce_rank, cited_doc_ids, retrieved_doc_ids "
+                        f"FROM {T('v_latest_responses')} WHERE prompt_id = :p", {"p": prompt_id})
+        claims = query(f"SELECT claim_id, answer_id, text, subject, attribute, stated_value, tag, fact_id, source_doc_id "
+                       f"FROM {T('v_latest_claims')} WHERE prompt_id = :p", {"p": prompt_id})
+        ids = _in_list(sorted({d for a in answers for d in a.get("cited_doc_ids") or []}))
+        docs = {d["doc_id"]: d for d in query(f"SELECT doc_id, domain, owner_class, title, url, last_updated FROM {T('web_corpus')} "
+                                              f"WHERE doc_id IN ({ids})")} if ids else {}
+        issue_of = {}
+        if claims:
+            for i in query(f"SELECT issue_id, claim_keys FROM {T('issues')}"):
+                for k in i.get("claim_keys") or []:
+                    issue_of.setdefault(k, i["issue_id"])
+        by_answer = {}
+        for c in claims:
+            by_answer.setdefault(c["answer_id"], []).append(
+                {k: c.get(k) for k in ("claim_id", "text", "subject", "attribute", "stated_value", "tag", "fact_id", "source_doc_id")}
+                | {"issue_id": issue_of.get(claim_key(c["tag"], c.get("source_doc_id"), c["subject"], c["attribute"]))})
+        out = [{"engine": a["engine"], "status": a["status"], "answer": a.get("answer"), "lce_mentioned": a.get("lce_mentioned"),
+                "lce_rank": a.get("lce_rank"),
+                "cited": [docs.get(d) or {"doc_id": d, "domain": None, "owner_class": None, "title": d, "url": None, "last_updated": None}
+                          for d in a.get("cited_doc_ids") or []],
+                "owned_retrieved": any(str(d).startswith("lce_") for d in a.get("retrieved_doc_ids") or []),
+                "claims": by_answer.get(a["answer_id"], [])} for a in answers]
+        return sorted(out, key=lambda a: ENGINE_ORDER.index(a["engine"]) if a["engine"] in ENGINE_ORDER else len(ENGINE_ORDER))
+
+    def next_prompt_id(self):
+        r = query(f"SELECT max(CAST(substr(prompt_id, 2) AS INT)) AS n FROM {T('prompts')} WHERE prompt_id RLIKE '^q3[0-9]{{2}}$'")
+        n = r[0]["n"] if r else None
+        return f"q{(n or 300) + 1}"
+
+    def insert_prompt(self, row):
+        """The prompts row plus its 12 question_volume_monthly rows, every value a parameter. tracked_by has no column in
+        prompts (the v3 table), so it is logged only."""
+        print(f"track {row['prompt_id']} by {row.get('tracked_by')}")
+        query(f"""INSERT INTO {T('prompts')} (prompt_id, prompt_text, cluster, priority, branded, base_volume, calendar_tags, source,
+                  tracked_at) VALUES (:prompt_id, :prompt_text, :cluster, :priority, :branded, :base_volume,
+                  from_json(:calendar_tags, 'array<string>'), :source, current_timestamp())""",
+              {k: row[k] for k in ("prompt_id", "prompt_text", "cluster", "priority", "branded", "base_volume", "source")}
+              | {"calendar_tags": json.dumps(list(row.get("calendar_tags") or []))})
+        vols = monthly_volume(row, date.today().replace(day=1))
+        values = ", ".join(f"(:p, to_date(:m{i}), :v{i})" for i in range(len(vols)))
+        params = {"p": row["prompt_id"]}
+        for i, v in enumerate(vols):
+            params[f"m{i}"], params[f"v{i}"] = v["month"].isoformat(), v["est_volume"]
+        query(f"INSERT INTO {T('question_volume_monthly')} (prompt_id, month, est_volume) VALUES {values}", params)
+
+    def suggestion(self, suggestion_id):
+        if not _SAFE_ID.match(suggestion_id or ""):
+            return None
+        r = query(f"SELECT * FROM {T('prompt_suggestions')} WHERE suggestion_id = :s", {"s": suggestion_id})
+        return r[0] if r else None
+
+    def mark_suggestion_tracked(self, suggestion_id):
+        if _SAFE_ID.match(suggestion_id or ""):
+            query(f"UPDATE {T('prompt_suggestions')} SET status = 'tracked' WHERE suggestion_id = :s", {"s": suggestion_id})
+
+    def facts(self):
+        from backend.warehouse_store import parse_facts
+        return parse_facts(query(f"SELECT * FROM {T('brand_facts')}"))
+
+    def rules(self):
+        return query(f"SELECT * FROM {T('exclusion_rules')}")
+
+    def item_names(self):
+        rows = query(f"SELECT name, aliases FROM {T('menu_items')}")
+        return sorted({n for m in rows for n in [m["name"], *(m.get("aliases") or [])] if n})
+
+    def personas(self):
+        return query(f"SELECT * FROM {T('personas')}")
+
+    def focus(self, issue_id):
+        """(subject, attribute) of an issue: results_rows keeps only claims about it."""
+        r = query(f"SELECT subject, attribute FROM {T('issues')} WHERE issue_id = :i", {"i": issue_id}) if issue_id else []
+        return (r[0]["subject"], r[0]["attribute"]) if r and r[0]["subject"] and r[0]["attribute"] else None

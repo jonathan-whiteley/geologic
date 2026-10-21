@@ -23,6 +23,7 @@ resources:
           - { name: LAKEBASE_INSTANCE, value: geologic }
           - { name: LAKEBASE_DB, value: "${var.lakebase_db}" }
           - { name: LAKEBASE_HOST, value: "${var.lakebase_host}" }
+          - { name: GEOLOGIC_MATCH_THRESHOLD, value: "0.80" }
       resources:
         - name: sql-warehouse
           sql_warehouse: { id: "${var.warehouse_id}", permission: CAN_USE }
@@ -32,3 +33,16 @@ resources:
           job: { id: "${resources.jobs.geologic_reset.id}", permission: CAN_MANAGE_RUN }
         - name: produce-job
           job: { id: "${resources.jobs.geologic_produce.id}", permission: CAN_MANAGE_RUN }
+        # The fast path (approve, re-ask, search, track) calls these from the app process.
+        - name: engine-claude
+          serving_endpoint: { name: databricks-claude-sonnet-5-5, permission: CAN_QUERY }
+        - name: engine-chatgpt
+          serving_endpoint: { name: databricks-gpt-5-5, permission: CAN_QUERY }
+        - name: engine-gemini
+          serving_endpoint: { name: databricks-gemini-3-8-flash, permission: CAN_QUERY }
+        - name: engine-meta-ai
+          serving_endpoint: { name: databricks-llama-4-maverick, permission: CAN_QUERY }
+        - name: judge
+          serving_endpoint: { name: databricks-claude-sonnet-4-6, permission: CAN_QUERY }
+        - name: embeddings
+          serving_endpoint: { name: databricks-gte-large-en, permission: CAN_QUERY }
