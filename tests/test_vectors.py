@@ -1,4 +1,5 @@
 import json
+import sys
 from types import SimpleNamespace as NS
 import pytest
 from geologic import vectors as V
@@ -63,8 +64,47 @@ class Indexes:
         self.created.append(kw); self.exists = True
 
 
-def test_ensure_direct_index_creates_only_when_missing():
-    pytest.importorskip("databricks.sdk")
+def _sdk_or_fakes(monkeypatch):
+    """Use the real databricks-sdk when installed; otherwise install minimal stand-ins for the three classes
+    ensure_direct_index imports (same keyword names as databricks-sdk 0.114) so the spec is still checked."""
+    try:
+        import databricks.sdk.errors, databricks.sdk.service.vectorsearch  # noqa: F401
+        return
+    except ImportError:
+        pass
+    import enum, types
+    from dataclasses import dataclass
+
+    class NotFound(Exception):
+        pass
+
+    class VectorIndexType(enum.Enum):
+        DELTA_SYNC = "DELTA_SYNC"
+        DIRECT_ACCESS = "DIRECT_ACCESS"
+
+    @dataclass
+    class EmbeddingVectorColumn:
+        embedding_dimension: int | None = None
+        name: str | None = None
+
+    @dataclass
+    class DirectAccessVectorIndexSpec:
+        embedding_source_columns: list | None = None
+        embedding_vector_columns: list | None = None
+        schema_json: str | None = None
+
+    mods = {n: types.ModuleType(n) for n in ("databricks", "databricks.sdk", "databricks.sdk.errors",
+                                              "databricks.sdk.service", "databricks.sdk.service.vectorsearch")}
+    mods["databricks.sdk.errors"].NotFound = NotFound
+    vs = mods["databricks.sdk.service.vectorsearch"]
+    vs.VectorIndexType, vs.EmbeddingVectorColumn, vs.DirectAccessVectorIndexSpec = (
+        VectorIndexType, EmbeddingVectorColumn, DirectAccessVectorIndexSpec)
+    for n, m in mods.items():
+        monkeypatch.setitem(sys.modules, n, m)
+
+
+def test_ensure_direct_index_creates_only_when_missing(monkeypatch):
+    _sdk_or_fakes(monkeypatch)
     idx = Indexes(exists=False)
     assert V.ensure_direct_index(NS(vector_search_indexes=idx), "c.s.sources_idx", "geologic-vs", "doc_id", V.SOURCE_SCHEMA, 1024)
     kw = idx.created[0]

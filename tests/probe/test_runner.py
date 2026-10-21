@@ -24,15 +24,18 @@ class Always:
 
 
 class JudgeChat:
-    def __init__(self, replies): self.replies, self.calls = list(replies), []
-    def complete(self, endpoint, messages, max_tokens=600):
-        self.calls.append((endpoint, messages))
-        return self.replies.pop(0)
+    """Replies in order; an Exception reply is raised (transport error)."""
+    def __init__(self, replies): self.replies, self.calls, self.kwargs = list(replies), [], []
+    def complete(self, endpoint, messages, max_tokens=600, usage_context=None):
+        self.calls.append((endpoint, messages)); self.kwargs.append({"usage_context": usage_context})
+        x = self.replies.pop(0)
+        if isinstance(x, Exception): raise x
+        return x
 
 
 class SameJudge:
     def __init__(self, reply): self.reply = reply
-    def complete(self, endpoint, messages, max_tokens=600): return self.reply
+    def complete(self, endpoint, messages, max_tokens=600, usage_context=None): return self.reply
 
 
 def judge_json(claims):
@@ -120,3 +123,52 @@ def test_rows_match_the_write_schemas_and_the_ddl():
     for table, schema in (("probe_responses", ANSWER_SCHEMA), ("claims", CLAIM_SCHEMA)):
         body = re.search(rf"{{{{schema}}}}\.{table} \((.*?)\);", ddl, re.S).group(1)
         assert " ".join(body.split()) == schema
+
+
+def test_judge_call_carries_usage_context(monkeypatch):
+    import geologic.probe.engine as E
+    from geologic.config import Settings
+    monkeypatch.setattr(E, "settings", Settings(schema="geologic_v3"))
+    chat = JudgeChat([GOOD])
+    probe_one(P, Eng("Claude", [EngineAnswer("x", [], [])]), ctx(chat), "r1", 1, sleep=NOOP)
+    assert chat.kwargs[0]["usage_context"] == {"app": "geologic_v3", "role": "judge"}
+
+
+def test_probe_one_judge_transport_error_retries_then_unjudged(capsys):
+    ans = EngineAnswer("Party Pack is $24.99.", [], ["d1"], (Doc("d1", "t", "b", False),))
+    slept = []
+    chat = JudgeChat([TimeoutError("judge timed out"), RuntimeError("429"), GOOD])
+    row, claims = probe_one(P, Eng("Claude", [ans]), ctx(chat), "r1", 1, sleep=slept.append)
+    assert row["status"] == "ok" and len(claims) == 1 and slept == [1, 2]
+    chat = JudgeChat([RuntimeError("503")] * 3)
+    row, claims = probe_one(P, Eng("Claude", [ans]), ctx(chat), "r1", 1, sleep=NOOP)
+    assert row["status"] == "unjudged" and claims == [] and len(chat.calls) == 3
+    assert row["answer"] == "Party Pack is $24.99." and row["retrieved_doc_ids"] == ["d1"]
+    out = capsys.readouterr().out
+    assert "RuntimeError" in out and "q201" in out and "Claude" in out
+
+
+def test_engine_error_is_logged(capsys):
+    probe_one(P, Eng("Gemini", [ConnectionError("reset")] * 3), ctx(JudgeChat([])), "r1", 1, sleep=NOOP)
+    out = capsys.readouterr().out
+    assert out.count("ConnectionError") == 3 and "q201" in out and "Gemini" in out
+
+
+class Broken:
+    """Returns an answer object that breaks downstream for one prompt (not an engine or judge transport error)."""
+    def __init__(self, name, bad_prompt): self.name, self.bad = name, bad_prompt
+    def answer(self, prompt):
+        return object() if prompt == self.bad else EngineAnswer("Party Pack is $24.99.", [], [], ())
+
+
+def test_run_probe_one_failure_keeps_other_rows(capsys):
+    prompts = [{"prompt_id": f"q00{i}", "prompt_text": f"p{i}"} for i in range(3)]
+    answers, claims = run_probe(prompts, [Broken("Claude", "p1"), Always("Gemini", EngineAnswer("ok", [], [], ()))],
+                                ctx(SameJudge(GOOD)), "r1", 1, max_workers=4, sleep=NOOP)
+    assert len(answers) == 6
+    bad = [a for a in answers if a["status"] == "error"]
+    assert [(a["prompt_id"], a["engine"]) for a in bad] == [("q001", "Claude")]
+    assert list(bad[0]) == cols(ANSWER_SCHEMA) and bad[0]["retrieved_doc_ids"] == []
+    assert sum(a["status"] == "ok" for a in answers) == 5 and len(claims) == 5
+    out = capsys.readouterr().out
+    assert "AttributeError" in out and "q001" in out and "Claude" in out

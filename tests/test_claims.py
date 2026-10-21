@@ -70,3 +70,40 @@ def test_claim_rows_and_accuracy():
 def test_a_dollar_off_by_one_cent_is_not_the_same_value():
     assert tag_claim(c("crazy_bread", "price", "$4.00"), F, T, CAT) == ("Wrong", "F10")
     assert source_for(c("classic_pepperoni", "price", "$5"), "It is $5.", [Doc("d", "t", "Deal: $4.99", False)]) is None
+
+
+def _fid(subject, attribute):
+    return next(f["fact_id"] for f in F if f["subject"] == subject and f["attribute"] == attribute)
+
+
+def test_founded_prefers_the_four_digit_year():
+    assert tag_claim(c("brand", "founded", "May 8, 1959"), F, T, CAT) == ("Correct", "F01")
+    assert tag_claim(c("brand", "founded", 1959), F, T, CAT) == ("Correct", "F01")
+    assert tag_claim(c("brand", "founded", "May 8, 1962"), F, T, CAT) == ("Wrong", "F01")
+    assert tag_claim(c("brand", "founded", "in 1962"), F, T, CAT) == ("Wrong", "F01")
+
+
+def test_serves_range_matches_when_the_fact_is_inside():
+    assert tag_claim(c("party_pack", "serves", "10-12 people"), F, T, CAT) == ("Correct", "F14")
+    assert tag_claim(c("party_pack", "serves", "10 to 14"), F, T, CAT) == ("Correct", "F14")
+    assert tag_claim(c("party_pack", "serves", "4-6 people"), F, T, CAT) == ("Wrong", "F14")
+    assert tag_claim(c("party_pack", "serves", "8"), F, T, CAT) == ("Wrong", "F14")
+
+
+def test_price_is_not_read_as_a_range():
+    assert tag_claim(c("classic_pepperoni", "price", "$5-$7"), F, T, CAT) == ("Outdated", "F04")
+
+
+def test_discontinued_item_skips_the_deal_price():
+    gone, old = _fid("pretzel_crust", "available"), _fid("pretzel_crust", "price")
+    assert tag_claim(c("pretzel_crust", "price", "$4.99"), F, T, CAT) == ("Wrong", gone)
+    assert tag_claim(c("pretzel_crust", "price", "$8.99"), F, T, CAT) == ("Outdated", old)
+    assert tag_claim(c("calzony", "price", "$4.99"), F, T, CAT) == ("Wrong", _fid("calzony", "available"))
+    # before it was discontinued the deal still applied
+    assert tag_claim(c("pretzel_crust", "price", "$4.99"), F, date(2025, 10, 1), CAT) == ("Correct", "F06")
+
+
+def test_source_for_founded_and_serves_use_the_same_reading():
+    docs = [Doc("lce_pg_about", "t", "Founded in 1959 in Garden City", True)]
+    assert source_for(c("brand", "founded", "May 8, 1959"), "Little Caesars began in 1959.", docs) == "lce_pg_about"
+    assert source_for(c("party_pack", "serves", "10-12"), "It feeds 10-12 [d1].", [Doc("d1", "t", "x", False)]) == "d1"

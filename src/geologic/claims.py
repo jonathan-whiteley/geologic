@@ -59,32 +59,63 @@ def is_current(fact: dict, today) -> bool:
     return fact["valid_from"] <= today and (fact.get("valid_to") is None or today <= fact["valid_to"])
 
 
-def _same(a: float, b: float) -> bool:
-    """Equal to the cent. Half a cent, not a full cent: 5.00 - 4.99 is 0.0099999 in floating point."""
-    return abs(a - b) < 0.005
+_YEAR = re.compile(r"\b(19\d{2}|20\d{2})\b")
+_RANGE = re.compile(r"(\d+)\s*(?:-|to)\s*(\d+)", re.IGNORECASE)
 
 
-def values_match(stated, fact: dict) -> bool:
-    a, b = parse_price(stated), parse_price(fact["value"])
-    return a is not None and b is not None and _same(a, b)
+def stated_range(stated, attribute=None) -> tuple[float, float] | None:
+    """The stated value as an inclusive (low, high) range. founded prefers a four-digit year ("May 8, 1959" is 1959);
+    serves reads "10-12" or "10 to 12" as a range; everything else (price) is the first number, low == high."""
+    if stated is None:
+        return None
+    text = str(stated)
+    if attribute == "founded":
+        m = _YEAR.search(text)
+        if m:
+            return float(m.group(1)), float(m.group(1))
+    if attribute == "serves":
+        m = _RANGE.search(text)
+        if m:
+            lo, hi = sorted((float(m.group(1)), float(m.group(2))))
+            return lo, hi
+    v = parse_price(stated)
+    return None if v is None else (v, v)
 
 
-def candidates(claim: dict, facts: list[dict], categories: dict) -> list[dict]:
+def _within(n: float, rng: tuple[float, float]) -> bool:
+    """Inside the range to the cent. Half a cent, not a full cent: 5.00 - 4.99 is 0.0099999 in floating point."""
+    return rng[0] - 0.005 < n < rng[1] + 0.005
+
+
+def values_match(stated, fact: dict, attribute=None) -> bool:
+    rng, b = stated_range(stated, attribute or fact.get("attribute")), parse_price(fact["value"])
+    return rng is not None and b is not None and _within(b, rng)
+
+
+def discontinued(subject, facts: list[dict], today) -> dict | None:
+    """The current available = no fact for a subject, if the item is off the menu today."""
+    return next((f for f in facts if f["subject"] == subject and f["attribute"] == "available"
+                 and str(f["value"]).strip().lower() == "no" and is_current(f, today)), None)
+
+
+def candidates(claim: dict, facts: list[dict], categories: dict, today=None) -> list[dict]:
     subj, attr = claim.get("subject"), claim.get("attribute")
     out = [f for f in facts if f["subject"] == subj and f["attribute"] == attr]
     cat = categories.get(subj)
-    if attr == "price" and cat:  # an active deal price is a correct price for the items it applies to
+    gone = today is not None and discontinued(subj, facts, today) is not None
+    if attr == "price" and cat and not gone:  # an active deal price is a correct price for the items it applies to
         out += [f for f in facts if f.get("applies_to") == f"category:{cat}" and f["attribute"] == "price"]
     return out
 
 
 def tag_claim(claim: dict, facts: list[dict], today, categories: dict) -> tuple[str, str | None]:
-    if claim.get("attribute") not in TAGGED_ATTRIBUTES or parse_price(claim.get("stated_value")) is None:
+    attr = claim.get("attribute")
+    if attr not in TAGGED_ATTRIBUTES or stated_range(claim.get("stated_value"), attr) is None:
         return "Unverifiable", None
-    cands = candidates(claim, facts, categories)
+    cands = candidates(claim, facts, categories, today)
     if not cands:
         return "Unverifiable", None
-    matches = [f for f in cands if values_match(claim["stated_value"], f)]
+    matches = [f for f in cands if values_match(claim["stated_value"], f, attr)]
     current = [f for f in matches if is_current(f, today)]
     if current:
         return "Correct", current[0]["fact_id"]
@@ -92,6 +123,8 @@ def tag_claim(claim: dict, facts: list[dict], today, categories: dict) -> tuple[
     if old:
         return "Outdated", old[0]["fact_id"]
     truth = next((f for f in cands if f["subject"] == claim.get("subject") and is_current(f, today)), None)
+    if truth is None and attr == "price":   # off the menu: the truth is that it is no longer sold
+        truth = discontinued(claim.get("subject"), facts, today)
     return "Wrong", truth["fact_id"] if truth else None
 
 
@@ -103,16 +136,16 @@ def source_for(claim: dict, answer: str, docs) -> str | None:
     """The doc a claim came from: a [doc_id] citation in the sentence that states the value, else the highest-ranked
     retrieved doc whose body states the value, else None (the engine answered from model memory)."""
     ids = [d.doc_id for d in docs]
-    value = parse_price(claim.get("stated_value"))
+    rng = stated_range(claim.get("stated_value"), claim.get("attribute"))
     snippet = (claim.get("text") or "").strip().lower()[:40]
     for sent in split_sentences(answer):
-        hit = (value is not None and any(_same(n, value) for n in _nums(sent))) or (snippet and snippet in sent.lower())
+        hit = (rng is not None and any(_within(n, rng) for n in _nums(sent))) or (snippet and snippet in sent.lower())
         cited = [m for m in _CITE.findall(sent) if m in ids]
         if hit and cited:
             return cited[0]
-    if value is not None:
+    if rng is not None:
         for d in docs:
-            if any(_same(n, value) for n in _nums(d.body)):
+            if any(_within(n, rng) for n in _nums(d.body)):
                 return d.doc_id
     return None
 

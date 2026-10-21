@@ -20,7 +20,7 @@ from geologic.config import settings as S
 from geologic.clients import DvaRetriever, Embedder, FmapiChat
 from geologic.datagen.reference import SUBJECTS, categories
 from geologic.probe.engine import EngineProxy
-from geologic.probe.plan import is_current
+from geologic.probe.plan import is_current, run_health
 from geologic.probe.runner import ANSWER_SCHEMA, CLAIM_SCHEMA, ProbeContext, run_probe
 
 ap = argparse.ArgumentParser()
@@ -63,16 +63,23 @@ def write(rows, schema, table):
     spark.createDataFrame([tuple(r[k] for k in cols) for r in rows], schema).write.mode("append").saveAsTable(S.fq(table))
 
 
+health = run_health(answers, list(S.engines))
+status = "ok" if health.healthy else "degraded"
 if answers:
     write(answers, ANSWER_SCHEMA, "probe_responses")
 if claims:
     write(claims, CLAIM_SCHEMA, "claims")
 spark.createDataFrame(
-    [(run_id, epoch, a.mode, a.trigger, [p["prompt_id"] for p in prompts], started, datetime.now(timezone.utc), "ok")],
+    [(run_id, epoch, a.mode, a.trigger, [p["prompt_id"] for p in prompts], started, datetime.now(timezone.utc), status)],
     "run_id STRING, epoch INT, run_type STRING, trigger STRING, prompt_ids ARRAY<STRING>, "
     "started_at TIMESTAMP, finished_at TIMESTAMP, status STRING",
 ).write.mode("append").saveAsTable(S.fq("probe_runs"))
+print(f"{run_id}: {len(answers)} answers, {health.not_ok} not ok, {len(claims)} claims")
+print(f"by engine and status: {health.summary()}")
+if not health.healthy:
+    # A degraded run is kept for the audit trail but never becomes the baseline or the latest run.
+    print(f"{run_id} degraded: {health.not_ok} of {health.total} answers not ok, engines with no ok answer: "
+          f"{list(health.dead_engines)}; probe_state left unchanged")
+    sys.exit(1)
 baseline = f", baseline_run_id = '{run_id}'" if a.set_baseline == "true" else ""
 spark.sql(f"UPDATE {S.fq('probe_state')} SET latest_run_id = '{run_id}'{baseline} WHERE id = 1")
-errors = sum(r["status"] != "ok" for r in answers)
-print(f"{run_id}: {len(answers)} answers, {errors} not ok, {len(claims)} claims")
