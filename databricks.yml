@@ -46,19 +46,6 @@ targets:
           warehouse_id: ${var.warehouse_id}
           # Keep the live parent folder; moving a dashboard can force a replace.
           parent_path: /Users/jonathan.whiteley@databricks.com/genie_spaces
-      jobs:
-        geologic_deploy_strategist:
-          name: geologic_deploy_strategist
-          max_concurrent_runs: 1
-          environments:
-            - environment_key: default
-              spec:
-                client: "2"
-                dependencies: ["databricks-sdk>=0.60", databricks-vectorsearch, openai, "mlflow>=3.1", databricks-agents]
-          tasks:
-            - task_key: deploy
-              environment_key: default
-              spark_python_task: { python_file: ./jobs/deploy_strategist.py }
   # GEOlogic v3: its own state, schema, app, jobs, pipeline and Lakebase database. Default target on build/v3.
   v3:
     default: true

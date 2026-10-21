@@ -5,6 +5,9 @@ import re
 from dataclasses import dataclass
 from geologic.claims import ATTRIBUTES
 
+ATTRIBUTES_TEXT = ", ".join(ATTRIBUTES)
+
+
 class JudgeParseError(ValueError):
     pass
 

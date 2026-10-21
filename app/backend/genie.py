@@ -1,7 +1,7 @@
 """Ask Genie: one Genie space, start-then-poll (ported from rev-chat-genie). Rows are returned as soon as the
 SQL finishes, while Genie is still writing its summary (partial=True), so the table renders before the text."""
 import re
-from geologic.agents.strategist import _clean  # house-style dash cleanup ("3-4" stays a range)
+from geologic.style import clean_dashes  # house-style dash cleanup ("3-4" stays a range)
 
 TERMINAL = {"COMPLETED", "FAILED", "CANCELLED", "QUERY_RESULT_EXPIRED"}
 QUERYING = {"SUBMITTED", "FILTERING_CONTEXT", "EXECUTING_QUERY", "PENDING_WAREHOUSE", "FETCHING_METADATA"}
@@ -97,13 +97,13 @@ class GenieService:
             if sq and getattr(sq, "questions", None):
                 out["suggested_questions"] = list(sq.questions)
         if status in TERMINAL:
-            out["text"] = _clean("\n\n".join(texts))
+            out["text"] = clean_dashes("\n\n".join(texts))
         if query_att:
             q = query_att.query
             out["sql"], out["description"] = q.query or "", q.description or ""
             out["source"] = source_of(out["sql"])
             if status in TERMINAL and not out["text"] and q.description:
-                out["text"] = _clean(q.description)
+                out["text"] = clean_dashes(q.description)
             if status == "COMPLETED" or (status not in TERMINAL and status not in QUERYING):
                 try:
                     res = self._fetch(conversation_id, message_id, query_att)

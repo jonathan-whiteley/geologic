@@ -125,3 +125,32 @@ def test_main_summary_reads_state_dir(tmp_path):
     assert cp.main(["check_plan.py", "--summary", str(summ), "--target", "v3", "--state-dir", d]) == 1
     d2 = tmp_path / "fresh"; d2.mkdir()
     assert cp.main(["check_plan.py", "--summary", str(summ), "--target", "v3", "--state-dir", str(d2)]) == 0
+
+
+# check_plan.check (plan actions), moved verbatim from tests/test_fix2.py
+def test_empty_or_missing_plan_fails():
+    assert cp.check({}, False) and cp.check({"plan": {}}, True)
+
+
+def test_destructive_actions_refused():
+    assert cp.check({"plan": {"resources.jobs.x": {"action": "recreate"}}}, False)
+    assert cp.check({"plan": {"resources.jobs.x": {"action": "delete"}}}, False)
+
+
+def test_update_and_skip_pass():
+    assert cp.check({"plan": {"resources.apps.geologic": {"action": "update"}, "resources.jobs.a": {"action": "skip"}}}, True) == []
+
+
+def test_create_of_adopted_refused_only_when_app_exists():
+    doc = {"plan": {"resources.jobs.geologic_publish": {"action": "create"}}}
+    assert cp.check(doc, True)
+    assert cp.check(doc, False) == []
+    # creating a non-adopted resource is fine even with a live app
+    assert cp.check({"plan": {"resources.jobs.geologic_setup": {"action": "create"}}}, True) == []
+
+
+def test_main_exit_codes(tmp_path):
+    f = tmp_path / "p.json"; f.write_text(json.dumps({"plan": {"resources.apps.geologic": {"action": "create"}}}))
+    assert cp.main(["x", str(f), "--app-exists"]) == 1
+    assert cp.main(["x", str(f)]) == 0
+    assert cp.main(["x", str(tmp_path / "missing.json")]) == 1
