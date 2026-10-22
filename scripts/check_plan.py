@@ -1,7 +1,7 @@
 """Pre-deploy guards for scripts/deploy.sh.
 
 Usage:
-  python3 scripts/check_plan.py PLAN_JSON [--app-exists] [--target T]
+  python3 scripts/check_plan.py PLAN_JSON [--app-exists] [--target T] [--allow-delete KEY,KEY]
   python3 scripts/check_plan.py --summary SUMMARY_JSON --target T [--state-dir DIR]
 
 Plan form (`databricks bundle plan -o json`): exit 1 if the plan is missing or empty, deletes, recreates
@@ -59,13 +59,17 @@ KNOWN_TYPES = {"apps", "jobs", "pipelines"}
 KNOWN_TASKS = {"spark_python_task", "pipeline_task"}
 
 
-def check(doc: dict, app_exists: bool, target: str = "dev") -> list[str]:
-    """Return a list of problems with a bundle plan (empty means safe to deploy). Same rules on every target."""
+def check(doc: dict, app_exists: bool, target: str = "dev", allow_delete: frozenset = frozenset()) -> list[str]:
+    """Return a list of problems with a bundle plan (empty means safe to deploy). Same rules on every target,
+    except that a non-dev target may delete resource keys named explicitly in allow_delete (never recreate or
+    replace; v2 ids bound in a non-dev state are refused separately by the summary check)."""
     plan = (doc or {}).get("plan")
     if not plan:
         return ["plan is missing or empty; refusing to deploy without a readable plan"]
     problems = []
-    bad = {k: v.get("action") for k, v in plan.items() if v.get("action") in DESTRUCTIVE}
+    allowed = allow_delete if target != "dev" else frozenset()
+    bad = {k: v.get("action") for k, v in plan.items()
+           if v.get("action") in DESTRUCTIVE and not (v.get("action") == "delete" and k in allowed)}
     if bad:
         problems.append(f"plan deletes or recreates resources: {bad}")
     if app_exists:
@@ -259,7 +263,8 @@ def main(argv: list[str]) -> int:
         return 1
     for k, v in (doc.get("plan") or {}).items():
         print(f"  {str(v.get('action')):>8}  {k}")
-    problems = check(doc, "--app-exists" in argv, _opt(argv, "--target") or "dev")
+    allow = frozenset(k for k in (_opt(argv, "--allow-delete") or "").split(",") if k)
+    problems = check(doc, "--app-exists" in argv, _opt(argv, "--target") or "dev", allow)
     for p in problems:
         print(p)
     return 1 if problems else 0

@@ -52,7 +52,10 @@ rsync -a --delete --exclude __pycache__ --exclude '*.egg-info' src/geologic/ app
 databricks bundle validate --strict "${BUNDLE[@]}"
 PLAN=$(mktemp)
 databricks bundle plan -o json "${BUNDLE[@]}" > "$PLAN"
-python3 scripts/check_plan.py "$PLAN" --target "$TARGET" $([ "$APP_EXISTS" = "1" ] && echo --app-exists) || { rm -f "$PLAN"; exit 1; }
+#    ALLOW_DELETE=resources.jobs.x[,..] lets a non-dev target delete those exact keys (a resource dropped from the
+#    config); dev never deletes.
+python3 scripts/check_plan.py "$PLAN" --target "$TARGET" $([ "$APP_EXISTS" = "1" ] && echo --app-exists) \
+  ${ALLOW_DELETE:+--allow-delete "$ALLOW_DELETE"} || { rm -f "$PLAN"; exit 1; }
 rm -f "$PLAN"
 
 # 4. Deploy (uploads files, updates jobs, pipeline, dashboard and the app object).

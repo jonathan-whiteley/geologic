@@ -181,3 +181,20 @@ def test_every_python_task_passes_its_stack_explicitly():   # final review I3: v
         assert f'{{ name: {var}, value: "${{var.{ref}}}" }}' in app, var
     top = (ROOT / "databricks.yml").read_text().split("targets:")[0]
     assert re.search(r"\n  schema:\n    default: geologic\n", top) and re.search(r"\n  lakebase_db:\n(?:    .*\n)*?    default: geologic\n", top)
+
+
+def test_allow_delete_is_explicit_per_key_and_never_on_dev():
+    doc = {"plan": {"resources.jobs.geologic_eval": {"action": "delete"}, "resources.apps.geologic": {"action": "update"}}}
+    key = frozenset({"resources.jobs.geologic_eval"})
+    assert cp.check(doc, True, "v3", key) == []
+    assert any("deletes" in p for p in cp.check(doc, True, "dev", key))
+    assert any("deletes" in p for p in cp.check(doc, True, "v3", frozenset({"resources.jobs.other"})))
+    recreate = {"plan": {"resources.jobs.geologic_eval": {"action": "recreate"}}}
+    assert any("deletes" in p for p in cp.check(recreate, True, "v3", key))
+
+
+def test_main_passes_allow_delete(tmp_path):
+    f = tmp_path / "plan.json"
+    f.write_text(json.dumps({"plan": {"resources.jobs.geologic_eval": {"action": "delete"}}}))
+    assert cp.main(["x", str(f), "--target", "v3"]) == 1
+    assert cp.main(["x", str(f), "--target", "v3", "--allow-delete", "resources.jobs.geologic_eval"]) == 0
