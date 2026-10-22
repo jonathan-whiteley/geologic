@@ -20,7 +20,7 @@ from pyspark.sql import SparkSession
 from databricks.sdk import WorkspaceClient
 from geologic.config import settings as S
 from geologic.clients import FmapiChat
-from geologic.datagen.reference import SUBJECTS
+from geologic.datagen.reference import subject_vocabulary
 from geologic.drafting import BLOCKING_CHECKS, draft_fix, finalize_fix, unsupported_claims
 from geologic.exclusions import find_exclusion
 from geologic.fixes import CLEAR_EPOCH_FIXES, UPSERT_FIX, build_requests, fix_values
@@ -44,7 +44,7 @@ item_names = sorted({n for m in menu for n in [m["name"], *(m.get("aliases") or 
 # Persona rows, not names: creators match on full name and handle only, and the association exemption keys on persona_id.
 persona_rows = people
 judge_names = tuple(item_names) + tuple(p["display_name"] for p in people)
-judge = lambda text, g: unsupported_claims(text, g, chat, S.judge_endpoint, SUBJECTS, names=judge_names)
+judge = lambda text, g: unsupported_claims(text, g, chat, S.judge_endpoint, subject_vocabulary(), names=judge_names)
 AUDIT = ("INSERT INTO audit_events (actor, action, object_ref, exclusion_rule_id, enforcement_point) VALUES (%s,%s,%s,%s,%s) "
          "ON CONFLICT DO NOTHING")
 

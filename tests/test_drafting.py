@@ -145,3 +145,58 @@ def test_gridiron_copy_stays_t1_with_creator_personas():
     d = {**GOOD, "patch": {**GOOD["patch"], "text": GOOD["patch"]["text"] + " " + s}, "sentences": GOOD["sentences"]}
     f = fin(d, {**REQ, "asset_type": "answer_page"})
     assert f["tier"] == "T1" and all(c["ok"] for c in f["checks"]), f["checks"]
+
+
+# Task 15: the drafting judge reads names, not bare ids (live: "Game Day Party Pack" came back as gameday_499)
+def test_draft_judge_prompt_names_subjects_and_maps_names_back_to_ids():
+    from geologic.datagen.reference import subject_vocabulary
+    from geologic.drafting import draft_claims_messages
+    content = draft_claims_messages("text", subject_vocabulary())[0]["content"]
+    assert "party_pack: Game Day Party Pack" in content
+    assert "gameday_499: $4.99 Online Gameday Deal" in content
+    assert "classic_pepperoni" in draft_claims_messages("text", ("classic_pepperoni",))[0]["content"]
+    chat = Chat(json.dumps([{"text": "The Game Day Party Pack is $29.99.", "subject": "Game Day Party Pack", "attribute": "price",
+                             "stated_value": "$29.99"},
+                            {"text": "Feeds 12.", "subject": "party_pack: Game Day Party Pack", "attribute": "serves", "stated_value": "12"}]))
+    g = [f for f in F if f["fact_id"] in ("F12", "F14")]
+    assert unsupported_claims("text", g, chat, "ep", subject_vocabulary()) == []
+
+
+def test_parse_draft_strips_inline_fact_markers_and_bracket_tags():
+    raw = json.dumps({"patch": {"section_id": "s", "op": "insert",
+                                "text": "## H\nThe pack feeds 12. [F14] It is $29.99. [F12, F14] Little Caesars here. [Little Caesars] See [the menu](https://x)."},
+                      "sentences": [{"text": "The pack feeds 12. [F14]", "fact_ids": ["F14"]}], "rationale": "r"})
+    d = parse_draft(raw)
+    assert d["patch"]["text"] == "## H\nThe pack feeds 12. It is $29.99. Little Caesars here. See [the menu](https://x)."
+    assert d["sentences"][0]["text"] == "The pack feeds 12."
+    assert "no fact ids" in draft_messages(REQ)[0]["content"] and "Never compute" in draft_messages(REQ)[0]["content"]
+
+
+def test_corrections_may_quote_the_wrong_value_they_correct():
+    req = {**REQ, "asset_type": "correction_email", "section_id": "email", "op": "insert", "recipient": "editor@x"}
+    text = "Subject: Price fix\n\nThe Game Day Party Pack is $29.99, not $24.99 as listed. The $24.99 figure is out of date."
+    d = {"patch": {"section_id": "email", "op": "insert", "text": text},
+         "sentences": [{"text": "The Game Day Party Pack is $29.99, not $24.99 as listed.", "fact_ids": ["F12"]},
+                       {"text": "The $24.99 figure is out of date.", "fact_ids": []}], "rationale": "r"}
+    f = finalize_fix(d, req, F, exclusion_rules(), T, item_names=[m["name"] for m in menu_items()], persona_names=[],
+                     judge=lambda t, g: ["not $24.99 as listed", "The $24.99 figure is out of date"])
+    ok = {c["key"]: c["ok"] for c in f["checks"]}
+    assert ok["values"] and ok["grounded"] and ok["unsupported"], f["checks"]
+    # an owned page never gets that allowance
+    d2 = {**d, "patch": {**d["patch"], "section_id": REQ["section_id"]}}
+    f2 = finalize_fix(d2, REQ, F, exclusion_rules(), T, item_names=[m["name"] for m in menu_items()], persona_names=[],
+                      judge=lambda t, g: ["not $24.99 as listed"])
+    ok2 = {c["key"]: c["ok"] for c in f2["checks"]}
+    assert not ok2["values"] and not ok2["unsupported"]
+
+
+def test_association_judge_may_name_the_planned_person():
+    req = {**REQ, "asset_type": "association", "section_id": "association", "op": "insert", "persona_id": "p_goff", "persona_name": "Jared Goff"}
+    d = {"patch": {"section_id": "association", "op": "insert", "text": "Jared Goff knows his Detroit-style pizza."},
+         "sentences": [{"text": "Jared Goff knows his Detroit-style pizza.", "fact_ids": ["F09"]}], "rationale": "r"}
+    f = finalize_fix(d, req, F, exclusion_rules(), T, item_names=[], persona_names=["Jared Goff"],
+                     judge=lambda t, g: ["Jared Goff knows his Detroit-style pizza"])
+    assert next(c for c in f["checks"] if c["key"] == "unsupported")["ok"] is True
+    f = finalize_fix(d, req, F, exclusion_rules(), T, item_names=[], persona_names=["Jared Goff"],
+                     judge=lambda t, g: ["Open until 2am"])
+    assert next(c for c in f["checks"] if c["key"] == "unsupported")["ok"] is False

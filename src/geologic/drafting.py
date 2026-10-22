@@ -4,10 +4,11 @@ import json
 import re
 from geologic.exclusions import find_exclusion
 from geologic.probe.engine import usage_context
-from geologic.probe.judge import ATTRIBUTES_TEXT
+from geologic.probe.judge import ATTRIBUTES_TEXT, _subject_line, _subject_lookup, _vocab, resolve_subject
 from geologic.style import clean_dashes
 from geologic.tiering import assign_tier
-from geologic.verify import CHECK_ORDER, jsonld_strings, mentions, person_terms, supported, verify, verify_jsonld
+from geologic.verify import (CHECK_ORDER, jsonld_strings, mentions, only_quotes, person_terms, quoted_numbers, supported, verify,
+                             verify_jsonld)
 
 BLOCKING_CHECKS = {"grounded", "current", "values", "comparison", "persona", "copy", "target", "unsupported", "policy", "schema"}
 
@@ -17,7 +18,9 @@ class DraftError(ValueError):
 
 
 SYSTEM = ("You are the Content Strategist for Little Caesars. You write one small change that is grounded in facts. "
-          "Use only the facts provided, quote their values exactly, and list the fact ids behind every sentence. "
+          "Use only the facts provided, quote their values exactly, and list the fact ids behind every sentence in \"sentences\". "
+          "patch.text is the published copy: no fact ids, brackets or citations in it. Never compute new numbers (totals, "
+          "multiples, per-person math); state each fact value exactly as given. "
           "Never state a competitor's price; compare only on Little Caesars facts. Never mention hours, ingredients, nutrition, "
           "delivery times or sponsorship details unless a fact states them. Never name a person unless the asset type is "
           "association. Never use a fact marked out of date. Voice: friendly, plain, short sentences. Answer first, facts early. "
@@ -66,6 +69,14 @@ def draft_messages(req, feedback=None):
     return [{"role": "system", "content": SYSTEM}, {"role": "user", "content": "\n".join(lines)}]
 
 
+# Inline fact markers ("[F14]", "[F15, F12]") and bracket tags ("[Little Caesars]") are never published; markdown links stay.
+_MARKER = re.compile(r"[ \t]*\[[^\]\n]{1,40}\](?!\()")
+
+
+def _strip_markers(text):
+    return "\n".join(re.sub(r"[ \t]{2,}", " ", _MARKER.sub("", line)).rstrip() for line in str(text).split("\n"))
+
+
 def parse_draft(text):
     raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", (text or "").strip(), flags=re.MULTILINE)
     try:
@@ -86,8 +97,8 @@ def parse_draft(text):
         ids = s.get("fact_ids") or []
         if not isinstance(ids, list):
             raise DraftError("fact_ids must be a list of fact ids")
-        sents.append({"text": clean_dashes(str(s.get("text", ""))).strip(), "fact_ids": [str(x) for x in ids]})
-    return {"patch": {"section_id": str(p["section_id"]), "op": p["op"], "text": clean_dashes(p["text"])},
+        sents.append({"text": _strip_markers(clean_dashes(str(s.get("text", "")))).strip(), "fact_ids": [str(x) for x in ids]})
+    return {"patch": {"section_id": str(p["section_id"]), "op": p["op"], "text": _strip_markers(clean_dashes(p["text"]))},
             "sentences": sents, "rationale": clean_dashes(str(obj.get("rationale") or ""))}
 
 
@@ -101,9 +112,13 @@ def draft_fix(req, chat, endpoint, feedback=None):
 
 
 def draft_claims_messages(text, subjects):
+    """subjects are bare ids or subject_vocabulary() entries; the judge sees "id: display name (aliases)" lines, like the
+    probe judge, so an item name is never read as another subject's id."""
+    lines = "\n".join(_subject_line(*v) for v in _vocab(subjects))
     return [{"role": "system", "content": "List every factual statement in this draft web text as a JSON list of "
-                                          "{text, subject, attribute, stated_value}. subject is one of: " + ", ".join(subjects)
-                                          + ". attribute is one of: " + ATTRIBUTES_TEXT + ". Return only the JSON list."},
+                                          "{text, subject, attribute, stated_value}. subject is the id of one of these "
+                                          "subjects:\n" + lines + "\nattribute is one of: " + ATTRIBUTES_TEXT
+                                          + ". Return only the JSON list."},
             {"role": "user", "content": text}]
 
 
@@ -116,20 +131,28 @@ def unsupported_claims(text, grounding, chat, endpoint, subjects, names=()):
         items = None
     if not isinstance(items, list):   # fail closed: an unreadable judge answer never passes as "no unsupported claims"
         return ["The judge could not read this draft"]
-    return [str(c.get("text")) for c in items if isinstance(c, dict) and not supported(c, grounding, names)]
+    lookup = _subject_lookup(subjects)
+    norm = lambda c: {**c, "subject": resolve_subject(c.get("subject"), lookup)} if c.get("subject") else c
+    return [str(c.get("text")) for c in items if isinstance(c, dict) and not supported(norm(c), grounding, names)]
 
 
 _NO_JUDGE = {"key": "unsupported", "ok": False, "label": "Unsupported-claim check did not run"}
 
 
-def _unsupported_check(text, grounding, judge):
-    """The judge pass fails closed: no judge, or a judge that raises, is a failed check, never a silent pass."""
+def _unsupported_check(text, grounding, judge, req=None):
+    """The judge pass fails closed: no judge, or a judge that raises, is a failed check, never a silent pass. Two judge
+    findings are expected, not unsupported: a correction quoting the wrong value it corrects (correction_email,
+    community_reply), and an association caption naming its planned person."""
     if judge is None:
         return dict(_NO_JUDGE)
     try:
         bad = judge(text, grounding)
     except Exception:
         return dict(_NO_JUDGE)
+    req = req or {}
+    quoted = quoted_numbers(req)
+    person = person_terms([req["persona_name"]]) if req.get("asset_type") == "association" and req.get("persona_name") else ()
+    bad = [b for b in bad if not only_quotes(b, quoted) and not (person and mentions(b, person))]
     return {"key": "unsupported", "ok": not bad, "label": "No unsupported claims" if not bad else f"Unsupported claim: {bad[0]}"}
 
 
@@ -143,7 +166,7 @@ def finalize_fix(draft, req, facts, rules, today, *, item_names, persona_names, 
         checks, sentences = verify(draft, req, facts, today, item_names=item_names, persona_names=persona_names)
     grounding_ids = sorted({f for s in sentences for f in s["fact_ids"]})
     if asset != "jsonld":
-        checks.append(_unsupported_check(text, [f for f in facts if f["fact_id"] in grounding_ids], judge))
+        checks.append(_unsupported_check(text, [f for f in facts if f["fact_id"] in grounding_ids], judge, req))
     rule = find_exclusion(text, req.get("persona_id") if asset != "association" else None, [], rules)
     checks.append({"key": "policy", "ok": rule is None, "label": "Brand policy: no exclusion rule fires" if rule is None else f"Blocked by {rule}"})
     checks.sort(key=lambda c: CHECK_ORDER.index(c["key"]))

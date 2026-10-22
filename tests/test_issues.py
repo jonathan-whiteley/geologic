@@ -170,7 +170,8 @@ def test_owned_stale_claim_and_stale_page_make_one_issue_with_t0_jsonld():
     key = ANSWER_KEY["classic_pepperoni"]
     hits = [x for x in issues if x["issue_type"] == key["issue_type"] and x["source_doc_id"] == key["source_doc_id"]]
     assert [assign_tier(f["asset_type"], names_person=False, checks_ok=True) for f in hits[0]["planned"]
-            if f["asset_type"] in key["fixes"]] == ["T0"]
+            if f["asset_type"] in key["fixes"]] == ["T1", "T0"]
+    assert {f["asset_type"]: assign_tier(f["asset_type"], names_person=False, checks_ok=True) for f in hits[0]["planned"]} == key["fixes"]
 
 
 def test_item_linked_moments_gap_only_where_engines_miss_and_never_for_a_discontinued_item():   # Ruling S2-F

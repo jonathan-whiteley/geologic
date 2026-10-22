@@ -165,3 +165,18 @@ def test_creator_tokens_do_not_trip_persona_but_full_name_and_handle_do():
     rows = {t.lower() for t in person_terms(PEOPLE)}
     assert "goff" in rows and "jared" in rows and "gridiron" not in rows and "grub" not in rows
     assert "grub" in {t.lower() for t in person_terms(["Gridiron Grub"])}     # plain strings stay conservative
+
+
+# Task 15 (live drafts): descriptive facts are matched on their words, not on the judge's exact paraphrase
+def test_supported_descriptive_facts_by_word_coverage_but_not_counted_or_tagged_ones():
+    g = [f for f in F if f["fact_id"] in ("F02", "F05", "F09", "F11", "F12", "F14", "F15")]
+    assert supported({"subject": "party_pack", "attribute": "ordering", "stated_value": "Pizza Portal pickup available to order ahead"}, g)
+    assert supported({"subject": "detroit_pepperoni", "attribute": "contents", "stated_value": "crispy cheese edges"}, g)
+    assert supported({"subject": "classic_pepperoni", "attribute": "ordering", "stated_value": "Ready when you walk in, no waiting"}, g)
+    assert supported({"subject": "brand", "attribute": "nfl_sponsor", "stated_value": "Official Pizza Sponsor of the NFL since 2023"}, g)
+    assert not supported({"subject": "brand", "attribute": "nfl_sponsor", "stated_value": "Official Pizza Sponsor of the NFL since 2019"}, g)
+    assert not supported({"subject": "brand", "attribute": "other", "stated_value": "free delivery on every order"}, g)
+    # counted and tagged facts keep exact matching (the earlier pins)
+    assert not supported({"subject": "party_pack", "attribute": "contents", "stated_value": "3 orders of Crazy Bread"}, g)
+    assert not supported({"subject": "party_pack", "attribute": "contents", "stated_value": "large pizza"}, g)
+    assert not supported({"subject": "party_pack", "attribute": "price", "stated_value": "$59.98"}, g)

@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from backend import deps
 from backend.search import SearchUnavailable
 from geologic.config import settings
-from geologic.datagen.reference import SUBJECTS, exclusion_rules
+from geologic.datagen.reference import exclusion_rules, subject_vocabulary
 from geologic.datagen.signals import SEEDED
 from geologic.publish_flow import FRIENDLY_ERROR, STEP_LABELS
 from geologic.results import summarize
@@ -136,7 +136,7 @@ def edit(fix_id: str, body: EditBody, repo=Depends(deps.get_fix_repo), reads=Dep
         raise HTTPException(400, "The fix text is empty.")
     items, people = reads.item_names(), reads.personas()
     names = tuple(items) + tuple(p["display_name"] for p in people)
-    judge = lambda t, g: unsupported_claims(t, g, chat, settings.judge_endpoint, SUBJECTS, names=names)
+    judge = lambda t, g: unsupported_claims(t, g, chat, settings.judge_endpoint, subject_vocabulary(), names=names)
     final = edit_fix(fix, text, facts=reads.facts(), rules=reads.rules(), today=date.today(), item_names=items,
                      persona_names=people, judge=judge)
     updated = repo.edit(fix_id, text, final)

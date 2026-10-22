@@ -4,7 +4,9 @@ ANSWER_KEY = {
                    "source_doc_id": "editorial_superbowl_roundup_2024", "stated_fact_id": "F13", "truth_fact_id": "F12",
                    "fixes": {"correction_email": "T2", "owned_patch": "T1"}},
     "gameday_listicle": {"issue_type": "missing_us", "source_doc_id": "review_pizzahut_gameday_top", "fixes": {"answer_page": "T1"}},
-    "classic_pepperoni": {"issue_type": "outdated", "source_doc_id": "lce_pg_item_classic_pepperoni", "fixes": {"jsonld": "T0"}},
+    "classic_pepperoni": {"issue_type": "outdated", "source_doc_id": "lce_pg_item_classic_pepperoni",
+                          # one issue per stale page (S2-D): the owned patch and the T0 JSON-LD
+                          "fixes": {"owned_patch": "T1", "jsonld": "T0"}},
     "reddit_price": {"issue_type": "wrong", "subject": "classic_pepperoni", "source_doc_id": "reddit_pizza_hnr",
                      "fixes": {"community_reply": "T2"}},
     "comparison_memory": {"issue_type": "no_answer_page", "cluster": "comparison", "fixes": {"answer_page": "T1"}},

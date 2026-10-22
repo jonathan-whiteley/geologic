@@ -141,9 +141,26 @@ def _cited(ids, by_id, today, bad_ids):
     return cited
 
 
-def _numbers_match(text, cited):
-    allowed = [n for f in cited for n in _numbers(f["value"]) + _numbers(f.get("subject_name"))]
+def _numbers_match(text, cited, quoted=()):
+    allowed = [n for f in cited for n in _numbers(f["value"]) + _numbers(f.get("subject_name"))] + list(quoted)
     return all(any(abs(n - a) < 0.01 for a in allowed) for n in _numbers(text))
+
+
+# A correction email or community reply must quote the wrong value it corrects ("$29.99, not $24.99"). Only those two assets,
+# and only the numbers of the issue's own stated value, are allowed without a fact.
+QUOTING_ASSETS = {"correction_email", "community_reply"}
+
+
+def quoted_numbers(request):
+    if request.get("asset_type") not in QUOTING_ASSETS:
+        return []
+    return _numbers((request.get("claim") or {}).get("stated_value"))
+
+
+def only_quotes(text, quoted):
+    """True when the text states numbers and every one of them is a quoted wrong value."""
+    nums = _numbers(text)
+    return bool(quoted) and bool(nums) and all(any(abs(n - q) < 0.01 for q in quoted) for n in nums)
 
 
 def verify(draft, request, facts, today, *, item_names, persona_names):
@@ -154,14 +171,15 @@ def verify(draft, request, facts, today, *, item_names, persona_names):
     exempt = _planned_terms(request, persona_names) if request["asset_type"] == "association" else set()
     flagged = tuple(t for t in people if t.lower() not in exempt)
     names = tuple(item_names) + people + COMPETITORS
+    quoted = quoted_numbers(request)
     ungrounded, bad_ids, mismatched, comp, named = [], [], [], [], []
     for s in sents:
         text = s["text"]
-        if not s["fact_ids"] and is_factual(text, names):
+        if not s["fact_ids"] and is_factual(text, names) and not (only_quotes(text, quoted) and not any(has_term(text, n) for n in names)):
             ungrounded.append(text)
         cited = _cited(s["fact_ids"], by_id, today, bad_ids)
         if cited:
-            if not _numbers_match(text, cited):
+            if not _numbers_match(text, cited, quoted):
                 mismatched.append(text)
             for item in (n for n in item_names if has_term(text, n)):
                 if not any(item.lower() in _norm(f.get("subject_name")) or item.lower() in _norm(f["value"]) for f in cited):
@@ -281,6 +299,29 @@ def verify_jsonld(draft, request, facts, today, *, persona_names):
     return checks, sents
 
 
+# Descriptive facts (ordering, style, sponsorship...) are matched on their words: the judge paraphrases them ("Pizza Portal
+# pickup available to order ahead" for "Pizza Portal pickup: order ahead and skip the line"). Counted facts (contents) and the
+# tagged attributes keep exact matching. Brand words and function words do not count as content.
+EXACT_ATTRIBUTES = set(TAGGED_ATTRIBUTES) | {"contents"}
+WORD_COVERAGE = 0.6
+_STOP = set("a an the and or of to in on at for with you your is are be can it its when no not from by as this that any all "
+            "has have had been so through our we us their there here just also little caesars lc".split())
+
+
+def _content_words(s):
+    return {w for w in re.findall(r"[a-z0-9]+", _fold(s).lower().replace("'", "")) if w not in _STOP and not w.isdigit()}
+
+
+def _covered(sv, f):
+    """The stated value's content words are mostly the fact's words, and every number in it is in the fact (or is the
+    year the fact took effect: "since 2023")."""
+    words, fact_words = _content_words(sv), _content_words(f.get("value"))
+    if not words or len(words & fact_words) / len(words) < WORD_COVERAGE:
+        return False
+    allowed = _numbers(f.get("value")) + _numbers(str(f.get("valid_from") or "")[:4])
+    return all(any(abs(n - a) < 0.01 for a in allowed) for n in _numbers(sv))
+
+
 def supported(claim, grounding, names=()):
     """A judge-extracted claim is supported when a grounding fact with the same attribute (and subject, when the claim has
     one) states it: numeric equality for price, serves and founded (on a
@@ -295,7 +336,8 @@ def supported(claim, grounding, names=()):
             continue
         if (attr in TAGGED_ATTRIBUTES and _STANDALONE.search(sv) and values_match(sv, f, attr)) or has_term(f["value"], sv):
             return True
-    return False
+    # descriptive facts: any cited one whose words cover the claim (the judge's subject and attribute labels vary for these)
+    return any(_covered(sv, f) for f in grounding if f.get("attribute") not in EXACT_ATTRIBUTES)
 
 
 def reground(patch_text, previous, facts, today, prior_ids=()):

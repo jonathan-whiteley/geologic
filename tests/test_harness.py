@@ -29,7 +29,7 @@ def good_state():
             issue("is_gm", "moment_gap", moment_id="m_goff", prompt_ids=["q202"]),
         ],
         "fixes": [fix("fx_1", "is_pp", "correction_email", "T2"), fix("fx_2", "is_pp", "owned_patch", "T1"),
-                  fix("fx_3", "is_gl", "answer_page", "T1"), fix("fx_4", "is_cp", "jsonld", "T0", '{"@type":"MenuItem"}'),
+                  fix("fx_3", "is_gl", "answer_page", "T1"), fix("fx_4", "is_cp", "jsonld", "T0", '{"@type":"MenuItem"}'), fix("fx_4b", "is_cp", "owned_patch", "T1"),
                   fix("fx_5", "is_rd", "community_reply", "T2"), fix("fx_6", "is_cm", "answer_page", "T1"),
                   fix("fx_7", "is_gm", "moment_page", "T1", "## Deep dish\nSquare deep dish for the game."),
                   fix("fx_8", "is_gm", "association", "T2", "Jared Goff loves the corner piece.")],
