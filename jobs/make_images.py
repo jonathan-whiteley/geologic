@@ -1,4 +1,4 @@
-"""Writes menu and background images (drawn placeholders, no faces) and places the photos listed in photos.CREDITS (credits in assets/photos/ATTRIBUTION.md): a photo already in the volume is kept, else it is copied from assets/photos, else a placeholder is drawn."""
+"""Writes menu and background images (drawn placeholders, no faces) and places the photo listed in photos.CREDITS (credit in assets/photos/ATTRIBUTION.md): a photo already in the volume is kept, else it is copied from assets/photos, else a placeholder is drawn."""
 import os
 import sys
 
@@ -32,7 +32,7 @@ for m in menu_items():
     scene(f"{S.volume_path}/menu/{m['item_id']}.png", square=m["item_id"].startswith("detroit"))
 _photos = os.path.join(_src, "..", "assets", "photos")
 os.makedirs(f"{S.volume_path}/signals", exist_ok=True)
-# Only the photos listed in CREDITS (the Goff photo and the CC BY-SA pizza photo) reach the volume, and a file already
+# Only the photos listed in CREDITS (the Goff photo) reach the volume, and a file already
 # in the volume is never overwritten: scripts/deploy.sh uploads the Goff press photo, which is gitignored (not in the
 # public repo) and so never in the bundle. When a photo is absent everywhere, a drawn placeholder stands in. The vision
 # model reads a drawn graphic as "no food visible", so the placeholder never gets an image match; the Goff persona

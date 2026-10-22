@@ -2,14 +2,13 @@
 from __future__ import annotations
 import json
 import re
-from geologic.claims import TAGGED_ATTRIBUTES, is_current, split_sentences, values_match
+from geologic.claims import NUM, TAGGED_ATTRIBUTES, is_current, split_sentences, values_match
 from geologic.facts import parse_price
 from geologic.jsonld import validate_against_facts
 from geologic.tiering import T0_ASSETS
 
 COMPETITORS = ("Domino's", "Dominos", "Pizza Hut", "Papa Johns", "Papa John's")
 CHECK_ORDER = ("grounded", "current", "values", "comparison", "persona", "copy", "target", "unsupported", "policy", "schema")
-_NUM = re.compile(r"\$?\d+(?:\.\d{1,2})?")
 _THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}(?!\d))")    # "1,600" joins; "12,15" stays two numbers
 _HEADING = re.compile(r"^#{1,6}(?:\s+|$)")
 _SUBJECT = re.compile(r"^subject:\s*", re.IGNORECASE)
@@ -29,7 +28,7 @@ def _fold(s):
 
 
 def _numbers(s):
-    return [n for n in (parse_price(m) for m in _NUM.findall(_THOUSANDS.sub("", str(s or "")))) if n is not None]
+    return [n for n in (parse_price(m) for m in NUM.findall(_THOUSANDS.sub("", str(s or "")))) if n is not None]
 
 
 def has_term(text, term):

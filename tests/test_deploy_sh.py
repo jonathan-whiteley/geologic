@@ -37,16 +37,17 @@ def test_v3_first_cli_call_is_the_summary_guard(tmp_path):
 # volume, refuses the v2 schema and never reaches the real CLI (stub databricks first on PATH).
 import json
 
-def _push(tmp_path, schema="geologic_v3", catalog="jdub_demo", photos=("goff_slices_n_stix.jpg", "kittle_tailgate.png"),
+def _push(tmp_path, schema="geologic_v3", catalog="jdub_demo", photos=("goff_slices_n_stix.jpg",),
           volume_exists=True):
     bin_, log, pdir = tmp_path / "bin", tmp_path / "calls.log", tmp_path / "photos"
     bin_.mkdir(exist_ok=True); pdir.mkdir(exist_ok=True)
     for p in photos:
         (pdir / p).write_bytes(b"x")
-    (pdir / "barkley_press.jpg").write_bytes(b"x")          # not in CREDITS: never uploaded
+    for p in ("barkley_press.jpg", "kittle_tailgate.png"):   # not in CREDITS: never uploaded
+        (pdir / p).write_bytes(b"x")
     rc = 0 if volume_exists else 1
     (bin_ / "databricks").write_text(f'#!/bin/sh\necho "databricks $*" >> "{log}"\n'
-                                     f'case "$1" in volumes) exit {rc};; fs) exit 0;; *) exit 99;; esac\n')
+                                     f'case "$1" in volumes) [ {rc} = 0 ] || echo "Error: RESOURCE_DOES_NOT_EXIST" >&2; exit {rc};; fs) exit 0;; *) exit 99;; esac\n')
     (bin_ / "databricks").chmod(0o755)
     summary = tmp_path / "summary.json"
     summary.write_text(json.dumps({"variables": {"catalog": {"default": "jdub_demo", "value": catalog},
@@ -62,9 +63,7 @@ def test_push_photos_copies_credited_photos_to_the_v3_volume(tmp_path):
     pdir = tmp_path / "photos"
     assert calls == ["databricks volumes read jdub_demo.geologic_v3.assets --profile DEFAULT",
                      f"databricks fs cp --overwrite {pdir}/goff_slices_n_stix.jpg "
-                     "dbfs:/Volumes/jdub_demo/geologic_v3/assets/signals/goff_slices_n_stix.jpg --profile DEFAULT",
-                     f"databricks fs cp --overwrite {pdir}/kittle_tailgate.png "
-                     "dbfs:/Volumes/jdub_demo/geologic_v3/assets/signals/kittle_tailgate.png --profile DEFAULT"]
+                     "dbfs:/Volumes/jdub_demo/geologic_v3/assets/signals/goff_slices_n_stix.jpg --profile DEFAULT"]
 
 def test_push_photos_refuses_the_v2_schema(tmp_path):
     r, calls = _push(tmp_path, schema="geologic")
@@ -82,6 +81,7 @@ def test_push_photos_skips_silently_without_local_photos(tmp_path):
 def test_push_photos_skips_when_the_volume_does_not_exist_yet(tmp_path):
     r, calls = _push(tmp_path, volume_exists=False)
     assert r.returncode == 0 and "setup" in r.stdout and not [c for c in calls if "fs cp" in c]
+    assert "RESOURCE_DOES_NOT_EXIST" in r.stdout   # the probe's stderr is shown, not discarded
 
 def test_deploy_sh_pushes_photos_after_bundle_deploy_and_before_app_run():
     lines = (ROOT / "scripts" / "deploy.sh").read_text().splitlines()

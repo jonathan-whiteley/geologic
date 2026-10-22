@@ -1,7 +1,10 @@
 from geologic.photos import credit_for
 
 def test_credit_for_real_photo():
-    assert credit_for("/Volumes/jdub_demo/geologic/assets/signals/kittle_tailgate.png") == "Photo: Valereee, CC BY-SA 4.0"
+    from geologic.config import Settings
+    settings = Settings()
+    assert credit_for(f"{settings.volume_path}/signals/goff_slices_n_stix.jpg") == "Photo: Courtesy of Little Caesars"
+    assert credit_for("/x/kittle_tailgate.png") is None
 
 def test_credit_for_press_photo():
     assert credit_for("/Volumes/x/signals/goff_slices_n_stix.jpg") == "Photo: Courtesy of Little Caesars"
@@ -36,8 +39,8 @@ def test_place_photo_keeps_existing_volume_file(tmp_path):
 def test_place_photo_copies_local_then_draws_only_when_absent(tmp_path):
     local, vol, drawn = tmp_path / "local", tmp_path / "vol", []
     local.mkdir(); vol.mkdir()
-    (local / "kittle_tailgate.png").write_bytes(b"cc photo")
-    assert place_photo("kittle_tailgate.png", str(local), str(vol), _draw_to(drawn)) == "copied"
-    assert (vol / "kittle_tailgate.png").read_bytes() == b"cc photo"
+    (local / "photo.jpg").write_bytes(b"cc photo")
+    assert place_photo("photo.jpg", str(local), str(vol), _draw_to(drawn)) == "copied"
+    assert (vol / "photo.jpg").read_bytes() == b"cc photo"
     assert place_photo("goff_slices_n_stix.jpg", str(local), str(vol), _draw_to(drawn)) == "placeholder"
     assert drawn == [str(vol / "goff_slices_n_stix.jpg")]

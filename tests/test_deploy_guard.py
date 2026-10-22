@@ -154,3 +154,18 @@ def test_main_exit_codes(tmp_path):
     assert cp.main(["x", str(f), "--app-exists"]) == 1
     assert cp.main(["x", str(f)]) == 0
     assert cp.main(["x", str(tmp_path / "missing.json")]) == 1
+
+
+def test_dropped_eval_job_delete_is_refused_on_every_target():
+    # The MLflow eval job left resources/jobs.yml (Task 10 cut). On dev its state is bound to the v2 job
+    # 187415563984931, on v3 to geologic_v3_eval: the resulting delete must stop deploy.sh, never run.
+    doc = {"plan": {"resources.jobs.geologic_eval": {"action": "delete"}, "resources.apps.geologic": {"action": "update"}}}
+    for target in ("dev", "v3"):
+        assert any("deletes" in p for p in cp.check(doc, True, target)), target
+    assert "187415563984931" in cp.V2_JOB_IDS
+
+
+def test_jobs_yml_has_no_eval_job():
+    jobs = (ROOT / "resources" / "jobs.yml").read_text()
+    assert "geologic_eval" not in jobs and "evaluate_drafts" not in jobs
+    assert not (ROOT / "jobs" / "evaluate_drafts.py").exists()

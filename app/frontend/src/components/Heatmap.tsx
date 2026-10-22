@@ -1,7 +1,7 @@
 import type { HeatCell } from '../api/types'
 
 export const CLUSTERS: [string, string][] = [
-  ['product', 'Product questions'],
+  ['product', 'Product prompts'],
   ['value', 'Value and deals'],
   ['comparison', 'Comparisons'],
   ['ordering', 'Ordering / Pizza Portal'],

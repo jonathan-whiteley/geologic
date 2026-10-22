@@ -8,7 +8,7 @@
 --   persona_id.lower() == ref, topic_set uses t.lower()).
 -- Semantic note: SQL uses min(rule_id) to pick one rule per signal; Python iterates
 --   rules in insertion order and returns the first match. For seeded data the results
---   agree because rule_ids are in alphabetical == insertion order (EX-01 < EX-07).
+--   agree because rule_ids are in alphabetical == insertion order.
 
 CREATE OR REFRESH STREAMING TABLE silver_signals_raw AS
 SELECT signal_id, source_type, timestamp_micros(ingested_at) AS ingested_at, image_uri,

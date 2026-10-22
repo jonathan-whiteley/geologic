@@ -6,3 +6,10 @@ def test_clean_dashes_keeps_ranges_and_drops_stray_punctuation():  # moved with 
     assert clean_dashes(f"Hot and ready {em}.") == "Hot and ready." and clean_dashes(f"Line one {en}\n{em} line two") == "Line one\nline two"
     js = '{"a": 1, "b": 2}'
     assert clean_dashes(js) == js and clean_dashes(None) is None
+
+
+def test_strip_fences():
+    from geologic.style import strip_fences
+    assert strip_fences('```json\n[1]\n```') == "[1]"
+    assert strip_fences(None) == ""
+    assert strip_fences("plain text") == "plain text"

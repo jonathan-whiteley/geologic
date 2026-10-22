@@ -47,6 +47,14 @@
   --arch-muted: 113 113 122;
   --arch-faint: 161 161 170;
   --arch-navy: 11 32 38;
+  /* Architecture layer accents (mid tones that read on the light and the Spooky canvas) */
+  --arch-slate: 100 116 139;
+  --arch-ingest: 255 103 27;
+  --arch-pipeline: 14 165 233;
+  --arch-search: 139 92 246;
+  --arch-lakebase: 245 158 11;
+  --arch-genie: 20 184 166;
+  --arch-app: 16 185 129;
 }
 
 /* Spooky mode (Halloween) CSS variables */

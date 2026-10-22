@@ -4,6 +4,7 @@ import json
 import re
 from dataclasses import dataclass
 from geologic.claims import ATTRIBUTES
+from geologic.style import strip_fences
 
 ATTRIBUTES_TEXT = ", ".join(ATTRIBUTES)
 
@@ -146,10 +147,8 @@ def _normalize_claims(claims, subjects) -> list[dict]:
                     "stated_value": None if v is None else str(v)})
     return out
 
-_FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
-
 def parse_judge_output(text: str, subjects=()) -> JudgeResult:
-    raw = _FENCE.sub("", (text or "").strip())
+    raw = strip_fences(text)
     try:
         obj = json.loads(raw)
     except json.JSONDecodeError as e:

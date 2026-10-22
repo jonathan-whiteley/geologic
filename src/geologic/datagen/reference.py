@@ -124,7 +124,7 @@ def site_pages() -> list[dict]:
         # S2 + S6: thin game-day page, no sizing answer, sponsorship mentioned once
         ("pg_deals_game_day", "https://littlecaesars.com/deals/game-day", "deals", None,
          "## Game Day Deals\n$4.99 online during NFL games.\nOfficial Pizza Sponsor of the NFL.", None, "gameday_499", _STALE),
-        # S7: ordering page exists but is orphaned (crawlers never reach it)
+        # ordering page
         ("pg_order", "https://littlecaesars.com/order", "ordering", None, "## Order\nPick up with Pizza Portal."),
         ("pg_about", "https://littlecaesars.com/about", "about", None, "## About Little Caesars\nFounded in 1959 in Garden City, Michigan."),
         ("pg_faq", "https://littlecaesars.com/faq", "faq", None, "## FAQ\nQuestions about orders and the app."),

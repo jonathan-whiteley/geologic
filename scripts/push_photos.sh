@@ -36,8 +36,9 @@ while IFS= read -r name; do
 done < <(python3 -c 'import sys; sys.path.insert(0, "src"); from geologic.photos import CREDITS; print("\n".join(CREDITS))')
 if [ "${#PHOTOS[@]}" -eq 0 ]; then exit 0; fi   # fresh clone: no local photos, nothing to upload
 
-if ! databricks volumes read "$CATALOG.$SCHEMA.assets" --profile "$PROFILE" >/dev/null 2>&1; then
-  echo "push_photos: volume $CATALOG.$SCHEMA.assets does not exist yet; run the setup job (data task), then deploy again."
+if ! PROBE_ERR=$(databricks volumes read "$CATALOG.$SCHEMA.assets" --profile "$PROFILE" 2>&1 >/dev/null); then
+  echo "push_photos: cannot read volume $CATALOG.$SCHEMA.assets: ${PROBE_ERR:-no error output}"
+  echo "push_photos: if it does not exist yet, run the setup job (data task), then deploy again."
   exit 0
 fi
 for name in "${PHOTOS[@]}"; do

@@ -5,7 +5,7 @@ import re
 from geologic.exclusions import find_exclusion
 from geologic.probe.engine import usage_context
 from geologic.probe.judge import ATTRIBUTES_TEXT, _subject_line, _subject_lookup, _vocab, resolve_subject
-from geologic.style import clean_dashes
+from geologic.style import clean_dashes, strip_fences
 from geologic.tiering import assign_tier
 from geologic.verify import (CHECK_ORDER, jsonld_strings, mentions, only_quotes, person_terms, quoted_numbers, reground, supported,
                              verify, verify_jsonld)
@@ -80,7 +80,7 @@ def _strip_markers(text):
 
 
 def parse_draft(text):
-    raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", (text or "").strip(), flags=re.MULTILINE)
+    raw = strip_fences(text)
     try:
         obj = json.loads(raw)
     except json.JSONDecodeError as e:
@@ -144,7 +144,7 @@ def draft_claims_messages(text, subjects):
 
 def unsupported_claims(text, grounding, chat, endpoint, subjects, names=()):
     out = chat.complete(endpoint, draft_claims_messages(text, subjects), max_tokens=800, usage_context=usage_context("draft_judge"))
-    raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", (out or "").strip(), flags=re.MULTILINE)
+    raw = strip_fences(out)
     try:
         items = json.loads(raw)
     except json.JSONDecodeError:

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
@@ -21,6 +21,7 @@ export default function FixPage() {
   const issueParam = params.get('issue')
   const [filter, setFilter] = useState<QueueFilter>('all')
   const [showTrail, setShowTrail] = useState(false)
+  const closeTrail = useCallback(() => setShowTrail(false), [])
   const [t0Ids, setT0Ids] = useState<string[]>([])
   const [t0Running, setT0Running] = useState<string[]>([])
   const [t0Starting, setT0Starting] = useState(false)
@@ -106,7 +107,7 @@ export default function FixPage() {
         </div>
       )}
 
-      {showTrail && <QuarantineTrail onClose={() => setShowTrail(false)} />}
+      {showTrail && <QuarantineTrail onClose={closeTrail} />}
     </div>
   )
 }

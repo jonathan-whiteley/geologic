@@ -5,7 +5,7 @@ import { api } from '../api/client'
 
 const POINTS: { key: 'ingest' | 'suggest' | 'publish'; label: string }[] = [
   { key: 'ingest', label: 'Ingest: quarantined by the Lakeflow pipeline' },
-  { key: 'suggest', label: 'Draft: blocked by Brand Guardian' },
+  { key: 'suggest', label: 'Draft: blocked by the policy check' },
   { key: 'publish', label: 'Publish: refused by the publish re-check' },
 ]
 

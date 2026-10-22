@@ -184,15 +184,3 @@ resources:
           environment_key: default
           spark_python_task: { python_file: ../jobs/verify_uc_functions.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"] }
 
-    geologic_eval:
-      name: ${var.name_prefix}_eval
-      max_concurrent_runs: 1
-      environments:
-        - environment_key: default
-          spec:
-            client: "2"
-            dependencies: ["databricks-sdk>=0.60", "psycopg[binary]", "mlflow>=3.1", databricks-agents]
-      tasks:
-        - task_key: evaluate
-          environment_key: default
-          spark_python_task: { python_file: ../jobs/evaluate_drafts.py, parameters: ["--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"] }

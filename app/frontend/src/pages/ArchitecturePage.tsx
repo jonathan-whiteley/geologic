@@ -15,22 +15,25 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { toPng, toSvg } from 'html-to-image'
-import { Radio, Star, Bot, Zap, Workflow, Search, Sparkles, Database, LayoutDashboard, DoorOpen, Scale, BarChart3, MessageSquareText } from 'lucide-react'
+import { ListChecks, DoorOpen, Bot, Scale, ShieldCheck, Globe, Zap, Workflow, ScanEye, Search, ClipboardList, Sparkles, Database, ScrollText, BarChart3, MessageSquareText, LayoutDashboard } from 'lucide-react'
 
-type Layer = 'source' | 'ingest' | 'pipeline' | 'gateway' | 'search' | 'agent' | 'lakebase' | 'genie' | 'app' | 'uc'
+type Layer = 'uc' | 'gateway' | 'search' | 'ingest' | 'pipeline' | 'lakebase' | 'genie' | 'app'
+
+/** Every color is an --arch-* variable (index.css), so Spooky mode themes the canvas and the export resolves it. */
+function tone(v: string, label: string) {
+  return { fg: `rgb(var(${v}))`, ring: `rgb(var(${v}) / 0.40)`, tint: `rgb(var(${v}) / 0.10)`, label }
+}
 
 const LAYER: Record<Layer, { fg: string; ring: string; tint: string; label: string }> = {
-  source: { fg: '#64748B', ring: 'rgba(100,116,139,0.40)', tint: 'rgba(100,116,139,0.10)', label: 'Sources' },
-  ingest: { fg: '#FF671B', ring: 'rgba(255,103,27,0.40)', tint: 'rgba(255,103,27,0.10)', label: 'Zerobus Ingest' },
-  pipeline: { fg: '#0EA5E9', ring: 'rgba(14,165,233,0.40)', tint: 'rgba(14,165,233,0.10)', label: 'Lakeflow SDP' },
+  uc: tone('--arch-slate', 'Unity Catalog'),
   // Navy flips to lavender in Spooky mode (see --arch-navy) so it reads on the dark canvas.
-  gateway: { fg: 'rgb(var(--arch-navy))', ring: 'rgb(var(--arch-navy) / 0.40)', tint: 'rgb(var(--arch-navy) / 0.10)', label: 'AI Gateway' },
-  search: { fg: '#8B5CF6', ring: 'rgba(139,92,246,0.40)', tint: 'rgba(139,92,246,0.10)', label: 'Vector Search' },
-  agent: { fg: '#EC4899', ring: 'rgba(236,72,153,0.40)', tint: 'rgba(236,72,153,0.10)', label: 'Agent Bricks' },
-  lakebase: { fg: '#F59E0B', ring: 'rgba(245,158,11,0.40)', tint: 'rgba(245,158,11,0.10)', label: 'Lakebase' },
-  genie: { fg: '#14B8A6', ring: 'rgba(20,184,166,0.40)', tint: 'rgba(20,184,166,0.10)', label: 'Genie' },
-  app: { fg: '#10B981', ring: 'rgba(16,185,129,0.40)', tint: 'rgba(16,185,129,0.10)', label: 'Databricks App' },
-  uc: { fg: '#64748B', ring: 'rgba(100,116,139,0.40)', tint: 'rgba(100,116,139,0.10)', label: 'Unity Catalog' },
+  gateway: tone('--arch-navy', 'AI Gateway'),
+  search: tone('--arch-search', 'Vector Search'),
+  ingest: tone('--arch-ingest', 'Zerobus Ingest'),
+  pipeline: tone('--arch-pipeline', 'Lakeflow SDP'),
+  lakebase: tone('--arch-lakebase', 'Lakebase'),
+  genie: tone('--arch-genie', 'Genie'),
+  app: tone('--arch-app', 'Databricks App'),
 }
 
 interface CardData {
@@ -107,6 +110,8 @@ function CardNode({ data }: NodeProps) {
       <Handle id="bottom-target" type="target" position={Position.Bottom} isConnectable={false} style={hiddenHandle} />
       <Handle id="top-source" type="source" position={Position.Top} isConnectable={false} style={hiddenHandle} />
       <Handle id="top-target" type="target" position={Position.Top} isConnectable={false} style={hiddenHandle} />
+      <Handle id="left-source" type="source" position={Position.Left} isConnectable={false} style={hiddenHandle} />
+      <Handle id="right-target" type="target" position={Position.Right} isConnectable={false} style={hiddenHandle} />
     </div>
   )
 }
@@ -165,7 +170,55 @@ function BandNode({ data }: NodeProps) {
   )
 }
 
-const nodeTypes = { card: CardNode, header: HeaderNode, band: BandNode }
+const EXTENSIONS = [
+  'AI referral sessions and conversions from web analytics',
+  'AI crawler hits from server logs',
+  'Imported GEO tool data',
+]
+
+function ExtensionsNode() {
+  return (
+    <div
+      style={{
+        width: 240,
+        padding: '12px 14px',
+        background: 'rgb(var(--surface-default))',
+        border: '1.5px dashed rgb(var(--arch-faint))',
+        borderRadius: 10,
+        fontFamily: 'var(--font-sans)',
+        cursor: 'grab',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'rgb(var(--text-primary))' }}>Production extensions</span>
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            color: 'rgb(var(--arch-muted))',
+            border: '1px solid rgb(var(--arch-line))',
+            borderRadius: 999,
+            padding: '1px 7px',
+          }}
+        >
+          not demoed
+        </span>
+      </div>
+      <ul style={{ margin: '8px 0 0', paddingLeft: 16, fontSize: 11, lineHeight: 1.4, color: 'rgb(var(--arch-muted))', listStyle: 'disc' }}>
+        {EXTENSIONS.map((e) => (
+          <li key={e}>{e}</li>
+        ))}
+      </ul>
+      <p style={{ margin: '8px 0 0', fontSize: 11, lineHeight: 1.35, color: 'rgb(var(--arch-muted))', fontStyle: 'italic' }}>
+        All join in Unity Catalog to prompts, answers, claims and sources.
+      </p>
+    </div>
+  )
+}
+
+const nodeTypes = { card: CardNode, header: HeaderNode, band: BandNode, extensions: ExtensionsNode }
 
 const HEADER_Y = -40
 
@@ -194,34 +247,42 @@ function header(id: string, x: number, label: string, width: number): Node {
   return { id, type: 'header', position: { x, y: HEADER_Y }, data: { label, width }, draggable: false, selectable: false }
 }
 
+const COL = { measure: 0, web: 250, fix: 540, issues: 790, impact: 1080, app: 1360 }
+const ROW = (i: number) => 40 + i * 120
+
 const INITIAL_NODES: Node[] = [
-  header('hdr-measure', 0, 'Measure', 670),
-  header('hdr-fix', 730, 'Fix', 480),
-  header('hdr-impact', 1240, 'Impact', 200),
-  header('hdr-serve', 1520, 'Serve', 200),
-  // Measure
-  card('src-social', 0, 40, 'source', 'Social and athlete posts', 'Posts with photos', <Radio {...ICON} />),
-  card('src-reviews', 0, 150, 'source', 'Reviews', 'Guest ratings and comments', <Star {...ICON} />),
-  card('src-crawler', 0, 260, 'source', 'AI crawler hits', 'GPTBot, PerplexityBot, ClaudeBot', <Bot {...ICON} />),
-  card('zerobus', 235, 150, 'ingest', 'Zerobus Ingest', 'Signals stream into Delta, no message bus', <Zap {...ICON} />),
-  card('sdp', 470, 150, 'pipeline', 'Lakeflow SDP', 'Classify, match to menu, quarantine', <Workflow {...ICON} />),
-  card('gateway', 0, 400, 'gateway', 'AI Gateway', 'One governed door: Claude, ChatGPT, Gemini, Meta AI; usage tracked', <DoorOpen {...ICON} />),
-  card('judge', 270, 410, 'gateway', 'LLM judge', 'Mentions, rank, fact checks', <Scale {...ICON} />),
-  // Fix
-  card('vs', 730, 150, 'search', 'Vector Search', 'Pages, menu, questions', <Search {...ICON} />),
-  card('agent', 1010, 150, 'agent', 'Agent Bricks', 'Content Strategist drafts, Brand Guardian checks', <Sparkles {...ICON} />),
-  card('lakebase', 1010, 20, 'lakebase', 'Lakebase', 'Approvals, page versions, proof', <Database {...ICON} />),
+  header('hdr-measure', COL.measure, 'Measure', 450),
+  header('hdr-fix', COL.fix, 'Fix', 450),
+  header('hdr-impact', COL.impact, 'Impact', 200),
+  header('hdr-app', COL.app, 'App', 240),
+  // Measure: tracked prompts through AI Gateway to four engines, judged and checked against facts
+  card('prompts', COL.measure, ROW(0), 'uc', '30 tracked prompts', 'With est. monthly searches', <ListChecks {...ICON} />),
+  card('gateway', COL.measure, ROW(1), 'gateway', 'AI Gateway', 'One governed door; usage and cost logged', <DoorOpen {...ICON} />),
+  card('engines', COL.measure, ROW(2), 'gateway', 'Claude · ChatGPT · Gemini · Meta AI', '120 answers', <Bot {...ICON} />),
+  card('judge', COL.measure, ROW(3), 'gateway', 'LLM judge', 'Mentions, rank, citations, claims', <Scale {...ICON} />),
+  card('claims', COL.measure, ROW(4), 'uc', 'Claims checked against brand_facts', 'Correct, Outdated, Wrong', <ShieldCheck {...ICON} />),
+  card('web', COL.web, ROW(2), 'search', 'Simulated web', 'Direct Vector Access index (re-embedded on approve)', <Globe {...ICON} />),
+  // Fix: signals become moments and prompts; issues become grounded, verified fixes
+  card('zerobus', COL.fix, ROW(0), 'ingest', 'Zerobus Ingest', 'Social posts and reviews stream into Delta', <Zap {...ICON} />),
+  card('sdp', COL.fix, ROW(1), 'pipeline', 'Lakeflow SDP', 'Classify, quarantine by policy', <Workflow {...ICON} />),
+  card('vision', COL.fix, ROW(2), 'pipeline', 'Vision match', 'Photo to menu item', <ScanEye {...ICON} />),
+  card('moment', COL.fix, ROW(3), 'search', 'Moment → prompt (Vector Search)', 'New prompts worth tracking', <Search {...ICON} />),
+  card('issues', COL.issues, ROW(0), 'uc', 'Issues builder', 'Wrong, Outdated, Missing us, No answer page, Moment gap', <ClipboardList {...ICON} />),
+  card('drafter', COL.issues, ROW(1), 'gateway', 'Grounded drafter + verifier', 'Section patches with checks', <Sparkles {...ICON} />),
+  card('approvals', COL.issues, ROW(2), 'lakebase', 'Lakebase approvals and fix results', 'Approve, upsert, re-ask', <Database {...ICON} />),
   // Impact
-  card('genie', 1240, 150, 'genie', 'Genie', 'Ask in plain English, see the SQL', <MessageSquareText {...ICON} />),
-  card('metrics', 1240, 410, 'pipeline', 'Metric views', 'Share of Model, accuracy, citations', <BarChart3 {...ICON} />),
-  // Serve
-  card('app', 1520, 150, 'app', 'Databricks App', 'GEOlogic', <LayoutDashboard {...ICON} />),
+  card('ledger', COL.impact, ROW(0), 'lakebase', 'Fix ledger (Lakebase)', 'Every fix and its before and after', <ScrollText {...ICON} />),
+  card('metrics', COL.impact, ROW(2), 'uc', 'Metric views', 'Share of Model, accuracy, citations', <BarChart3 {...ICON} />),
+  card('genie', COL.impact, ROW(3), 'genie', 'Genie', 'Ask in plain English, see the SQL', <MessageSquareText {...ICON} />),
+  // App
+  card('app', COL.app, ROW(1), 'app', 'Databricks App', 'GEOlogic: Measure, Fix, Impact', <LayoutDashboard {...ICON} />),
+  { id: 'extensions', type: 'extensions', position: { x: COL.app, y: ROW(3) - 20 }, data: {} },
   // Unity Catalog band
   {
     id: 'uc',
     type: 'band',
-    position: { x: 0, y: 540 },
-    data: { label: 'Unity Catalog: governance, lineage, inference tables', width: 1720 },
+    position: { x: 0, y: ROW(5) },
+    data: { label: 'Unity Catalog: governance, lineage, usage and cost logged by AI Gateway', width: COL.app + 240 },
     draggable: false,
     selectable: false,
   },
@@ -263,20 +324,31 @@ function edge(
   }
 }
 
+const DOWN = { sourceHandle: 'bottom-source', targetHandle: 'top-target' }
+
 const INITIAL_EDGES: Edge[] = [
-  edge('src-social', 'zerobus', { color: LAYER.ingest.fg }),
-  edge('src-reviews', 'zerobus', { color: LAYER.ingest.fg }),
-  edge('src-crawler', 'zerobus', { color: LAYER.ingest.fg }),
-  edge('zerobus', 'sdp', { color: LAYER.pipeline.fg, animated: true }),
-  edge('sdp', 'vs', { color: LAYER.search.fg, animated: true }),
-  edge('gateway', 'judge', { color: LAYER.gateway.fg, animated: true }),
-  edge('judge', 'metrics', { color: LAYER.gateway.fg, animated: true }),
-  edge('sdp', 'metrics', { color: LAYER.pipeline.fg, animated: true, sourceHandle: 'bottom-source' }),
-  edge('vs', 'agent', { color: LAYER.agent.fg, animated: true, label: 'Retrieval' }),
-  edge('agent', 'lakebase', { color: LAYER.lakebase.fg, animated: true, label: 'Drafts', sourceHandle: 'top-source', targetHandle: 'bottom-target' }),
-  edge('lakebase', 'app', { color: LAYER.lakebase.fg, animated: true, label: 'Approvals', targetHandle: 'top-target' }),
-  edge('metrics', 'genie', { color: LAYER.genie.fg, animated: true, sourceHandle: 'top-source', targetHandle: 'bottom-target' }),
-  edge('genie', 'app', { color: LAYER.app.fg, animated: true, label: 'Answers' }),
+  // Measure
+  edge('prompts', 'gateway', { color: LAYER.gateway.fg, animated: true, ...DOWN }),
+  edge('gateway', 'engines', { color: LAYER.gateway.fg, animated: true, ...DOWN }),
+  edge('web', 'engines', { color: LAYER.search.fg, animated: true, label: 'Top hits', sourceHandle: 'left-source', targetHandle: 'right-target' }),
+  edge('engines', 'judge', { color: LAYER.gateway.fg, animated: true, ...DOWN }),
+  edge('judge', 'claims', { color: LAYER.gateway.fg, animated: true, ...DOWN }),
+  // Fix
+  edge('zerobus', 'sdp', { color: LAYER.pipeline.fg, animated: true, ...DOWN }),
+  edge('sdp', 'vision', { color: LAYER.pipeline.fg, animated: true, ...DOWN }),
+  edge('vision', 'moment', { color: LAYER.search.fg, animated: true, ...DOWN }),
+  edge('moment', 'prompts', { color: LAYER.search.fg, dashed: true, label: 'Track', sourceHandle: 'left-source', targetHandle: 'right-target' }),
+  edge('claims', 'issues', { color: LAYER.uc.fg, animated: true }),
+  edge('issues', 'drafter', { color: LAYER.gateway.fg, animated: true, ...DOWN }),
+  edge('drafter', 'approvals', { color: LAYER.lakebase.fg, animated: true, ...DOWN }),
+  edge('approvals', 'web', { color: LAYER.search.fg, dashed: true, label: 'Upsert + re-ask', sourceHandle: 'left-source', targetHandle: 'right-target' }),
+  // Impact and App
+  edge('approvals', 'ledger', { color: LAYER.lakebase.fg, animated: true }),
+  edge('claims', 'metrics', { color: LAYER.uc.fg, animated: true }),
+  edge('metrics', 'genie', { color: LAYER.genie.fg, animated: true, ...DOWN }),
+  edge('ledger', 'app', { color: LAYER.lakebase.fg, animated: true }),
+  edge('metrics', 'app', { color: LAYER.uc.fg, animated: true }),
+  edge('genie', 'app', { color: LAYER.genie.fg, animated: true, label: 'Answers' }),
 ]
 
 function Toolbar() {
@@ -457,7 +529,7 @@ export default function ArchitecturePage() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-lce-orange-dark mb-1">Architecture</p>
           <h1 className="text-2xl font-semibold">System Architecture</h1>
-          <p className="text-text-secondary">From signal to approved fix on Databricks, all governed by Unity Catalog. Drag nodes · scroll to zoom · export to PNG/SVG.</p>
+          <p className="text-text-secondary">Measure what four AI engines say, fix the sources, prove the lift: all on Databricks, governed by Unity Catalog. Drag nodes · scroll to zoom · export to PNG/SVG.</p>
         </div>
       </div>
       <div
@@ -482,7 +554,7 @@ export default function ArchitecturePage() {
             color: 'rgb(var(--arch-muted))',
           }}
         >
-          In production, AI Gateway routes to the live OpenAI, Gemini and Anthropic APIs, or you land your GEO tracking vendor's data in Unity Catalog.
+          Bring your GEO tool's data, or run your own probe. Either way, it lands in Unity Catalog.
         </p>
         <LegendFooter />
       </div>

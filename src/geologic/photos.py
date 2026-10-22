@@ -4,7 +4,6 @@ import shutil
 
 CREDITS = {
     "goff_slices_n_stix.jpg": "Photo: Courtesy of Little Caesars",
-    "kittle_tailgate.png": "Photo: Valereee, CC BY-SA 4.0",
 }
 
 

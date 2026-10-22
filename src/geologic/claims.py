@@ -12,7 +12,7 @@ TAGS = ("Correct", "Wrong", "Outdated", "Unverifiable")
 TAGGED_ATTRIBUTES = ("price", "serves", "founded")
 ATTRIBUTES = TAGGED_ATTRIBUTES + ("contents", "style", "ordering", "delivery", "nfl_sponsor", "available", "other")
 _CITE = re.compile(r"\[([A-Za-z0-9_\-]+)\]")
-_NUM = re.compile(r"\$?\d+(?:\.\d{1,2})?")
+NUM = re.compile(r"\$?\d+(?:\.\d{1,2})?")
 _SENT = re.compile(r"(?<=[.!?])\s+")
 _MASK = re.compile(r"\x00(\d+)\x00")
 
@@ -129,7 +129,7 @@ def tag_claim(claim: dict, facts: list[dict], today, categories: dict) -> tuple[
 
 
 def _nums(text: str) -> set[float]:
-    return {n for n in (parse_price(m) for m in _NUM.findall(_CITE.sub(" ", text or ""))) if n is not None}
+    return {n for n in (parse_price(m) for m in NUM.findall(_CITE.sub(" ", text or ""))) if n is not None}
 
 
 def source_for(claim: dict, answer: str, docs) -> str | None:

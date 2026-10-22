@@ -6,7 +6,7 @@ import json
 import re
 from collections import defaultdict
 from geologic.facts import resolve_item
-from geologic.style import clean_dashes
+from geologic.style import clean_dashes, strip_fences
 
 TREND_VELOCITY = 3.0
 TEXT_RESOLUTION_MIN = 0.9   # a persona post with no image match may still pass on a confident text resolution
@@ -72,7 +72,7 @@ def question_messages(moment, item_name, persona_name=None):
 
 
 def parse_questions(text):
-    raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", (text or "").strip(), flags=re.MULTILINE)
+    raw = strip_fences(text)
     try:
         obj = json.loads(raw)
     except json.JSONDecodeError:

@@ -99,3 +99,20 @@ def test_display_name_or_alias_maps_back_to_id():
 def test_bare_id_subjects_still_work():
     assert _claim_out("party_pack", ("party_pack", "brand")) == "party_pack"
     assert _claim_out("Game Day Party Pack", ("party_pack", "brand")) == "unknown"   # no names given, no mapping
+
+
+def test_subject_names_and_aliases_are_unique_across_subjects():
+    # _subject_lookup uses setdefault, so a label shared by two subjects would silently resolve to the first one.
+    from collections import defaultdict
+    from geologic.datagen.reference import SUBJECTS, subject_vocabulary
+    from geologic.probe.judge import _key
+    vocab = subject_vocabulary()
+    assert tuple(v[0] for v in vocab) == SUBJECTS
+    owners = defaultdict(set)
+    for sid, name, aliases in vocab:
+        owners[sid.strip().lower()].add(sid)
+        for label in (name, *aliases):
+            if _key(label):
+                owners[_key(label)].add(sid)
+    clashes = {k: sorted(v) for k, v in owners.items() if len(v) > 1}
+    assert clashes == {}

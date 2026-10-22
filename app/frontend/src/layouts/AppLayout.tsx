@@ -236,7 +236,7 @@ function Shell() {
       </main>
 
       <p className="text-center text-xs text-text-tertiary mt-10 pb-6">
-        Built on Databricks · Zerobus · Lakeflow · AI Gateway · Agent Bricks · Vector Search · Lakebase · AI/BI · Genie
+        Built on Databricks · Zerobus · Lakeflow · AI Gateway · Vector Search · Lakebase · AI/BI · Genie
       </p>
     </div>
   )

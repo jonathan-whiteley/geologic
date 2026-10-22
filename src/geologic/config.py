@@ -21,7 +21,6 @@ class Settings:
     judge_endpoint: str = "databricks-claude-sonnet-4-6"
     vision_endpoint: str = "databricks-claude-sonnet-4-6"
     embedding_endpoint: str = "databricks-gte-large-en"
-    strategist_endpoint: str = "geologic-content-strategist"
     vs_endpoint: str = "geologic-vs"
     match_threshold: float = 0.80     # cosine similarity (vectors.query converts the Vector Search score) for moment and search matches
     reask_fallback_s: int = 90        # re-ask wait before a rehearsed result may be shown
@@ -31,7 +30,7 @@ class Settings:
     def from_env(cls) -> "Settings":
         kw = {}
         for f in ("catalog", "schema", "judge_endpoint", "vision_endpoint",
-                  "embedding_endpoint", "strategist_endpoint", "vs_endpoint"):
+                  "embedding_endpoint", "vs_endpoint"):
             v = os.environ.get(f"GEOLOGIC_{f.upper()}")
             if v:
                 kw[f] = v
@@ -45,10 +44,6 @@ class Settings:
 
     def fq(self, name: str) -> str:
         return f"{self.catalog}.{self.schema}.{name}"
-
-    @property
-    def corpus_index(self) -> str:
-        return self.fq("web_corpus_idx")
 
     @property
     def menu_index(self) -> str:
