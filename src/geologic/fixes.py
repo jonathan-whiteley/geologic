@@ -66,10 +66,19 @@ def build_requests(issue, *, pages, sources, facts, prompts, claims, personas, t
         out.append(dict(fix_id=fix_id(issue["issue_id"], asset), issue_id=issue["issue_id"], issue_type=issue["issue_type"],
                         issue_title=issue["title"], issue_rank=issue.get("rank"), asset_type=asset, lane=f["lane"],
                         page_id=f.get("page_id"), section_id=section_id, op=op, section_before=before, facts=cur, superseded=old,
-                        prompts=[P[p]["prompt_text"] for p in issue["prompt_ids"] if p in P], claim=claim, passage=passage,
+                        prompts=[P[p]["prompt_text"] for p in target_prompt_order(issue["prompt_ids"], P)], claim=claim, passage=passage,
                         recipient=f.get("recipient"), persona_name=person["display_name"] if person and asset == "association" else None,
                         persona_id=issue.get("persona_id"), prompt_ids=list(issue["prompt_ids"])))
     return out
+
+
+_PRIORITY = {"Gold": 0, "Silver": 1, "Bronze": 2}
+
+
+def target_prompt_order(prompt_ids, P):
+    """Tracked target prompts, Gold first (stable within a priority), so an asset that leads with one prompt leads with a Gold one."""
+    ids = [p for p in prompt_ids if p in P]
+    return sorted(ids, key=lambda p: _PRIORITY.get(P[p].get("priority"), 3))
 
 
 def fix_values(req, final, epoch, trace_id):

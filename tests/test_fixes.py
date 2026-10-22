@@ -56,3 +56,10 @@ def test_upsert_sql_shape():
              "exclusion_rule_id": None}
     vals = fix_values(reqs()[1], final, 1, "tr")
     assert len(vals) == len(FIX_COLUMNS) and vals[FIX_COLUMNS.index("title")].startswith("Patch our page")
+
+
+def test_target_prompts_go_gold_first_so_the_heading_asks_a_gold_prompt():
+    from geologic.fixes import target_prompt_order
+    P = {"q034": {"prompt_text": "fantasy", "priority": "Silver"}, "q201": {"prompt_text": "super bowl 12", "priority": "Gold"},
+         "q062": {"prompt_text": "super bowl", "priority": "Gold"}, "q999": {"prompt_text": "x"}}
+    assert target_prompt_order(["q034", "q062", "q201", "q999", "qmissing"], P) == ["q062", "q201", "q034", "q999"]
