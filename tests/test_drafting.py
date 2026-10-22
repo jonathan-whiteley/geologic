@@ -218,3 +218,19 @@ def test_redrafts_up_to_two_times_and_keeps_the_best():
     calls = []
     final3 = draft_with_redrafts(lambda f: calls.append(f) or {"n": 0}, fin, max_redrafts=2)
     assert final3["n"] == 0 and calls == [None]   # a clean first draft is not redrafted
+
+
+def test_finalize_grounds_a_factual_sentence_the_drafter_left_unlabeled():
+    text = "## Deep dish\nFeeding a bigger crew? The Game Day Party Pack is $29.99 and serves 12, with 3 large pizzas and 2 orders of Crazy Bread."
+    d = {"patch": {"section_id": REQ["section_id"], "op": "insert", "text": text},
+         "sentences": [{"text": "Feeding a bigger crew?", "fact_ids": []},
+                       {"text": "The Game Day Party Pack is $29.99 and serves 12, with 3 large pizzas and 2 orders of Crazy Bread.", "fact_ids": []}],
+         "rationale": "r"}
+    f = finalize_fix(d, REQ, F, exclusion_rules(), T, item_names=[m["name"] for m in menu_items()], persona_names=[], judge=lambda t, g: [])
+    ok = {c["key"]: c["ok"] for c in f["checks"]}
+    assert ok["grounded"] and ok["values"], f["checks"]
+    assert {"F12", "F14", "F15"} <= set(f["grounding_fact_ids"])
+    # a number no current fact states stays ungrounded
+    bad = {**d, "patch": {**d["patch"], "text": "## H\nTwo packs are $59.98."}, "sentences": []}
+    f = finalize_fix(bad, REQ, F, exclusion_rules(), T, item_names=[m["name"] for m in menu_items()], persona_names=[], judge=lambda t, g: [])
+    assert not {c["key"]: c["ok"] for c in f["checks"]}["grounded"]

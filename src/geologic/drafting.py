@@ -7,8 +7,8 @@ from geologic.probe.engine import usage_context
 from geologic.probe.judge import ATTRIBUTES_TEXT, _subject_line, _subject_lookup, _vocab, resolve_subject
 from geologic.style import clean_dashes
 from geologic.tiering import assign_tier
-from geologic.verify import (CHECK_ORDER, jsonld_strings, mentions, only_quotes, person_terms, quoted_numbers, supported, verify,
-                             verify_jsonld)
+from geologic.verify import (CHECK_ORDER, jsonld_strings, mentions, only_quotes, person_terms, quoted_numbers, reground, supported,
+                             verify, verify_jsonld)
 
 BLOCKING_CHECKS = {"grounded", "current", "values", "comparison", "persona", "copy", "target", "unsupported", "policy", "schema"}
 
@@ -179,6 +179,9 @@ def finalize_fix(draft, req, facts, rules, today, *, item_names, persona_names, 
     """persona_names are names or persona rows. jsonld drafts get the T0 checks (verify_jsonld); every other asset gets
     verify() plus the judge pass. Checks come back in CHECK_ORDER; the tier is assigned by code from the results."""
     asset, text = req["asset_type"], draft["patch"]["text"]
+    if asset != "jsonld":   # a sentence the drafter left without fact ids is grounded by value matching (the edit route's rule)
+        labeled = [s for s in draft.get("sentences") or [] if s.get("fact_ids")]
+        draft = {**draft, "sentences": reground(text, labeled, facts, today, prior_ids=[f["fact_id"] for f in req.get("facts") or []])}
     if asset == "jsonld":
         checks, sentences = verify_jsonld(draft, req, facts, today, persona_names=persona_names)
     else:
