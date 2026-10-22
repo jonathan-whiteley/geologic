@@ -31,7 +31,8 @@ SYSTEM = ("You are the Content Strategist for Little Caesars. You write one smal
           "\"rationale\": \"<one sentence>\"}")
 
 ASSET_GUIDE = {
-    "owned_patch": "A short section for an existing Little Caesars page: a heading plus 2 to 4 sentences that answer the target prompts.",
+    "owned_patch": "A short section for an existing Little Caesars page: a heading that asks the first target prompt as a question, "
+                   "plus 2 to 4 sentences that answer it with the facts.",
     "answer_page": "A new answer page: a heading that restates the question, then 3 to 5 sentences that answer it with the facts.",
     "moment_page": "A short FAQ section for the menu item in the moment: a heading plus 2 to 4 sentences. Do not name any person.",
     "association": "One caption sentence that connects the named person's post to the menu item, plus one fact sentence.",

@@ -234,3 +234,8 @@ def test_finalize_grounds_a_factual_sentence_the_drafter_left_unlabeled():
     bad = {**d, "patch": {**d["patch"], "text": "## H\nTwo packs are $59.98."}, "sentences": []}
     f = finalize_fix(bad, REQ, F, exclusion_rules(), T, item_names=[m["name"] for m in menu_items()], persona_names=[], judge=lambda t, g: [])
     assert not {c["key"]: c["ok"] for c in f["checks"]}["grounded"]
+
+
+def test_owned_patch_heading_asks_the_top_target_prompt():
+    user = draft_messages(REQ)[1]["content"]
+    assert "heading that asks the first target prompt as a question" in user

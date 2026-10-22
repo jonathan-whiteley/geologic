@@ -74,6 +74,10 @@ def build_issues(answers, claims, prompts, sources, pages, facts, moments, perso
     owned = {d["doc_id"] for d in sources if d.get("owner_class") == "Owned"}
     is_owned = lambda doc_id: doc_id in owned or str(doc_id).startswith("lce_")
     names = {f["subject"]: f.get("subject_name") for f in facts}
+    subject_page = {}
+    for pg in sorted(pages, key=lambda pg: pg["page_id"]):
+        if pg.get("primary_subject"):
+            subject_page.setdefault(pg["primary_subject"], pg["page_id"])
     subject_name = lambda s: names.get(s) or str(s).replace("_", " ")
     cats = categories()
     menu_item = lambda s: s if cats.get(s) not in (None, "deal", "brand") else None
@@ -118,16 +122,18 @@ def build_issues(answers, claims, prompts, sources, pages, facts, moments, perso
         src = docs.get(src_id) if src_id else None
         owner = (src or {}).get("owner_class")
         value = _most_common(c.get("stated_value") for c in cs)
-        cluster_page = CLUSTER_PAGES.get(cluster, "pg_menu")
+        # counter content goes on our own page about the subject when there is one (it is what engines retrieve for the
+        # item), else on the cluster page
+        counter_page = subject_page.get(subject) or CLUSTER_PAGES.get(cluster, "pg_menu")
         if owner == "Owned":
             planned = [_fix("owned_patch", "fix_page", page_id=src.get("page_id"), op="replace")]
         elif owner in ("Editorial", "Reference"):
             planned = [_fix("correction_email", "request_correction", section_id="email", op="insert", recipient=src.get("domain")),
-                       _fix("owned_patch", "counter_content", page_id=cluster_page, op="insert")]
+                       _fix("owned_patch", "counter_content", page_id=counter_page, op="insert")]
         elif owner == "Community":
             planned = [_fix("community_reply", "reply_as_brand", section_id="reply", op="insert")]
         elif owner == "Competitor":
-            planned = [_fix("owned_patch", "counter_content", page_id=cluster_page, op="insert")]
+            planned = [_fix("owned_patch", "counter_content", page_id=counter_page, op="insert")]
         else:   # model memory (or a source we do not know): publish the right fact on an answer page per prompt
             planned = [_fix("answer_page", "publish_fact", page_id=f"pg_answer_{p}", section_id="main", op="insert") for p in pids]
         lane = LANE_BY_OWNER.get(owner, "publish_fact")

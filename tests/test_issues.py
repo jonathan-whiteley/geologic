@@ -118,7 +118,7 @@ def test_owned_competitor_and_memory_claims_pick_their_lanes():
     issues = build(claims=CLAIMS + extra)
     comp = one(issues, issue_type="wrong", source_doc_id="comp_dominos_party_guide")
     assert comp["action_lane"] == "counter_content"
-    assert [(f["asset_type"], f["page_id"], f["op"]) for f in comp["planned"]] == [("owned_patch", "pg_menu", "insert")]
+    assert [(f["asset_type"], f["page_id"], f["op"]) for f in comp["planned"]] == [("owned_patch", "pg_item_crazy_bread", "insert")]
     mem = one(issues, issue_type="wrong", source_doc_id=None)
     assert mem["action_lane"] == "publish_fact" and mem["planned"][0]["page_id"] == "pg_answer_q115"
     assert mem["claim_keys"] == ["Wrong|memory|crazy_bread|price"] and mem["source_doc_ids"] == [] and mem["fact_id"] == "F10"
@@ -204,3 +204,10 @@ def test_moment_gap_counts_engines_that_name_and_cite_us():   # Task 15 live: Cl
         ans("q202", "Claude", True, ["lce_pg_loc_00"]), ans("q202", "Meta AI", True, ["lce_pg_loc_00"]),
         ans("q202", "ChatGPT", False, []), ans("q202", "Gemini", False, [])]
     assert not [x for x in build(answers=captured_two) if x["issue_type"] == "moment_gap"]
+
+def test_counter_content_patches_the_subject_page_when_we_have_one():   # Task 15 live: the deals page never ranked for q201
+    pages = PAGES + [dict(page_id="pg_item_party_pack", primary_subject="party_pack", updated_at=datetime(2026, 8, 1))]
+    i = one(build(pages=pages), issue_type="outdated", source_doc_id="editorial_superbowl_roundup_2024")
+    assert [(f["asset_type"], f["page_id"]) for f in i["planned"]] == [("correction_email", None), ("owned_patch", "pg_item_party_pack")]
+    i = one(build(), issue_type="outdated", source_doc_id="editorial_superbowl_roundup_2024")   # no subject page: cluster page
+    assert i["planned"][1]["page_id"] == "pg_deals_game_day"
