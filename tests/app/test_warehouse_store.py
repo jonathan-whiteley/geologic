@@ -17,3 +17,11 @@ def test_timestamps_and_batches_stay_under_the_param_cap():
     rows = [{f"c{j}": j for j in range(13)} for _ in range(40)]
     batches = insert_batches("x.y.claims", rows, set())
     assert len(batches) > 1 and all(len(p) <= 250 for _, p in batches) and sum(len(p) for _, p in batches) == 40 * 13
+
+def test_response_rows_drop_the_ui_only_cited_chips():
+    from backend.warehouse_store import response_rows
+    a = [{"answer_id": "a1", "cited_doc_ids": ["d1"], "cited": [{"doc_id": "d1"}]}]
+    rows = response_rows(a)
+    assert rows == [{"answer_id": "a1", "cited_doc_ids": ["d1"]}] and "cited" in a[0]   # the caller's answers keep their chips
+    sql, _ = insert_batches("x.y.probe_responses", rows, {"cited_doc_ids"})[0]
+    assert "cited," not in sql and "cited)" not in sql

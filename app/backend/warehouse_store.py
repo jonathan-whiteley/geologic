@@ -48,6 +48,13 @@ def insert_batches(table, rows, array_cols, ts_cols=()):
     return [insert_rows(table, rows[i:i + per], array_cols, ts_cols) for i in range(0, len(rows), per)]
 
 
+UI_ONLY = {"cited"}   # doc chips attached for Track and run responses; probe_responses has no such column
+
+
+def response_rows(answers):
+    return [{k: v for k, v in a.items() if k not in UI_ONLY} for a in answers]
+
+
 def _in_list(ids):
     ok = [i for i in ids or [] if isinstance(i, str) and _SAFE_ID.match(i)]
     return ",".join(f"'{i}'" for i in ok) or None
@@ -168,7 +175,7 @@ class WarehouseStore:
         if self.repo.epoch() != epoch:
             print(f"re-ask {run['run_id']}: epoch moved from {epoch}; results not written")
             return answer_map(answers, claims, texts)
-        for sql, params in (insert_batches(S.fq("probe_responses"), answers, ANSWER_ARRAYS)
+        for sql, params in (insert_batches(S.fq("probe_responses"), response_rows(answers), ANSWER_ARRAYS)
                             + insert_batches(S.fq("claims"), claims, set())
                             + insert_batches(S.fq("probe_runs"), [run], {"prompt_ids"}, ts_cols={"started_at", "finished_at"})):
             self.q(sql, params)
