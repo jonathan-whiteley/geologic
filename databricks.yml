@@ -57,7 +57,7 @@ targets:
       name_prefix: geologic_v3
       pipeline_name: geologic-v3-signals
       lakebase_db: geologic_v3
-      genie_space_id: none
+      genie_space_id: 01f1cdc2701b1390bbf27a2659f2fc30
 
 sync:
   # app/src and app/frontend/dist are gitignored build outputs; include them so the
