@@ -76,6 +76,9 @@ class Api:
                 return e.code, json.loads(e.read() or b"null")
             except ValueError:
                 return e.code, None
+        except (urllib.error.URLError, TimeoutError, OSError) as e:   # a dropped connection: the caller polls again
+            print(f"  {method} {path}: {type(e).__name__}")
+            return 0, None
 
 
 def wait_reset(api: Api) -> bool:
@@ -116,7 +119,10 @@ def one_run(api: Api, fix_id: str) -> float | None:
     if state != "published":
         print(f"  status: gave up after {GIVE_UP_S:.0f} s (state {state})")
         return None
-    st, imp = api.call("GET", "/impact")
+    for _ in range(3):
+        st, imp = api.call("GET", "/impact")
+        if st == 200:
+            break
     ledger = (imp or {}).get("ledger") or []
     entry = next((e for e in ledger if e.get("fix_id") == fix_id and not e.get("rehearsal")), None)
     secs = time.time() - t0
