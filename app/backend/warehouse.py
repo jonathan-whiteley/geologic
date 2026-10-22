@@ -2,7 +2,7 @@
 import os
 from databricks import sql
 from databricks.sdk.core import Config
-from backend.rows import plain
+from backend.rows import plain_typed
 
 _cfg = Config()
 
@@ -13,5 +13,5 @@ def query(statement: str, params: dict | None = None) -> list[dict]:
         cur.execute(statement, params or {})
         if cur.description is None:   # INSERT / UPDATE
             return []
-        cols = [d[0] for d in cur.description]
-        return [{c: plain(v) for c, v in zip(cols, r)} for r in cur.fetchall()]
+        cols = [(d[0], d[1]) for d in cur.description]
+        return [{c: plain_typed(v, t) for (c, t), v in zip(cols, r)} for r in cur.fetchall()]
