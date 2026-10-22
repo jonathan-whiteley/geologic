@@ -170,6 +170,7 @@ def test_parse_draft_strips_inline_fact_markers_and_bracket_tags():
     assert d["patch"]["text"] == "## H\nThe pack feeds 12. It is $29.99. Little Caesars here. See [the menu](https://x)."
     assert d["sentences"][0]["text"] == "The pack feeds 12."
     assert "no fact ids" in draft_messages(REQ)[0]["content"] and "Never compute" in draft_messages(REQ)[0]["content"]
+    assert "Never describe what an item is" in draft_messages(REQ)[0]["content"]
 
 
 def test_corrections_may_quote_the_wrong_value_they_correct():
