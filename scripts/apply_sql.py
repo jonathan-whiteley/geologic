@@ -70,7 +70,7 @@ def bundle_vars(target: str) -> dict:
 def target_problem(target: str, v: dict, allow_v2: bool) -> str | None:
     """Why statements must not run for this target and its resolved variables, or None when they may."""
     if target == "dev":
-        return None if allow_v2 else "Refusing --target dev: it is the live v2 demo. Pass --allow-v2 only from the v2 branch."
+        return None if allow_v2 else "Refusing --target dev: it is the live v2 demo. Pass --allow-v2 only from a checkout of tag v2."
     exp = EXPECTED.get(target)
     if exp is None:
         return f"Refusing unknown target {target!r}; known: dev, {', '.join(EXPECTED)}"

@@ -42,7 +42,6 @@ export const api = {
   // Demo controls
   reset: () => req<{ run_id: number }>('/demo/reset', { method: 'POST' }),
   resetStatus: (runId: number) => req<{ run_id: number; life_cycle_state: string | null; result_state: string | null }>(`/demo/reset/${runId}`),
-  inject: (truth: string) => req<{ run_id: number }>(`/demo/inject/${truth}`, { method: 'POST' }),
 }
 
 export function genieAsk(question: string, conversationId?: string, context?: string) {

@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 
 CLUSTERS = ["product", "value", "comparison", "ordering", "dietary", "game_day_party", "sponsorship"]
 # Human labels for cluster keys, same as the UI (app/frontend/src/components/Heatmap.tsx CLUSTERS).
-CLUSTER_LABELS = {"product": "Product questions", "value": "Value and deals", "comparison": "Comparisons",
+CLUSTER_LABELS = {"product": "Product", "value": "Value and deals", "comparison": "Comparisons",
                   "ordering": "Ordering / Pizza Portal", "dietary": "Dietary", "game_day_party": "Game-day / party sizing",
                   "sponsorship": "Sponsorship (NFL)"}
 

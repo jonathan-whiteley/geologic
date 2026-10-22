@@ -23,10 +23,11 @@ def test_unset_target_refused(tmp_path):
 def test_dev_refused_without_allow(tmp_path):
     r, calls = _run(tmp_path, branch="main", TARGET="dev")
     assert r.returncode == 1 and "Refusing TARGET=dev" in r.stdout and calls == []
+    assert "from tag v2" in r.stdout and "v2 branch" not in r.stdout   # final review M8: v2 lives on tag v2
 
 def test_dev_refused_on_build_v3_even_with_allow(tmp_path):
     r, calls = _run(tmp_path, TARGET="dev", ALLOW_V2_DEPLOY="1")
-    assert r.returncode == 1 and "build/v3" in r.stdout and calls == []
+    assert r.returncode == 1 and "build/v3" in r.stdout and "tag v2" in r.stdout and calls == []
 
 def test_v3_first_cli_call_is_the_summary_guard(tmp_path):
     r, calls = _run(tmp_path, TARGET="v3")

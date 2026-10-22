@@ -1,4 +1,5 @@
 # Every Python task runs on serverless environment `default`. Written out in full (no anchors).
+# databricks-sdk, openai and httpx carry the app's pins (app/requirements.txt): get_open_ai_client() needs the httpx line.
 # Bundle variables reach serverless jobs only as task parameters, so every spark_python_task starts
 # with --catalog/--schema/--lakebase-db (geologic.jobargs moves them into the env before config loads).
 # On target dev, publish, reset and produce are adopted live v2 jobs (bound by id); their ids are wired
@@ -13,7 +14,7 @@ resources:
         - environment_key: default
           spec:
             client: "2"
-            dependencies: ["databricks-sdk>=0.60", databricks-vectorsearch, openai, "psycopg[binary]", httpx, pillow, "mlflow>=3.1", databricks-agents, "databricks-zerobus-ingest-sdk>=1.0.0"]
+            dependencies: ["databricks-sdk==0.155.0", databricks-vectorsearch, "openai==2.54.0", "psycopg[binary]", "httpx==0.28.*", pillow, "mlflow>=3.1", "databricks-zerobus-ingest-sdk>=1.0.0"]
       tasks:
         - task_key: data
           environment_key: default
@@ -74,7 +75,7 @@ resources:
         - environment_key: default
           spec:
             client: "2"
-            dependencies: ["databricks-sdk>=0.60", databricks-vectorsearch, openai, "psycopg[binary]", httpx]
+            dependencies: ["databricks-sdk==0.155.0", databricks-vectorsearch, "openai==2.54.0", "psycopg[binary]", "httpx==0.28.*"]
       tasks:
         - task_key: publish
           environment_key: default
@@ -91,7 +92,7 @@ resources:
         - environment_key: default
           spec:
             client: "2"
-            dependencies: ["databricks-sdk>=0.60", databricks-vectorsearch, openai, "psycopg[binary]", httpx]
+            dependencies: ["databricks-sdk==0.155.0", databricks-vectorsearch, "openai==2.54.0", "psycopg[binary]", "httpx==0.28.*"]
       tasks:
         - task_key: reset
           environment_key: default
@@ -110,7 +111,7 @@ resources:
         - environment_key: default
           spec:
             client: "2"
-            dependencies: ["databricks-sdk>=0.60", "databricks-zerobus-ingest-sdk>=1.0.0"]
+            dependencies: ["databricks-sdk==0.155.0", "databricks-zerobus-ingest-sdk>=1.0.0"]
       tasks:
         - task_key: produce
           environment_key: default
@@ -132,7 +133,7 @@ resources:
         - environment_key: default
           spec:
             client: "2"
-            dependencies: ["databricks-sdk>=0.60", databricks-vectorsearch, openai, httpx]
+            dependencies: ["databricks-sdk==0.155.0", databricks-vectorsearch, "openai==2.54.0", "httpx==0.28.*"]
       tasks:
         - task_key: p1
           pipeline_task: { pipeline_id: "${resources.pipelines.geologic_signals.id}" }
@@ -161,7 +162,7 @@ resources:
         - environment_key: default
           spec:
             client: "2"
-            dependencies: ["databricks-sdk>=0.60", openai, httpx]
+            dependencies: ["databricks-sdk==0.155.0", "openai==2.54.0", "httpx==0.28.*"]
       tasks:
         - task_key: reembed
           environment_key: default
@@ -178,7 +179,7 @@ resources:
         - environment_key: default
           spec:
             client: "2"
-            dependencies: ["databricks-sdk>=0.60"]
+            dependencies: ["databricks-sdk==0.155.0"]
       tasks:
         - task_key: verify
           environment_key: default

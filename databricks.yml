@@ -34,11 +34,12 @@ variables:
 # No `mode: development`: development mode prefixes job and pipeline names, which would
 # rename the adopted live resources. Names come from the variables above, set per target.
 targets:
-  # The live v2 demo. scripts/deploy.sh refuses this target unless ALLOW_V2_DEPLOY=1 (v2 branch only).
+  # The live v2 demo. scripts/deploy.sh refuses this target unless ALLOW_V2_DEPLOY=1, from a checkout of tag v2 only.
   dev:
     workspace:
       profile: DEFAULT
     resources:
+      # Dev only (v2): the GEOlogic Impact dashboard. Target v3 defines no dashboard (scripts/check_plan.py refuses one).
       dashboards:
         geologic_impact:
           display_name: GEOlogic Impact

@@ -104,3 +104,11 @@ def test_calendar_relative_to_now():
     cal = {c["window_id"]: c for c in r.demand_calendar(now)}
     assert cal["fantasy_draft"]["start_ts"] <= now <= cal["fantasy_draft"]["end_ts"]
     assert cal["tnf"]["start_ts"] > now
+
+
+def test_cluster_labels_match_the_heatmap():   # final review M5: one label per cluster, "Product" (never "questions")
+    import pathlib, re
+    from geologic.datagen.reference import CLUSTER_LABELS, CLUSTERS
+    tsx = (pathlib.Path(__file__).resolve().parents[2] / "app/frontend/src/components/Heatmap.tsx").read_text()
+    ui = dict(re.findall(r"\['(\w+)', '([^']+)'\]", tsx.split("export const CLUSTERS")[1].split("]\n")[0] + "]\n"))
+    assert ui == CLUSTER_LABELS and list(CLUSTER_LABELS) == CLUSTERS and CLUSTER_LABELS["product"] == "Product"

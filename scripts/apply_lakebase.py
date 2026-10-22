@@ -2,7 +2,7 @@
 
 Usage:
   python3 scripts/apply_lakebase.py --target v3 --create-db sql/lakebase_schema.sql
-  python3 scripts/apply_lakebase.py --target v3 --grant-sp 02b98af0-a7e5-43d9-8a99-ff61f7d3ce4c
+  python3 scripts/apply_lakebase.py --target v3 --grant-sp <APP_SP_CLIENT_ID>
   python3 scripts/apply_lakebase.py --target v3 --query "SELECT epoch FROM demo_state"
 
 lakebase_db and lakebase_host come from `databricks bundle summary -t <target>`. The v2 database `geologic` is refused

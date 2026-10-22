@@ -181,7 +181,7 @@ The answer-key harness (`src/geologic/harness.py`, `jobs/answer_key_check.py`) c
 ├── pipelines/            Lakeflow SDP signal pipeline
 ├── sql/                  tables, views, metric views, UC functions, gateway views, Lakebase schema
 ├── genie/                Genie space definition
-├── dashboards/           AI/BI dashboard JSON (dev target only)
+├── dashboards/           AI/BI dashboard JSON, dev target only (the v2 dashboard; v3 deploys none)
 ├── assets/photos/        photo credits (see ATTRIBUTION.md)
 ├── scripts/
 │   ├── deploy.sh         build, guard, plan, deploy and start
@@ -203,8 +203,8 @@ The answer-key harness (`src/geologic/harness.py`, `jobs/answer_key_check.py`) c
 | `deploy.sh` stops: "App ... exists but this checkout has no bundle state" | Bind the existing resources first (`databricks bundle deployment bind ... -t v3`), then read `bundle plan`. |
 | `deploy.sh` stops: "plan deletes or recreates resources" | A resource left the bundle or changed a force-new field. Remove it by hand (or unbind it), never by forcing the deploy. |
 | Approve stays on step 3 | The Direct Access upsert was refused: the app service principal needs to own (or be granted on) the sources index. |
-| Ask anything never matches | Matches need a Vector Search score of at least 0.80. Check the score `/api/search?q=...` returns for the text. |
-| Impact shows "Rehearsed at" | The live re-ask passed 90 s, so the last rehearsal stands in. The live result lands when it is done. |
+| Ask anything never matches | Matches need a cosine similarity of at least 0.80 (converted from the Vector Search score). Check the score `/api/search?q=...` returns for the text. |
+| The Fix card shows "Rehearsed at" | The live re-ask passed 90 s, so the last rehearsal stands in. The live result lands when it is done. |
 | Genie calls fail with `PermissionDenied` | Grant the app SP `CAN_RUN` on the Genie space ACL. No redeploy needed. |
 | Lakebase writes fail with `permission denied for schema` | The app was recreated and has a new SP. Grant the new SP role (`scripts/apply_lakebase.py --grant-sp`). |
 | First Genie answer takes minutes | Cold start. Ask one question 10 minutes before the demo. |
