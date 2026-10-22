@@ -43,7 +43,7 @@ export default function Movers({ d }: { d: ImpactT }) {
             <p className="text-sm">{m.title}</p>
             {m.issue_id
               ? <Link to={`/fix?issue=${encodeURIComponent(m.issue_id)}`} className="text-xs font-medium text-lce-orange-dark hover:underline">Open in Fix</Link>
-              : <Link to="/measure" className="text-xs font-medium text-lce-orange-dark hover:underline">Track the prompt in Measure</Link>}
+              : <Link to="/measure/prompts" className="text-xs font-medium text-lce-orange-dark hover:underline">Track the prompt in Prompt Bank</Link>}
           </div>
         ))}
       </div>

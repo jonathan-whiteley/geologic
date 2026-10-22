@@ -73,8 +73,8 @@ export default function PromptDetailPage() {
   }, [data?.prompt_text, setFocus])
 
   const back = (
-    <Link to="/measure" className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary">
-      <ArrowLeft className="w-4 h-4" />All tracked prompts
+    <Link to="/measure/prompts" className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary">
+      <ArrowLeft className="w-4 h-4" />Prompt Bank
     </Link>
   )
 
