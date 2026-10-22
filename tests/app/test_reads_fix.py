@@ -29,8 +29,8 @@ def issue(**k):
 
 
 def script(i, extra=()):
-    return [("FROM jdub_demo.geologic.issues", [i]), *extra,
-            ("FROM jdub_demo.geologic.prompts", [{"prompt_id": "q201", "prompt_text": "Super Bowl for 12"}]),
+    return [("FROM jdub_demo.geologic_v3.issues", [i]), *extra,
+            ("FROM jdub_demo.geologic_v3.prompts", [{"prompt_id": "q201", "prompt_text": "Super Bowl for 12"}]),
             ("v_latest_claims WHERE prompt_id IN", [{"engine": "Gemini", "prompt_id": "q201", "text": "Party Pack is $24.99.", "stated_value": "$24.99",
                                   "tag": "Outdated", "source_doc_id": ROUNDUP, "subject": "party_pack", "attribute": "price"},
                                  {"engine": "Claude", "prompt_id": "q201", "text": "Crazy Bread is $1.", "stated_value": "$1",
@@ -56,12 +56,12 @@ def test_passage_excerpt_is_the_sentence_with_the_value():
 
 def test_truth_marks_superseded_and_names_the_uc_table(monkeypatch):
     monkeypatch.setenv("CATALOG_NAME", "jdub_demo")
-    monkeypatch.setenv("SCHEMA_NAME", "geologic_v3")
-    q, _ = fake_query([(n.replace("jdub_demo.geologic.", "jdub_demo.geologic_v3."), r) for n, r in script(issue())])
+    monkeypatch.setenv("SCHEMA_NAME", "geologic_test")
+    q, _ = fake_query([(n.replace("jdub_demo.geologic_v3.", "jdub_demo.geologic_test."), r) for n, r in script(issue())])
     monkeypatch.setattr(R, "query", q)
     t = R.Reads().issue_detail("is_0123456789", today=TODAY)["truth"]
     assert [(f["fact_id"], f["current"]) for f in t["facts"]] == [("F12", True), ("F13", False)]
-    assert t["uc_table"] == "jdub_demo.geologic_v3.brand_facts"
+    assert t["uc_table"] == "jdub_demo.geologic_test.brand_facts"
 
 
 def test_moment_detail_uses_public_signals_only(monkeypatch):

@@ -3,11 +3,11 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "app"))
 from backend.search import Search, Tracker, SearchUnavailable
 
 class Index:
-    def __init__(self, hits=None, boom=False): self.hits, self.boom, self.seen = hits or [], boom, []
+    def __init__(self, hits=None, boom=False): self.hits, self.boom, self.seen, self.ks = hits or [], boom, [], []
     def nearest(self, text, k=3):
-        self.seen.append(text)
+        self.seen.append(text); self.ks.append(k)
         if self.boom: raise RuntimeError("vs down")
-        return self.hits
+        return self.hits[:k]
 
 def test_search_input_edges():  # Review Focus 4
     s = Search(Index(), 0.80, lambda pid: [])
@@ -90,3 +90,15 @@ def test_track_rolls_back_the_prompt_when_the_reask_or_index_fails():   # fix ro
     with pytest.raises(SearchUnavailable):
         Tracker(reads, lambda: Up(), no_index, clock=lambda: 0.0, nearest=near).track("pizza for 20", None, "me")
     assert reads.deleted == ["q301"]
+
+
+def test_search_reads_five_and_prefers_the_best_tracked_prompt_over_suggestions():   # final review M9
+    hit = lambda i, kind, score: {"id": i, "prompt_text": i, "kind": kind, "cluster": "value", "score": score}
+    hits = [hit("c004", "suggested", 0.95), hit("c005", "suggested", 0.93), hit("c006", "suggested", 0.92),
+            hit("q002", "tracked", 0.84), hit("q007", "tracked", 0.88)]
+    idx = Index(hits)
+    out = Search(idx, 0.80, lambda pid: [pid]).search("little caesars deals today")
+    assert idx.ks == [5] and out["match"]["prompt_id"] == "q007" and out["scorecard"] == ["q007"]
+    assert out["nearest"]["id"] == "c004"
+    at = Search(Index([hit("q002", "tracked", 0.80)]), 0.80, lambda pid: []).search("deals")
+    assert at["match"]["prompt_id"] == "q002"   # at the threshold counts

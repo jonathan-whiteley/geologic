@@ -133,3 +133,58 @@ def test_reask_runs_under_the_fix_epoch():   # fix round 1: probe rows are writt
     a = {**FIX, "fix_id": "fx_a", "asset_type": "jsonld", "section_id": "jsonld", "op": "replace", "patch_text": '{"@type":"Organization"}'}
     publish_batch([a], st, RULES, now=NOW)
     assert st.reask_epochs == [1, 1]
+
+
+class _Row(dict):
+    def asDict(self, recursive=False): return dict(self)
+
+
+class _Spark:
+    def __init__(self, tables): self.tables = tables
+    def sql(self, q):
+        rows = next(v for k, v in self.tables.items() if q.rstrip().endswith("." + k))
+        return type("DF", (), {"collect": lambda _s: [_Row(r) for r in rows]})()
+
+
+class _Idx:
+    """Direct Vector Access fake: upserts add keys, scan pages them, delete removes one key per call."""
+    def __init__(self, keys): self.keys, self.deletes = {i: set(k) for i, k in keys.items()}, []
+    def upsert_data_vector_index(self, index_name, inputs_json):
+        import json
+        pk = "doc_id" if index_name.endswith("sources_idx") else "prompt_id"
+        self.keys[index_name] |= {r[pk] for r in json.loads(inputs_json)}
+        return type("R", (), {"status": type("S", (), {"value": "SUCCESS"})()})()
+    def scan_index(self, index_name, last_primary_key=None, num_results=None):
+        from types import SimpleNamespace as N
+        pk = "doc_id" if index_name.endswith("sources_idx") else "prompt_id"
+        ids = sorted(self.keys[index_name]) if last_primary_key is None else []
+        return N(data=[N(fields=[N(key=pk, value=N(string_value=i))]) for i in ids], last_primary_key=ids[-1] if ids else None)
+    def delete_data_vector_index(self, index_name, primary_keys):
+        assert len(primary_keys) == 1   # one key per call (sdk multi-key delete removes only one row)
+        self.deletes.append((index_name, primary_keys[0])); self.keys[index_name].discard(primary_keys[0])
+
+
+def _reset_store(idx, tables):
+    from types import SimpleNamespace as N
+    from geologic.publish_flow import DeltaResetStore
+    st = DeltaResetStore(_Spark(tables), conn=None, w=N(vector_search_indexes=idx))
+    st._job._emb = N(embed=lambda texts: [[1.0, 0.0]] * len(texts))
+    return st
+
+
+def test_reset_prunes_both_vector_indexes_to_the_demo_start_ids():   # final review M1
+    from geologic.config import settings as S
+    doc = {"doc_id": "lce_pg_menu", "title": "t", "body": "b", "owner_class": "Owned", "domain": "littlecaesars.com"}
+    tables = {"web_corpus_demo_start": [doc],
+              "prompts_demo_start": [{"prompt_id": "q201", "prompt_text": "p", "cluster": "game_day_party"}],
+              "prompt_suggestions_demo_start": [{"suggestion_id": "c004", "prompt_text": "s", "cluster": "value", "status": "suggested"},
+                                                {"suggestion_id": "c009", "prompt_text": "s", "cluster": "value", "status": "tracked"}]}
+    # Orphans the table diff never sees: a page vector whose corpus row was never written, a tracked prompt vector, and a
+    # vector for a suggestion that is no longer 'suggested' at demo start.
+    idx = _Idx({S.sources_index: {"lce_pg_menu", "lce_pg_answer_q115", "lce_pg_orphan"},
+                S.prompt_index: {"q201", "q301", "q302", "c009"}})
+    st = _reset_store(idx, tables)
+    st.restore_source_vectors(["lce_pg_answer_q115"])
+    st.restore_prompt_vectors(["q301"])
+    assert idx.keys[S.sources_index] == {"lce_pg_menu"} and idx.keys[S.prompt_index] == {"q201", "c004"}
+    assert sorted(i for _, i in idx.deletes) == ["c009", "lce_pg_answer_q115", "lce_pg_orphan", "q301", "q302"]

@@ -105,3 +105,8 @@ def test_insert_prompt_binds_every_value(monkeypatch):
     (ins, p1), (vol, p2) = calls
     assert "Pizza for 15" not in ins and p1["prompt_text"] == "Pizza for 15'; --" and "tracked_by" not in p1
     assert vol.count("(:p, to_date(") == 12 and p2["p"] == "q301"
+
+
+def test_tables_default_to_the_v3_schema(monkeypatch):   # final review I3
+    monkeypatch.delenv("SCHEMA_NAME", raising=False); monkeypatch.delenv("CATALOG_NAME", raising=False)
+    assert R.T("prompts") == "jdub_demo.geologic_v3.prompts"

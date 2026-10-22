@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 from backend import deps
+from backend.fixes import failed_blocking
 from backend.search import SearchUnavailable
 from geologic.config import settings
 from geologic.datagen.reference import exclusion_rules, subject_vocabulary
@@ -12,7 +13,10 @@ from geologic.publish_flow import FRIENDLY_ERROR, STEP_LABELS
 from geologic.results import summarize
 
 router = APIRouter()
-STUCK_S = 300   # a row 'publishing' longer than this is released (the publisher thread or job died without releasing it)
+STUCK_S = 300   # a fast path row 'publishing' longer than this is released (the publisher thread died without releasing it)
+# A job run row (publish_run_id set by Approve all T0) is released past STUCK_S only once its run has ended: the job may
+# queue or run longer than STUCK_S, and its rows must not go back to review while it still publishes them.
+RUN_ENDED = {"TERMINATED", "SKIPPED", "INTERNAL_ERROR"}
 _REASONS = {r["rule_id"]: r["reason"] for r in exclusion_rules()}
 
 
@@ -101,6 +105,9 @@ def approve_t0(req: Request, repo=Depends(deps.get_fix_repo), jobs=Depends(deps.
 @router.post("/fixes/{fix_id}/approve", status_code=202)
 def approve(fix_id: str, req: Request, repo=Depends(deps.get_fix_repo), publisher=Depends(deps.get_publisher)):
     if not repo.claim(fix_id, _user(req)):
+        fix = repo.get(fix_id)
+        if fix and fix.get("state") == "pending_review" and failed_blocking(fix.get("checks")):
+            raise HTTPException(409, "Fix the failed checks to approve")
         raise HTTPException(409, "This fix is already publishing or no longer needs review.")
     try:
         publisher.start(fix_id)
@@ -145,17 +152,27 @@ def edit(fix_id: str, body: EditBody, repo=Depends(deps.get_fix_repo), reads=Dep
     return updated
 
 
+def _run_ended(jobs, run_id) -> bool:
+    st = jobs.publish_state(run_id)
+    return bool(st) and st.get("life_cycle_state") in RUN_ENDED
+
+
 @router.get("/fixes/{fix_id}/status")
-def fix_status(fix_id: str, repo=Depends(deps.get_fix_repo), clock=Depends(deps.get_clock)):
+def fix_status(fix_id: str, repo=Depends(deps.get_fix_repo), clock=Depends(deps.get_clock), jobs=Depends(deps.get_jobs)):
     s = repo.status(fix_id)
     if s is None:
         raise HTTPException(404, "Unknown fix")
     rv = s.get("reviewed_at")
     elapsed = int((clock() - rv).total_seconds()) if rv else None
     if s["state"] == "publishing" and elapsed is not None and elapsed > STUCK_S:
-        print(f"status {fix_id}: publishing for {elapsed}s, releasing")
-        repo.release(fix_id, FRIENDLY_ERROR)
-        s = {**s, "state": "pending_review", "error": FRIENDLY_ERROR}
+        run_id = s.get("publish_run_id")
+        if run_id is None or _run_ended(jobs, run_id):
+            print(f"status {fix_id}: publishing for {elapsed}s (run {run_id}), releasing")
+            # RELEASE only moves a row that is still 'publishing'; if it already moved on, report what it is now.
+            if repo.release(fix_id, FRIENDLY_ERROR):
+                s = {**s, "state": "pending_review", "error": FRIENDLY_ERROR}
+            else:
+                s = repo.status(fix_id) or s
     entry = fallback = None
     if s["state"] == "published" or (s["state"] == "publishing" and elapsed is not None and elapsed > settings.reask_fallback_s):
         epoch, rows = repo.epoch(), repo.results(fix_id)

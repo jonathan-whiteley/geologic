@@ -1,12 +1,21 @@
 """Fix workflow in Lakebase (replaces the v2 suggestions repo). claim() and claim_t0() are the only gates into 'publishing'."""
 import json
+import re
+from geologic.drafting import BLOCKING_CHECKS
 from geologic.results import UPSERT_RESULT, result_values
 
 _EPOCH = "(SELECT epoch FROM demo_state WHERE id = 1)"
-CLAIM = f"""UPDATE fixes SET state = 'publishing', reviewer = %s, reviewed_at = now(), publish_step = 0, error = NULL
-            WHERE fix_id = %s AND state = 'pending_review' AND epoch = {_EPOCH} RETURNING fix_id"""
-CLAIM_T0 = f"""UPDATE fixes SET state = 'publishing', reviewer = %s, reviewed_at = now(), publish_step = 0, error = NULL
-               WHERE tier = 'T0' AND state = 'pending_review' AND epoch = {_EPOCH} RETURNING fix_id"""
+assert all(re.fullmatch(r"[a-z_]+", k) for k in BLOCKING_CHECKS)   # code constants, safe to inline
+# A fix whose stored checks include a failed blocking check (geologic.drafting.BLOCKING_CHECKS) is never claimed. A check
+# with no "ok" value counts as failed.
+_CHECKS_PASS = ("NOT EXISTS (SELECT 1 FROM jsonb_array_elements(checks) c WHERE c->>'key' IN ("
+                + ", ".join(f"'{k}'" for k in sorted(BLOCKING_CHECKS)) + ") AND (c->>'ok')::boolean IS NOT TRUE)")
+CLAIM = f"""UPDATE fixes SET state = 'publishing', reviewer = %s, reviewed_at = now(), publish_step = 0, error = NULL,
+            publish_run_id = NULL
+            WHERE fix_id = %s AND state = 'pending_review' AND epoch = {_EPOCH} AND {_CHECKS_PASS} RETURNING fix_id"""
+CLAIM_T0 = f"""UPDATE fixes SET state = 'publishing', reviewer = %s, reviewed_at = now(), publish_step = 0, error = NULL,
+               publish_run_id = NULL
+               WHERE tier = 'T0' AND state = 'pending_review' AND epoch = {_EPOCH} AND {_CHECKS_PASS} RETURNING fix_id"""
 RELEASE = "UPDATE fixes SET state = 'pending_review', error = %s WHERE fix_id = %s AND state = 'publishing' RETURNING 1"
 LIST = f"SELECT * FROM fixes WHERE epoch = {_EPOCH} AND state <> 'blocked' ORDER BY issue_rank, tier, asset_type"
 TIER_COUNTS = f"SELECT tier, count(*) FROM fixes WHERE epoch = {_EPOCH} AND state = 'pending_review' GROUP BY tier"
@@ -19,6 +28,13 @@ POINTS = (f"SELECT enforcement_point, min(occurred_at) AS occurred_at FROM audit
           "GROUP BY enforcement_point ORDER BY min(occurred_at)")
 EDIT = """UPDATE fixes SET patch_text = %s, sentences = %s, grounding_fact_ids = %s, checks = %s, tier = %s, state = %s,
           exclusion_rule_id = %s, error = NULL WHERE fix_id = %s AND state = 'pending_review' RETURNING *"""
+
+
+def failed_blocking(checks) -> list[str]:
+    """Keys of the failed blocking checks in a fix's stored checks (a list, or its JSON text)."""
+    if isinstance(checks, str):
+        checks = json.loads(checks or "[]")
+    return [c.get("key") for c in checks or [] if c.get("key") in BLOCKING_CHECKS and c.get("ok") is not True]
 
 
 class FixRepo:
@@ -81,7 +97,7 @@ class FixRepo:
         return r[0] if r else None
 
     def status(self, fix_id):
-        r = self._rows("SELECT state, publish_step, error, reviewed_at, tier FROM fixes WHERE fix_id = %s", (fix_id,))
+        r = self._rows("SELECT state, publish_step, error, reviewed_at, tier, publish_run_id FROM fixes WHERE fix_id = %s", (fix_id,))
         return r[0] if r else None
 
     def results(self, fix_id):

@@ -5,6 +5,7 @@ from geologic.datagen.reference import is_branded
 
 ENGINE_ORDER = ("Claude", "ChatGPT", "Gemini", "Meta AI")
 MAX_CHARS = 200
+SEARCH_K = 5   # suggestions share prompt_idx: read past them so a tracked prompt at or above threshold still matches
 _NEW_ID = re.compile(r"^q3\d{2}$")
 
 
@@ -25,10 +26,11 @@ class Search:
         if not re.search(r"[A-Za-z0-9]", text):
             raise ValueError("Type a question to search.")
         try:
-            hits = list(self.index.nearest(text, 3) or [])
+            hits = list(self.index.nearest(text, SEARCH_K) or [])
         except Exception as e:
             print(f"search: {type(e).__name__}: {e}")
             raise SearchUnavailable("Search is unavailable right now.") from e
+        # The best tracked prompt at or above threshold wins, even when suggestions score higher.
         tracked = [h for h in hits if h.get("kind") == "tracked" and h["score"] >= self.threshold]
         best = max(tracked, key=lambda h: h["score"]) if tracked else None
         match = {"prompt_id": best["id"], "prompt_text": best["prompt_text"], "score": best["score"]} if best else None

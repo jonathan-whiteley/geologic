@@ -406,10 +406,13 @@ class DeltaResetStore:
         return sorted(extra)
 
     def restore_source_vectors(self, extra_ids):
+        """Re-upserts the demo-start corpus, then prunes sources_idx to exactly those doc ids. extra_ids (the table diff) is
+        only logged: a vector whose corpus row was never written is not in the diff, and the prune still removes it."""
         from geologic import vectors as V
         docs = self._job._rows(f"SELECT * FROM {self.S.fq('web_corpus_demo_start')}")
         V.upsert(self.w, self.S.sources_index, V.source_rows(docs, self._job.embedder.embed))
-        V.delete(self.w, self.S.sources_index, extra_ids)
+        gone = V.prune(self.w, self.S.sources_index, "doc_id", {d["doc_id"] for d in docs})
+        print(f"reset: sources_idx pruned {gone} (table diff {sorted(extra_ids or [])})")
 
     def restore_prompts(self):
         S = self.S
@@ -427,4 +430,6 @@ class DeltaResetStore:
         rows = V.prompt_rows(self._job._rows(f"SELECT * FROM {S.fq('prompts_demo_start')}"),
                              self._job._rows(f"SELECT * FROM {S.fq('prompt_suggestions_demo_start')}"), self._job.embedder.embed)
         V.upsert(self.w, S.prompt_index, rows)
-        V.delete(self.w, S.prompt_index, extra_ids)
+        # Keep exactly the demo-start vectors: tracked prompts plus suggestions still 'suggested' (what prompt_rows embeds).
+        gone = V.prune(self.w, S.prompt_index, "prompt_id", {r["prompt_id"] for r in rows})
+        print(f"reset: prompt_idx pruned {gone} (table diff {sorted(extra_ids or [])})")

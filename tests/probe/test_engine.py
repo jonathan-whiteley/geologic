@@ -22,7 +22,7 @@ def test_no_citations():
 def test_engine_call_carries_usage_context():
     chat = FakeChat("ok")
     EngineProxy("Claude", "ep", FakeRetriever(), chat).answer("price?")
-    assert chat.kwargs[0]["usage_context"] == {"app": "geologic", "role": "probe"}
+    assert chat.kwargs[0]["usage_context"] == {"app": "geologic_v3", "role": "probe"}
 
 def test_usage_context_follows_schema(monkeypatch):
     import geologic.probe.engine as E

@@ -79,3 +79,23 @@ def test_store_state_writes_only_touch_publishing_rows():
     assert "AND state = 'publishing'" in log[-1][0]
     repo(log).set_step("fx_a", 3)
     assert "AND state = 'publishing'" in log[-1][0] and log[-1][1] == (3, "fx_a")
+
+
+def test_claims_refuse_rows_with_a_failed_blocking_check():   # final review I2
+    from backend.fixes import CLAIM, CLAIM_T0, failed_blocking
+    from geologic.drafting import BLOCKING_CHECKS
+    for sql in (CLAIM, CLAIM_T0):
+        q = " ".join(sql.split())
+        assert "NOT EXISTS (SELECT 1 FROM jsonb_array_elements(checks) c" in q and "(c->>'ok')::boolean IS NOT TRUE" in q
+        assert all(f"'{k}'" in q for k in BLOCKING_CHECKS)
+    assert failed_blocking([{"key": "grounded", "ok": False}]) == ["grounded"]
+    assert failed_blocking('[{"key": "policy", "ok": false}, {"key": "style", "ok": false}]') == ["policy"]
+    assert failed_blocking([{"key": "grounded", "ok": True}, {"key": "style", "ok": False}]) == [] and failed_blocking(None) == []
+
+
+def test_claims_clear_a_previous_run_id_and_status_reads_it():   # final review I1
+    from backend.fixes import CLAIM
+    assert "publish_run_id = NULL" in " ".join(CLAIM.split())
+    log = []
+    repo(log, [("publishing", 4, None, None, "T0", 77)], ["state", "publish_step", "error", "reviewed_at", "tier", "publish_run_id"]).status("fx")
+    assert "publish_run_id" in log[-1][0]

@@ -169,3 +169,15 @@ def test_jobs_yml_has_no_eval_job():
     jobs = (ROOT / "resources" / "jobs.yml").read_text()
     assert "geologic_eval" not in jobs and "evaluate_drafts" not in jobs
     assert not (ROOT / "jobs" / "evaluate_drafts.py").exists()
+
+
+def test_every_python_task_passes_its_stack_explicitly():   # final review I3: v2 (dev) keeps 'geologic' only by passing it
+    import re
+    jobs = (ROOT / "resources" / "jobs.yml").read_text()
+    flags = '"--catalog", "${var.catalog}", "--schema", "${var.schema}", "--lakebase-db", "${var.lakebase_db}"'
+    assert jobs.count("python_file:") == jobs.count(flags) > 0
+    app = (ROOT / "resources" / "app.yml").read_text()
+    for var, ref in (("SCHEMA_NAME", "schema"), ("GEOLOGIC_SCHEMA", "schema"), ("LAKEBASE_DB", "lakebase_db")):
+        assert f'{{ name: {var}, value: "${{var.{ref}}}" }}' in app, var
+    top = (ROOT / "databricks.yml").read_text().split("targets:")[0]
+    assert re.search(r"\n  schema:\n    default: geologic\n", top) and re.search(r"\n  lakebase_db:\n(?:    .*\n)*?    default: geologic\n", top)

@@ -67,6 +67,18 @@ def test_jobs_reset_state_unknown_run_is_none(monkeypatch):
     assert j.reset_state(2) == {"run_id": 2, "life_cycle_state": "TERMINATED", "result_state": "SUCCESS"}
 
 
+def test_jobs_publish_state_reads_only_publish_runs(monkeypatch):   # final review I1
+    from types import SimpleNamespace as N
+    from backend.jobs import Jobs
+    monkeypatch.setenv("PUBLISH_JOB_ID", "5")
+    def get_run(run_id):
+        if run_id == 1: raise RuntimeError("does not exist")
+        return N(job_id=5 if run_id == 2 else 8, state=N(life_cycle_state=N(value="RUNNING"), result_state=None))
+    j = Jobs(N(jobs=N(get_run=get_run)))
+    assert j.publish_state(1) is None and j.publish_state(3) is None
+    assert j.publish_state(2) == {"run_id": 2, "life_cycle_state": "RUNNING", "result_state": None}
+
+
 def test_jobs_run_publish_sends_the_comma_list(monkeypatch):
     from types import SimpleNamespace as N
     from backend.jobs import Jobs

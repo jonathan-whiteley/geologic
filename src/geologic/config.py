@@ -16,7 +16,7 @@ DEFAULT_ENGINES = {
 @dataclass(frozen=True)
 class Settings:
     catalog: str = "jdub_demo"
-    schema: str = "geologic"
+    schema: str = "geologic_v3"   # the v3 stack; v2 (tag v2) passes geologic explicitly
     engines: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_ENGINES))
     judge_endpoint: str = "databricks-claude-sonnet-4-6"
     vision_endpoint: str = "databricks-claude-sonnet-4-6"

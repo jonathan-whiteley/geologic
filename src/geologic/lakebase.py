@@ -22,7 +22,7 @@ def lakebase_user() -> str:
     return os.environ.get("LAKEBASE_USER") or os.environ["DATABRICKS_CLIENT_ID"]
 
 def from_env(w):
-    host, db, user = os.environ["LAKEBASE_HOST"], os.environ.get("LAKEBASE_DB", "geologic"), lakebase_user()
+    host, db, user = os.environ["LAKEBASE_HOST"], os.environ.get("LAKEBASE_DB", "geologic_v3"), lakebase_user()
     instance = os.environ["LAKEBASE_INSTANCE"]
     tok = TokenCache(lambda: w.database.generate_database_credential(request_id=str(uuid.uuid4()), instance_names=[instance]).token)
     return lambda: connect(host, db, user, tok)
@@ -30,7 +30,7 @@ def from_env(w):
 
 LAKEBASE_DEFAULTS = {
     "LAKEBASE_HOST": "ep-withered-butterfly-d1czv7t3.database.us-west-2.cloud.databricks.com",
-    "LAKEBASE_DB": "geologic",
+    "LAKEBASE_DB": "geologic_v3",
     "LAKEBASE_INSTANCE": "geologic",
 }
 

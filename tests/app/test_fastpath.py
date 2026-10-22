@@ -16,24 +16,30 @@ class Repo:
                      "fx_t0b": {"fix_id": "fx_t0b", "state": "publishing", "tier": "T0", "issue_id": "is_3", "epoch": 2}}
         self.released, self.runs, self.prev = [], {}, []
     def epoch(self): return 2
+    @staticmethod
+    def _failed(r): return any(not c["ok"] and c["key"] in ("grounded", "policy") for c in r.get("checks") or [])
     def claim(self, fid, who):
         r = self.rows.get(fid)
-        if r and r["state"] == "pending_review":
+        if r and r["state"] == "pending_review" and not self._failed(r):
             r.update(state="publishing", reviewed_at=NOW - timedelta(seconds=95)); return True
         return False
     def claim_t0(self, who):
-        ids = [k for k, r in self.rows.items() if r["tier"] == "T0" and r["state"] == "pending_review"]
+        ids = [k for k, r in self.rows.items() if r["tier"] == "T0" and r["state"] == "pending_review" and not self._failed(r)]
         for k in ids: self.rows[k]["state"] = "publishing"
         return ids
     def release(self, fid, err):
         self.released.append((fid, err))
-        if fid in self.rows: self.rows[fid]["state"] = "pending_review"
+        r = self.rows.get(fid)
+        if r and r["state"] == "publishing":
+            r["state"] = "pending_review"; return True
+        return False
     def release_many(self, ids, err): [self.release(i, err) for i in ids]
     def set_run(self, ids, run_id): self.runs[tuple(ids)] = run_id
     def get(self, fid): return self.rows.get(fid)
     def status(self, fid):
         r = self.rows.get(fid)
-        return None if r is None else {"state": r["state"], "publish_step": 4, "error": None, "reviewed_at": r.get("reviewed_at"), "tier": r["tier"]}
+        return None if r is None else {"state": r["state"], "publish_step": 4, "error": None, "reviewed_at": r.get("reviewed_at"), "tier": r["tier"],
+                                       "publish_run_id": r.get("publish_run_id")}
     def results(self, fid): return self.prev
 
 class Pub:
@@ -41,10 +47,14 @@ class Pub:
     def start(self, fid): self.started.append(fid)
 
 class Jobs:
-    def __init__(self, fail=False): self.fail, self.calls = fail, []
+    def __init__(self, fail=False): self.fail, self.calls, self.states, self.asked = fail, [], {}, []
     def run_publish(self, ids):
         if self.fail: raise RuntimeError("jobs down")
         self.calls.append(list(ids)); return 77
+    def publish_state(self, run_id):
+        self.asked.append(run_id)
+        st = self.states.get(run_id)
+        return None if st is None else {"run_id": run_id, "life_cycle_state": st, "result_state": None}
 
 c = TestClient(app)
 
@@ -157,3 +167,60 @@ def test_status_releases_a_stuck_publishing_row(fakes):   # fix round 1: a dead 
     R.released.clear()
     R.rows["fx_a"].update(state="publishing", reviewed_at=NOW - timedelta(minutes=4))
     assert c.get("/api/fixes/fx_a/status").json()["state"] == "publishing" and R.released == []
+
+
+def test_status_keeps_a_job_run_row_publishing_until_the_run_ends(fakes):   # final review I1
+    R, P, J = fakes
+    R.rows["fx_t0"].update(state="publishing", reviewed_at=NOW - timedelta(minutes=6), publish_run_id=77)
+    for live in ("PENDING", "QUEUED", "RUNNING", "TERMINATING"):
+        J.states[77] = live
+        assert c.get("/api/fixes/fx_t0/status").json()["state"] == "publishing" and R.released == []
+    J.states.pop(77)   # unreadable run: never guess, keep the row
+    assert c.get("/api/fixes/fx_t0/status").json()["state"] == "publishing" and R.released == []
+    J.states[77] = "TERMINATED"
+    s = c.get("/api/fixes/fx_t0/status").json()
+    assert R.released == [("fx_t0", FRIENDLY_ERROR)] and s["state"] == "pending_review" and s["error"] == FRIENDLY_ERROR
+
+
+def test_status_asks_the_job_only_for_job_rows_past_the_stuck_window(fakes):   # final review I1
+    R, P, J = fakes
+    R.rows["fx_t0"].update(state="publishing", reviewed_at=NOW - timedelta(minutes=2), publish_run_id=77)
+    J.states[77] = "TERMINATED"
+    assert c.get("/api/fixes/fx_t0/status").json()["state"] == "publishing" and J.asked == [] and R.released == []
+    R.rows["fx_a"].update(state="publishing", reviewed_at=NOW - timedelta(minutes=6))   # fast path row: no run id
+    assert c.get("/api/fixes/fx_a/status").json()["state"] == "pending_review" and J.asked == []
+
+
+def test_status_rereads_when_the_row_left_publishing_before_the_release(fakes):   # final review I1
+    R, P, J = fakes
+    class Racy(Repo):
+        def status(self, fid):
+            s = super().status(fid)
+            if s and s["state"] == "publishing":
+                self.rows[fid]["state"] = "published"   # the publisher finished between the read and the release
+            return s
+    racy = Racy()
+    racy.rows["fx_a"].update(state="publishing", reviewed_at=NOW - timedelta(minutes=6))
+    app.dependency_overrides[deps.get_fix_repo] = lambda: racy
+    s = c.get("/api/fixes/fx_a/status").json()
+    assert racy.released == [("fx_a", FRIENDLY_ERROR)] and s["state"] == "published" and s["error"] is None
+
+
+def test_approve_refuses_a_fix_with_a_failed_blocking_check(fakes):   # final review I2
+    R, P, J = fakes
+    R.rows["fx_a"]["checks"] = [{"key": "grounded", "ok": False, "label": "x"}, {"key": "style", "ok": False, "label": "y"}]
+    r = c.post("/api/fixes/fx_a/approve")
+    assert r.status_code == 409 and r.json()["detail"] == "Fix the failed checks to approve" and P.started == []
+    R.rows["fx_a"]["checks"] = [{"key": "grounded", "ok": True, "label": "x"}]
+    assert c.post("/api/fixes/fx_a/approve").status_code == 202 and P.started == ["fx_a"]
+    r = c.post("/api/fixes/fx_a/approve")   # already publishing: the old message
+    assert r.status_code == 409 and r.json()["detail"] == "This fix is already publishing or no longer needs review."
+
+
+def test_approve_t0_skips_fixes_with_failed_blocking_checks(fakes):   # final review I2
+    R, P, J = fakes
+    R.rows["fx_t0"]["checks"] = [{"key": "policy", "ok": False, "label": "Blocked by EX-03"}]
+    assert c.post("/api/fixes/approve-t0").status_code == 409 and J.calls == []
+    R.rows["fx_t0c"] = {"fix_id": "fx_t0c", "state": "pending_review", "tier": "T0", "issue_id": "is_4", "epoch": 2, "checks": []}
+    r = c.post("/api/fixes/approve-t0")
+    assert r.status_code == 202 and r.json()["fix_ids"] == ["fx_t0c"] and R.rows["fx_t0"]["state"] == "pending_review"

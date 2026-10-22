@@ -14,7 +14,7 @@ from geologic.issues import claim_key
 from geologic.photos import credit_for
 from geologic.results import summarize
 
-T = lambda n: f"{os.environ.get('CATALOG_NAME', 'jdub_demo')}.{os.environ.get('SCHEMA_NAME', 'geologic')}.{n}"
+T = lambda n: f"{os.environ.get('CATALOG_NAME', 'jdub_demo')}.{os.environ.get('SCHEMA_NAME', 'geologic_v3')}.{n}"
 _PID = re.compile(r"^q\d{3}$")
 _SAFE_ID = re.compile(r"^[A-Za-z0-9_]+$")
 _ISSUE_ID = re.compile(r"^is_[0-9a-f]{10}$")

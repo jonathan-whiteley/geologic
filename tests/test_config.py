@@ -23,4 +23,10 @@ def test_v3_settings(monkeypatch):
     assert s.usage_app == "geologic_v3" and s.experiment == "/Shared/geologic-v3-drafting"
     assert s.sources_index == "jdub_demo.geologic_v3.sources_idx" and s.prompt_index == "jdub_demo.geologic_v3.prompt_idx"
     assert s.match_threshold == 0.82 and s.reask_fallback_s == 90 and s.embedding_dim == 1024
-    assert Settings().experiment == "/Shared/geologic-drafting"
+    assert Settings().experiment == "/Shared/geologic-v3-drafting"
+
+
+def test_defaults_are_the_v3_stack(monkeypatch):   # final review I3: a missing env var never lands on v2
+    monkeypatch.delenv("GEOLOGIC_SCHEMA", raising=False)
+    s = Settings.from_env()
+    assert s.schema == "geologic_v3" and s.usage_app == "geologic_v3" and s.fq("x") == "jdub_demo.geologic_v3.x"
