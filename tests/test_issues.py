@@ -193,3 +193,14 @@ def test_item_linked_moments_gap_only_where_engines_miss_and_never_for_a_discont
     gap = one(issues, issue_type="moment_gap")
     assert gap["moment_id"] == "mo_goff" and gap["prompt_ids"] == ["q202"]   # q057 names LCE on every engine: no gap
     assert not [x for x in issues if x.get("moment_id") == "mo_pretzel"]
+
+def test_moment_gap_counts_engines_that_name_and_cite_us():   # Task 15 live: Claude "named" LCE only to say its page is silent
+    two_named = [a for a in ANS if a["prompt_id"] != "q202"] + [
+        ans("q202", "Claude", True, ["editorial_detroit_gameday_2025"]), ans("q202", "Meta AI", True, ["lce_pg_loc_00"]),
+        ans("q202", "ChatGPT", False, ["editorial_detroit_gameday_2025"]), ans("q202", "Gemini", False, ["editorial_detroit_gameday_2025"])]
+    gap = one(build(answers=two_named), issue_type="moment_gap")
+    assert gap["prompt_ids"] == ["q202"]
+    captured_two = [a for a in ANS if a["prompt_id"] != "q202"] + [
+        ans("q202", "Claude", True, ["lce_pg_loc_00"]), ans("q202", "Meta AI", True, ["lce_pg_loc_00"]),
+        ans("q202", "ChatGPT", False, []), ans("q202", "Gemini", False, [])]
+    assert not [x for x in build(answers=captured_two) if x["issue_type"] == "moment_gap"]

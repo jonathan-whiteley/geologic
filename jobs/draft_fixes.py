@@ -21,7 +21,7 @@ from databricks.sdk import WorkspaceClient
 from geologic.config import settings as S
 from geologic.clients import FmapiChat
 from geologic.datagen.reference import subject_vocabulary
-from geologic.drafting import BLOCKING_CHECKS, draft_fix, finalize_fix, unsupported_claims
+from geologic.drafting import BLOCKING_CHECKS, draft_fix, draft_with_redrafts, finalize_fix, unsupported_claims
 from geologic.exclusions import find_exclusion
 from geologic.fixes import CLEAR_EPOCH_FIXES, UPSERT_FIX, build_requests, fix_values
 from geologic.jsonld import build_for_page
@@ -82,14 +82,9 @@ with from_env(w)() as conn:
                         except AttributeError as e:
                             final = blocked(draft, req, f"JSON-LD could not be read: {e}")
                     else:
-                        draft = draft_fix(req, chat, S.judge_endpoint)
-                        final = finalize(draft, req, use_judge=True)
-                        bad = [c["label"] for c in final["checks"] if c["key"] in BLOCKING_CHECKS and not c["ok"]]
-                        if bad:   # one redraft with the failed checks as feedback; keep the result with fewer failures
-                            d2 = draft_fix(req, chat, S.judge_endpoint, feedback=bad)
-                            f2 = finalize(d2, req, use_judge=True)
-                            if sum(c["key"] in BLOCKING_CHECKS and not c["ok"] for c in f2["checks"]) < len(bad):
-                                final = f2
+                        # up to two redrafts with the failed checks as feedback; keeps the draft with the fewest failures
+                        final = draft_with_redrafts(lambda fb, r=req: draft_fix(r, chat, S.judge_endpoint, feedback=fb),
+                                                    lambda d, r=req: finalize(d, r, use_judge=True))
                 except Exception as e:
                     print("draft failed", req["fix_id"], repr(e)); failed.append(req["fix_id"]); continue
                 conn.execute(UPSERT_FIX, fix_values(req, final, epoch, span.trace_id))

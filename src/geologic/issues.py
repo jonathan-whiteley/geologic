@@ -197,16 +197,16 @@ def build_issues(answers, claims, prompts, sources, pages, facts, moments, perso
              planned=[_fix("answer_page", "counter_content", page_id=f"pg_answer_{cluster}", section_id="main", op="insert")],
              cluster=cluster, source_doc_id=ranked[0], source_doc_ids=ranked, engines=engines)
 
-    # (4) Moment gap: a moment linked to a tracked prompt where at most 1 of 4 engines names LCE or no answer cites an
-    # owned page. Links to suggestions only (not tracked yet) and discontinued items make no issue.
+    # (4) Moment gap: a moment linked to a tracked prompt where at most 1 of 4 answers names LCE and cites an owned page. Links to suggestions only (not tracked yet) and discontinued items make no issue.
     people = {p["persona_id"]: p for p in personas}
     for m in sorted(moments, key=lambda m: m["moment_id"]):
         gone = _current_fact(facts, m.get("item_id"), "available", today)
         if gone and str(gone.get("value")).strip().lower() == "no":
             continue   # a discontinued item never gets a moment page (its stale claims still surface in rule 1)
         linked =[p for p in dict.fromkeys(m.get("prompt_ids") or []) if p in tracked]
-        gaps = sorted(p for p in linked if by_prompt[p] and (named(p) <= 1 or not any(
-            is_owned(d) for a in by_prompt[p] for d in a.get("cited_doc_ids") or [])))
+        # captured = answers that both name LCE and cite an owned page. At most 1 captured covers both spec cases (at most 1
+        # engine names LCE; no answer cites us) and an answer that only names LCE to say its page is silent (live, Task 15).
+        gaps = sorted(p for p in linked if by_prompt[p] and sum(1 for a in by_prompt[p] if not missed(a)) <= 1)
         if not gaps:
             continue
         page = f"pg_moment_{m.get('item_id')}"

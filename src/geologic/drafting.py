@@ -102,6 +102,24 @@ def parse_draft(text):
             "sentences": sents, "rationale": clean_dashes(str(obj.get("rationale") or ""))}
 
 
+def _blocking(final):
+    return [c["label"] for c in final["checks"] if c["key"] in BLOCKING_CHECKS and not c["ok"]]
+
+
+def draft_with_redrafts(draft_once, finalize, max_redrafts=2):
+    """Draft, then redraft with the best draft's failed blocking checks as feedback, up to max_redrafts times. Keeps the
+    finalized draft with the fewest blocking failures (a redraft never replaces a better one)."""
+    final = finalize(draft_once(None))
+    for _ in range(max_redrafts):
+        bad = _blocking(final)
+        if not bad:
+            break
+        f2 = finalize(draft_once(bad))
+        if len(_blocking(f2)) < len(bad):
+            final = f2
+    return final
+
+
 def draft_fix(req, chat, endpoint, feedback=None):
     msgs = draft_messages(req, feedback)
     try:

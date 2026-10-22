@@ -200,3 +200,20 @@ def test_association_judge_may_name_the_planned_person():
     f = finalize_fix(d, req, F, exclusion_rules(), T, item_names=[], persona_names=["Jared Goff"],
                      judge=lambda t, g: ["Open until 2am"])
     assert next(c for c in f["checks"] if c["key"] == "unsupported")["ok"] is False
+
+
+def test_redrafts_up_to_two_times_and_keeps_the_best():
+    from geologic.drafting import draft_with_redrafts
+    results = iter([2, 1, 0])
+    fb = []
+    def once(feedback):
+        fb.append(feedback); return {"n": next(results)}
+    fin = lambda d: {"n": d["n"], "checks": [{"key": "grounded", "ok": False, "label": f"bad{i}"} for i in range(d["n"])]}
+    final = draft_with_redrafts(once, fin, max_redrafts=2)
+    assert final["n"] == 0 and fb == [None, ["bad0", "bad1"], ["bad0"]]
+    results2 = iter([1, 3, 2])
+    final2 = draft_with_redrafts(lambda f: {"n": next(results2)}, fin, max_redrafts=2)
+    assert final2["n"] == 1   # never keeps a worse redraft
+    calls = []
+    final3 = draft_with_redrafts(lambda f: calls.append(f) or {"n": 0}, fin, max_redrafts=2)
+    assert final3["n"] == 0 and calls == [None]   # a clean first draft is not redrafted

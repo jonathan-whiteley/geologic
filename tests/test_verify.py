@@ -189,3 +189,11 @@ def test_supported_descriptive_falls_back_to_the_claim_text_and_light_stems():
                       "attribute": "ordering", "stated_value": "Ready immediately upon walking in, no wait required"}, g)
     assert not supported({"text": "Free delivery on every order", "subject": "brand", "attribute": "delivery", "stated_value": "true"}, g)
     assert not supported({"text": "Sponsor of the NFL since 2019", "subject": "brand", "attribute": "nfl_sponsor", "stated_value": "true"}, g)
+
+def test_email_subject_line_is_a_heading_not_an_ungrounded_sentence():
+    text = "Subject: Price update for your Game Day Party Pack article\n\nThe Game Day Party Pack is $29.99."
+    s = [{"text": "The Game Day Party Pack is $29.99.", "fact_ids": ["F12"]}]
+    req = {"asset_type": "correction_email", "section_id": "email", "op": "insert"}
+    d = {"patch": {"section_id": "email", "op": "insert", "text": text}, "sentences": s}
+    ok, sents = checks(d, req)
+    assert ok["grounded"] and sents[0]["kind"] == "heading" and sents[0]["text"].startswith("Subject: Price update")

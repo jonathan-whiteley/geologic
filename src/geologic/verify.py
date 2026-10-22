@@ -12,6 +12,7 @@ CHECK_ORDER = ("grounded", "current", "values", "comparison", "persona", "copy",
 _NUM = re.compile(r"\$?\d+(?:\.\d{1,2})?")
 _THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}(?!\d))")    # "1,600" joins; "12,15" stays two numbers
 _HEADING = re.compile(r"^#{1,6}(?:\s+|$)")
+_SUBJECT = re.compile(r"^subject:\s*", re.IGNORECASE)
 _STANDALONE = re.compile(r"(?<![\w.])\$?\d+(?:\.\d{1,2})?(?!\w)")   # "12 people" yes, "12am" no
 # The only fields build_for_page emits. Anything else in a T0 JSON-LD is free text that no fact backs.
 _JSONLD_FIELDS = {"@context", "@type", "name", "url", "offers", "makesOffer", "price", "priceCurrency"}
@@ -122,7 +123,7 @@ def _units_with_facts(draft):
             by_sec.setdefault(sec, set()).update(declared.get(_norm(t), []))
     out = []
     for k, t, sec in units:
-        if k == "heading":
+        if k == "heading" or _SUBJECT.match(t):   # an email's "Subject:" line is checked like a heading
             out.append({"text": t, "fact_ids": declared.get(_norm(t)) or sorted(by_sec.get(sec, ())), "kind": "heading"})
         else:
             ids = declared.get(_norm(t), [])
