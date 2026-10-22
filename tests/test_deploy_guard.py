@@ -198,3 +198,11 @@ def test_main_passes_allow_delete(tmp_path):
     f.write_text(json.dumps({"plan": {"resources.jobs.geologic_eval": {"action": "delete"}}}))
     assert cp.main(["x", str(f), "--target", "v3"]) == 1
     assert cp.main(["x", str(f), "--target", "v3", "--allow-delete", "resources.jobs.geologic_eval"]) == 0
+
+
+def test_summary_state_only_job_skips_name_check_but_not_v2_ids():
+    base = {"apps": {}, "jobs": {}}
+    ok = {"resources": {**base, "jobs": {"geologic_eval": {"id": "148738749007772"}}}}
+    assert not any("geologic_eval" in p for p in cp.check_summary(ok, "v3"))
+    v2 = {"resources": {**base, "jobs": {"geologic_eval": {"id": "187415563984931"}}}}
+    assert any("v2 job id" in p for p in cp.check_summary(v2, "v3"))

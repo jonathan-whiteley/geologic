@@ -144,6 +144,12 @@ def check_summary(summary: dict, target: str) -> list[str]:
             if hits:
                 problems.append(f"app {key} resource {b.get('name')!r} binds a v2 resource (Genie, endpoint or job): {hits}")
     for key, j in (res.get("jobs") or {}).items():
+        if j.get("name") is None and not j.get("tasks"):
+            # Only in bundle state (dropped from the config): the plan check refuses its delete unless the key is
+            # passed in ALLOW_DELETE; still refuse it here if it is bound to a v2 job.
+            if str(j.get("id", "")) in V2_JOB_IDS:
+                problems.append(f"job {key} is bound to v2 job id {j.get('id')}")
+            continue
         if not str(j.get("name", "")).startswith(exp["job_prefix"]):
             problems.append(f"job name {j.get('name')!r} ({key}) must start with {exp['job_prefix']!r}")
         if str(j.get("id", "")) in V2_JOB_IDS:
