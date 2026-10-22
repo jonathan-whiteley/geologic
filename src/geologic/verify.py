@@ -308,18 +308,33 @@ _STOP = set("a an the and or of to in on at for with you your is are be can it i
             "has have had been so through our we us their there here just also little caesars lc".split())
 
 
+def _stem(w):
+    for suf in ("ing", "ed", "s"):
+        if w.endswith(suf) and len(w) - len(suf) >= 3:
+            return w[: -len(suf)]
+    return w
+
+
 def _content_words(s):
-    return {w for w in re.findall(r"[a-z0-9]+", _fold(s).lower().replace("'", "")) if w not in _STOP and not w.isdigit()}
+    return {_stem(w) for w in re.findall(r"[a-z0-9]+", _fold(s).lower().replace("'", ""))
+            if w not in _STOP and not w.isdigit() and len(w) > 1}
 
 
-def _covered(sv, f):
-    """The stated value's content words are mostly the fact's words, and every number in it is in the fact (or is the
-    year the fact took effect: "since 2023")."""
-    words, fact_words = _content_words(sv), _content_words(f.get("value"))
-    if not words or len(words & fact_words) / len(words) < WORD_COVERAGE:
-        return False
+def _covered(texts, f):
+    """For one of the texts (the stated value, then the claim text): its content words are mostly the fact's, or the fact's
+    are mostly in it, and every number in it is in the fact (or is the year the fact took effect: "since 2023")."""
+    fact_words = _content_words(f.get("value"))
     allowed = _numbers(f.get("value")) + _numbers(str(f.get("valid_from") or "")[:4])
-    return all(any(abs(n - a) < 0.01 for a in allowed) for n in _numbers(sv))
+    for t in texts:
+        words = _content_words(t)
+        if not words or not fact_words:
+            continue
+        common = len(words & fact_words)
+        if common / len(words) < WORD_COVERAGE and common / len(fact_words) < WORD_COVERAGE:
+            continue
+        if all(any(abs(n - a) < 0.01 for a in allowed) for n in _numbers(t)):
+            return True
+    return False
 
 
 def supported(claim, grounding, names=()):
@@ -337,7 +352,8 @@ def supported(claim, grounding, names=()):
         if (attr in TAGGED_ATTRIBUTES and _STANDALONE.search(sv) and values_match(sv, f, attr)) or has_term(f["value"], sv):
             return True
     # descriptive facts: any cited one whose words cover the claim (the judge's subject and attribute labels vary for these)
-    return any(_covered(sv, f) for f in grounding if f.get("attribute") not in EXACT_ATTRIBUTES)
+    texts = [sv, str(claim.get("text") or "")]
+    return any(_covered(texts, f) for f in grounding if f.get("attribute") not in EXACT_ATTRIBUTES)
 
 
 def reground(patch_text, previous, facts, today, prior_ids=()):

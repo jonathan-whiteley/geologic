@@ -180,3 +180,12 @@ def test_supported_descriptive_facts_by_word_coverage_but_not_counted_or_tagged_
     assert not supported({"subject": "party_pack", "attribute": "contents", "stated_value": "3 orders of Crazy Bread"}, g)
     assert not supported({"subject": "party_pack", "attribute": "contents", "stated_value": "large pizza"}, g)
     assert not supported({"subject": "party_pack", "attribute": "price", "stated_value": "$59.98"}, g)
+
+def test_supported_descriptive_falls_back_to_the_claim_text_and_light_stems():
+    g = [f for f in F if f["fact_id"] in ("F02", "F05", "F11", "F12")]
+    assert supported({"text": "Little Caesars is the Official Pizza Sponsor of the NFL", "subject": "brand",
+                      "attribute": "nfl_sponsor", "stated_value": "true"}, g)
+    assert supported({"text": "The pizza is ready when you walk in, no wait needed", "subject": "classic_pepperoni",
+                      "attribute": "ordering", "stated_value": "Ready immediately upon walking in, no wait required"}, g)
+    assert not supported({"text": "Free delivery on every order", "subject": "brand", "attribute": "delivery", "stated_value": "true"}, g)
+    assert not supported({"text": "Sponsor of the NFL since 2019", "subject": "brand", "attribute": "nfl_sponsor", "stated_value": "true"}, g)
