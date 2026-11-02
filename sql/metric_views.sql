@@ -8,7 +8,7 @@ dimensions:
   - name: Engine
     expr: engine
 measures:
-  - name: Answer Share
+  - name: Share of Model
     expr: AVG(CASE WHEN NOT branded THEN CASE WHEN lce_mentioned AND lce_rank > 0 THEN 1.0 / lce_rank ELSE 0 END END)
     comment: "Unbranded prompts only, like v_kpis. Citation Rate and Fact Accuracy use all prompts."
   - name: Citation Rate

@@ -1,13 +1,12 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Activity, MessageSquareQuote, Search } from 'lucide-react'
+import { MessageSquareQuote, Search } from 'lucide-react'
 
 const tabs = [
-  { to: 'answers', label: 'AI answers', icon: MessageSquareQuote },
-  { to: 'signals', label: 'Signals', icon: Activity },
-  { to: 'prompts', label: 'Prompts', icon: Search },
+  { to: 'answers', label: 'Share of Model', icon: MessageSquareQuote },
+  { to: 'questions', label: 'Questions', icon: Search },
 ]
 
-export default function MonitorLayout() {
+export default function MeasureLayout() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-1 bg-surface-tertiary rounded-xl p-1 w-fit">

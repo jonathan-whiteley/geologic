@@ -10,7 +10,7 @@ const CLUSTERS: [string, string][] = [
   ['sponsorship', 'Sponsorship (NFL)'],
 ]
 
-const ENGINES = ['Claude', 'Llama', 'ChatGPT', 'Gemma']
+const ENGINES = ['Claude', 'ChatGPT', 'Gemini', 'Meta AI']
 
 function hc(v: number): string {
   if (v >= 0.5) return 'bg-lce-orange-dark text-white'

@@ -160,6 +160,13 @@ class DeltaStore:
             sys.argv = argv
 
 
+def baseline_source_sql(runs_table: str, base: str) -> str:
+    """Run ids Reset copies: the baseline run plus later setup runs of the baseline run's own epoch."""
+    return f"""(SELECT run_id FROM {runs_table} WHERE epoch = (SELECT epoch FROM {runs_table} WHERE run_id = '{base}') AND
+               (run_id = '{base}' OR (trigger = 'setup' AND started_at >=
+                    (SELECT started_at FROM {runs_table} WHERE run_id = '{base}'))))"""
+
+
 class DeltaResetStore:
     def __init__(self, spark, conn, w):
         from geologic.config import settings as S
@@ -198,13 +205,11 @@ class DeltaResetStore:
 
     def copy_baseline_probe(self, epoch):
         """Re-creates the demo-start probe picture under the new epoch: the baseline run plus any later setup
-        runs of the original epoch (e.g. the post-T0 re-probe), keeping their original start times so the
+        runs of the baseline's own epoch (e.g. the post-T0 re-probe), keeping their original start times so the
         latest-response view resolves them in the same order."""
         S = self.S
         base = self.spark.table(S.fq("probe_state")).first()["baseline_run_id"]
-        src = f"""(SELECT run_id FROM {S.fq('probe_runs')} WHERE epoch = 1 AND
-                   (run_id = '{base}' OR (trigger = 'setup' AND started_at >=
-                        (SELECT started_at FROM {S.fq('probe_runs')} WHERE run_id = '{base}'))))"""
+        src = baseline_source_sql(S.fq("probe_runs"), base)
         self.spark.sql(f"""INSERT INTO {S.fq('probe_runs')} SELECT concat(run_id, '_e{epoch}'), {epoch}, run_type, 'reset', prompt_ids,
                            started_at, finished_at, status FROM {S.fq('probe_runs')} WHERE run_id IN {src}""")
         self.spark.sql(f"""INSERT INTO {S.fq('probe_responses')} SELECT concat(run_id, '_e{epoch}') AS run_id, {epoch} AS epoch,

@@ -1,11 +1,15 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ShieldCheck, Sparkles, Send } from 'lucide-react'
+import { NavLink } from 'react-router-dom'
+import { Database, ShieldCheck, Sparkles } from 'lucide-react'
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts'
 import { api } from '../api/client'
+import { cleanAnswer, movedMetrics } from '../lib/format'
 import { PageSkeleton, ErrorRetry } from '../components/PageState'
+import { STARTERS } from '../components/genie/GeniePanel'
+import { useGeniePanel } from '../state/genie-panel'
 
 const FIRST_PUBLISH_AFTER = '2026-09-14'
 
@@ -22,14 +26,14 @@ function weekLabel(week: string) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-interface ChatMsg { role: 'user' | 'assistant'; text: string }
+function savedAtLabel(savedAt: string) {
+  const d = new Date(savedAt)
+  return Number.isNaN(d.getTime()) ? '' : ` · ${d.toLocaleString()}`
+}
 
 export default function ImpactPage() {
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['impact'], queryFn: api.impact })
-  const [messages, setMessages] = useState<ChatMsg[]>([])
-  const [question, setQuestion] = useState('')
-  const [asking, setAsking] = useState(false)
-  const [askError, setAskError] = useState<string | null>(null)
+  const { ask, openPanel } = useGeniePanel()
 
   const chartData = useMemo(() => {
     if (!data) return []
@@ -51,54 +55,49 @@ export default function ImpactPage() {
   if (isLoading) return <PageSkeleton statCards={0} />
   if (isError || !data) return <ErrorRetry message="Couldn't load Impact." onRetry={() => refetch()} />
 
-  async function handleAsk(e: FormEvent) {
-    e.preventDefault()
-    const q = question.trim()
-    if (!q || asking) return
-    setMessages(prev => [...prev, { role: 'user', text: q }])
-    setQuestion('')
-    setAsking(true)
-    setAskError(null)
-    try {
-      const res = await api.ask(q)
-      setMessages(prev => [...prev, { role: 'assistant', text: res.answer }])
-    } catch (err) {
-      setAskError(err instanceof Error ? err.message : 'Something went wrong.')
-    } finally {
-      setAsking(false)
-    }
-  }
-
   const { health } = data
+  const p = data.proof
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider text-lce-orange-dark mb-1">Impact</p>
-        <h2 className="text-2xl font-semibold">Impact</h2>
-        <p className="text-text-secondary">What published changes did to Answer Share, and how the autonomy guardrails are holding</p>
+        <h2 className="text-2xl font-semibold">Did it work?</h2>
+        <p className="text-text-secondary">What published fixes did to Share of Model, and what to ask next</p>
       </div>
 
-      <div className="card px-6 py-4 flex flex-wrap items-center gap-x-8 gap-y-3">
-        <span className="text-sm font-semibold flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-lce-orange" />
-          Autonomy, last 30 days
-        </span>
-        <span className="text-sm"><b className="text-lg tabular-nums">{health.t0_auto}</b> <span className="text-text-secondary">auto-published</span></span>
-        <span className="text-sm">
-          <b className="text-lg tabular-nums">{health.t1_approved_no_edit_pct !== null ? `${health.t1_approved_no_edit_pct.toFixed(0)}%` : 'n/a'}</b>{' '}
-          <span className="text-text-secondary">approved without edits</span>
-        </span>
-        <span className="text-sm"><b className="text-lg tabular-nums">{health.t2_reviews}</b> <span className="text-text-secondary">reviewed by a person</span></span>
-        <span className="text-sm"><b className="text-lg tabular-nums text-red-600">{health.blocked}</b> <span className="text-text-secondary">blocked by brand rules</span></span>
-      </div>
+      {p ? (
+        <div className="card p-6 space-y-4">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-green-700">Latest published fix</p>
+              <h3 className="font-semibold text-lg">{p.title}</h3>
+            </div>
+            <div className="flex gap-6 text-sm">
+              {movedMetrics(p).map(m => <span key={m.label}>{m.label} <b className="tabular-nums">{m.before} → {m.after}</b></span>)}
+            </div>
+          </div>
+          {p.prompt_text && <p className="text-sm"><span className="text-text-secondary">Question: </span><span className="font-medium">{p.prompt_text}</span></p>}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-gray-100 p-4 space-y-2"><span className="badge b-default">Before · {p.engine}</span><p className={p.before_answer ? 'text-sm' : 'text-sm text-text-tertiary'}>{p.before_answer ? cleanAnswer(p.before_answer) : 'No answer captured'}</p>
+              <p className="font-mono text-[11px] text-text-tertiary">cites: {(p.before_cited ?? []).join(' · ') || 'none'}</p></div>
+            <div className="rounded-xl border border-green-100 p-4 space-y-2 shadow-soft"><span className="badge b-success"><span className="dot" />After · {p.engine}</span><p className={p.after_answer ? 'text-sm' : 'text-sm text-text-tertiary'}>{p.after_answer ? cleanAnswer(p.after_answer) : 'No answer captured'}</p>
+              <p className="font-mono text-[11px] text-lce-orange-dark">cites: {(p.after_cited ?? []).join(' · ') || 'none'}</p></div>
+          </div>
+          <p className="text-xs text-text-tertiary flex items-center gap-1.5"><Database className="w-3.5 h-3.5" />Approved by {p.reviewer ?? 'presenter'}{savedAtLabel(p.saved_at)} · stored in Lakebase</p>
+        </div>
+      ) : (
+        <div className="card p-6 text-sm text-text-tertiary">
+          No published fix yet. Approve one in <NavLink to="/fix" className="text-lce-orange-dark font-medium hover:underline">Fix</NavLink>.
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="card p-6 lg:col-span-2">
           <div className="flex items-center gap-3 mb-4">
             <div className="icon-tile"><Sparkles className="w-5 h-5" /></div>
             <div>
-              <h3 className="font-semibold">Answer Share, weekly</h3>
+              <h3 className="font-semibold">Share of Model, weekly</h3>
               <p className="text-sm text-text-secondary">Little Caesars vs. Domino&apos;s · dashed line marks first publish</p>
             </div>
           </div>
@@ -149,43 +148,32 @@ export default function ImpactPage() {
         <div className="card p-6 flex flex-col">
           <div className="flex items-center gap-3 mb-4">
             <div className="icon-tile"><Sparkles className="w-5 h-5" /></div>
-            <h3 className="font-semibold">Ask GEOlogic</h3>
+            <div>
+              <h3 className="font-semibold">What to ask next</h3>
+              <p className="text-sm text-text-secondary">Genie answers with SQL on governed metric views</p>
+            </div>
           </div>
-          <div className="space-y-3 flex-1 overflow-y-auto max-h-[360px]">
-            {messages.length === 0 && (
-              <p className="text-sm text-text-tertiary">Ask a question about Answer Share, opportunities, or what changed since the last publish.</p>
-            )}
-            {messages.map((m, i) => (
-              <div
-                key={i}
-                className={m.role === 'user'
-                  ? 'ml-auto max-w-[90%] bg-lce-black text-white rounded-2xl rounded-br-md px-4 py-2.5 text-sm'
-                  : 'max-w-[95%] bg-surface-secondary rounded-2xl rounded-bl-md px-4 py-3 text-sm'}
-              >
-                {m.text}
-              </div>
+          <div className="space-y-2 flex-1">
+            {STARTERS.map(q => (
+              <button key={q} type="button" className="btn btn-ghost w-full !justify-start text-left" onClick={() => ask(q)}>{q}</button>
             ))}
-            {asking && (
-              <div className="max-w-[95%] bg-surface-secondary rounded-2xl rounded-bl-md px-4 py-3 text-sm text-text-tertiary">
-                Thinking...
-              </div>
-            )}
           </div>
-          {askError && <p className="text-sm text-red-600 mt-2">{askError}</p>}
-          <form className="flex gap-2 mt-4" onSubmit={handleAsk}>
-            <input
-              aria-label="Ask GEOlogic a question"
-              className="flex-1 min-w-0 rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-lce-orange disabled:opacity-50"
-              value={question}
-              onChange={e => setQuestion(e.target.value)}
-              disabled={asking}
-              placeholder="Which engine still gets our prices wrong?"
-            />
-            <button type="submit" className="btn btn-primary !px-3" aria-label="Ask" disabled={asking}>
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
+          <button type="button" className="mt-4 text-sm font-medium text-lce-orange-dark hover:underline self-start" onClick={openPanel}>Open Ask Genie</button>
         </div>
+      </div>
+
+      <div className="card px-6 py-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
+        <span className="font-semibold flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-lce-orange" />
+          Autonomy, last 30 days
+        </span>
+        <span><b className="tabular-nums">{health.t0_auto}</b> <span className="text-text-secondary">auto-published</span></span>
+        <span>
+          <b className="tabular-nums">{health.t1_approved_no_edit_pct !== null ? `${health.t1_approved_no_edit_pct.toFixed(0)}%` : 'n/a'}</b>{' '}
+          <span className="text-text-secondary">approved without edits</span>
+        </span>
+        <span><b className="tabular-nums">{health.t2_reviews}</b> <span className="text-text-secondary">reviewed by a person</span></span>
+        <span><b className="tabular-nums text-red-600">{health.blocked}</b> <span className="text-text-secondary">blocked by brand rules</span></span>
       </div>
     </div>
   )

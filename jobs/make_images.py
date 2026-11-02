@@ -1,4 +1,4 @@
-"""Writes menu and background images (drawn placeholders, no faces) and copies real licensed photos from assets/photos (credits in assets/photos/ATTRIBUTION.md)."""
+"""Writes menu and background images (drawn placeholders, no faces) and copies the photos in assets/photos (credits in assets/photos/ATTRIBUTION.md), drawing placeholders for any listed in photos.CREDITS that are absent."""
 import os
 import shutil
 import sys
@@ -13,6 +13,7 @@ sys.path.insert(0, _src)
 from PIL import Image, ImageDraw
 from geologic.config import settings as S
 from geologic.datagen.reference import menu_items
+from geologic.photos import CREDITS
 
 
 def scene(path, crust="#C9471A", bg=("#6C8FB0", "#2C3E50"), square=False):
@@ -33,6 +34,11 @@ os.makedirs(f"{S.volume_path}/signals", exist_ok=True)
 for f in os.listdir(_photos):
     if f.endswith((".png", ".jpg")):
         shutil.copyfile(os.path.join(_photos, f), f"{S.volume_path}/signals/{f}")
+# The athlete press photos are not in the public repo; draw a placeholder for any that are missing
+# (square for the Goff Detroit-style signal so the S3 vision match still lands).
+for f in CREDITS:
+    if not os.path.exists(os.path.join(_photos, f)):
+        scene(f"{S.volume_path}/signals/{f}", square=f.startswith("goff"))
 for i in range(1, 6):
     scene(f"{S.volume_path}/signals/bg_{i}.png", bg=("#9AA7B5", "#4A5568"))
 print("images written")

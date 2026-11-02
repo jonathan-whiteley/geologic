@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from collections import defaultdict
 from datetime import timedelta, timezone
+from geologic.datagen.reference import CLUSTER_LABELS
 from geologic.facts import resolve_item
 from geologic.scoring import expected_lift, rank_opportunities, response_share
 
@@ -86,7 +87,7 @@ def build(responses, prompts, menu, calendar, signals, now, personas=()) -> list
                          page_id=f"pg_item_{iid}", prompt_ids=pids, cluster="value", gap=n / total[iid], volume=vol,
                          reasoning=f"{n} of {total[iid]} price claims about {item['name']} are wrong.", assets=["jsonld", "faq"]))
 
-    # S2: content_gap for low Answer Share clusters (unbranded prompts only).
+    # S2: content_gap for low Share of Model clusters (unbranded prompts only).
     # citation_gap for clusters where LCE is mentioned but official citations are low (unbranded only).
     by_cluster_unb = defaultdict(list)
     for r in ok:
@@ -107,7 +108,7 @@ def build(responses, prompts, menu, calendar, signals, now, personas=()) -> list
             opps.append(_opp("content_gap", f"Answer {cluster.replace('_', ' ')} questions", page_id=CLUSTER_PAGES[cluster],
                              prompt_ids=pids, cluster=cluster, gap=1 - share / GAP_THRESHOLD, volume=vol,
                              window=win,
-                             reasoning=f"Answer Share {share:.2f} in {cluster} across {len(rows)} answers.", assets=assets))
+                             reasoning=f"Share of Model {share:.2f} in {CLUSTER_LABELS.get(cluster, cluster)} across {len(rows)} answers.", assets=assets))
         elif mention_rate >= MENTION_FLOOR and official_rate < CITE_THRESHOLD:
             # citation_gap: LCE is mentioned but engines cite third-party sources rather than lce.com
             if cluster == "sponsorship":
@@ -117,7 +118,7 @@ def build(responses, prompts, menu, calendar, signals, now, personas=()) -> list
             opps.append(_opp("citation_gap", title, page_id=CLUSTER_PAGES[cluster],
                              prompt_ids=pids, cluster=cluster, gap=1 - official_rate, volume=vol,
                              window=win,
-                             reasoning=f"Official citation rate {official_rate:.2f} in {cluster} with mention rate {mention_rate:.2f}.", assets=["jsonld", "faq"]))
+                             reasoning=f"Official citation rate {official_rate:.2f} in {CLUSTER_LABELS.get(cluster, cluster)} with mention rate {mention_rate:.2f}.", assets=["jsonld", "faq"]))
 
     live = [s for s in signals if not s.get("quarantined")]
 
