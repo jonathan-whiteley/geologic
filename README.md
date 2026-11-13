@@ -39,6 +39,17 @@
 
 **The demo payoff:** approve the Party Pack fix and watch our page go from uncited to cited while the Outdated claim turns Correct.
 
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/fix.png" alt="GEOlogic Fix tab: T0 to T2 tier strip and the source audit with what AI said"></td>
+    <td width="50%"><img src="docs/images/impact.png" alt="GEOlogic Impact tab: fix ledger with each approved fix's before and after"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Fix: tiered source audit, each issue grounded in what the engines said</sub></td>
+    <td align="center"><sub>Impact: the fix ledger, citations before and after each approved fix</sub></td>
+  </tr>
+</table>
+
 ## 🏗️ How it works
 
 ```mermaid
